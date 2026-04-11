@@ -33,8 +33,6 @@ Navegador → Firebase Hosting CDN (HTML/CSS/imagens)
                                       ↕
                                Google Cloud Storage
                             (cache JSON persistente)
-                                      ↑
-                          Cloud Scheduler (4 AM BRT, refresh diário)
 ```
 
 O frontend faz **uma única chamada** `GET /api/repos` que retorna todos os repositórios com sparklines (28 dias de commits) e últimos 5 commits já prontos.
@@ -46,7 +44,7 @@ O frontend faz **uma única chamada** `GET /api/repos` que retorna todos os repo
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli) — `npm install -g firebase-tools`
 - Python 3.12+
-- Projeto GCP com Cloud Run, Cloud Storage e Cloud Scheduler habilitados
+- Projeto GCP com Cloud Run e Cloud Storage habilitados
 
 ---
 
@@ -119,12 +117,11 @@ firebase deploy --only hosting --project rodrigo-matheus
 
 ## Atualização do cache GitHub
 
-O cache dos repositórios é persistido no **Google Cloud Storage** e atualizado de três formas:
+O cache dos repositórios é persistido no **Google Cloud Storage** e atualizado de duas formas:
 
 | Método | Como | Quando |
 |---|---|---|
-| **Automático** | Cloud Scheduler dispara `GET /api/refresh` | Todos os dias às 4h (BRT) |
-| **Manual (URL)** | Acesse `/api/refresh?key=SUA_REFRESH_KEY` no navegador | Quando quiser forçar |
+| **Manual (URL)** | Acesse `/api/refresh?key=SUA_REFRESH_KEY` no navegador | Quando quiser atualizar |
 | **Cold start** | Cloud Run lê o cache do GCS ao iniciar | Automático |
 
 ---
@@ -146,7 +143,7 @@ O cache dos repositórios é persistido no **Google Cloud Storage** e atualizado
 | Rota | Método | Descrição |
 |---|---|---|
 | `/api/repos` | GET | Retorna todos os repos com sparklines e commits recentes (cache 1h no CDN) |
-| `/api/refresh?key=` | GET | Força rebuild do cache (requer chave ou header do Cloud Scheduler) |
+| `/api/refresh?key=` | GET | Força rebuild do cache (requer chave secreta) |
 
 ---
 
@@ -157,7 +154,6 @@ O cache dos repositórios é persistido no **Google Cloud Storage** e atualizado
 - **Hosting:** Firebase Hosting (CDN global)
 - **API:** Google Cloud Run (São Paulo — `southamerica-east1`)
 - **Cache:** Google Cloud Storage
-- **Scheduler:** Google Cloud Scheduler
 - **Fontes:** Fira Code + Inter (Google Fonts)
 
 ---

@@ -1,7 +1,7 @@
 """
 Backend API para o portfólio — agrega todos os dados do GitHub em uma única chamada.
 Cache persistido no Google Cloud Storage (sobrevive a cold starts do Cloud Run).
-Atualizado a cada 24 h via Cloud Scheduler → POST /api/refresh.
+Atualização manual via GET /api/refresh?key=<REFRESH_KEY>.
 
 Uso local:
     pip install flask requests google-cloud-storage
@@ -239,15 +239,11 @@ def api_repos():
 
 @app.route("/api/refresh")
 def api_refresh():
-    """Refresh manual via GET com chave, ou via Cloud Scheduler POST."""
+    """Refresh manual via GET com chave secreta."""
     key = request.args.get("key", "")
-    user_agent = request.headers.get("User-Agent", "")
-    scheduler_header = request.headers.get("X-CloudScheduler", "")
-    is_scheduler = "Google-Cloud-Scheduler" in user_agent or scheduler_header
-    is_manual = key == REFRESH_KEY
-    if not (is_scheduler or is_manual):
+    if key != REFRESH_KEY:
         return jsonify({"error": "unauthorized"}), 403
-    print(f"[refresh] disparado ({'manual' if is_manual else 'scheduler'}) …")
+    print("[refresh] disparado manualmente …")
     try:
         with _refresh_lock:
             data = _build_cache()
