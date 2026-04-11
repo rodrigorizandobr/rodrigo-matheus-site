@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Rodrigo Matheus — Engineering · AI · Strategy</title>
+<meta name="description" content="Rodrigo Matheus da Silva — 22+ anos liderando engenharia, IA e produtos financeiros de alto impacto."/>
+<meta name="theme-color" content="#0a0a0f"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"/>
+<link rel="manifest" href="/site.webmanifest"/>
+<meta property="og:title" content="Rodrigo Matheus — Engineering · AI · Strategy"/>
+<meta property="og:description" content="Liderança executiva em tecnologia, fintech e inteligência artificial."/>
+<meta property="og:type" content="website"/>
+<meta property="og:locale" content="pt_BR"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+--bg:#0a0a0f;--surface:#111118;--surface-2:#16161f;
+--text:#d4d4dc;--heading:#eeeef4;--muted:#6e6e82;--line:#1e1e2e;
+--cyan:#00f0ff;--magenta:#ff2daa;--green:#39ff14;--amber:#f5a623;
+--max:1320px;
+--mono:'Fira Code',monospace;--sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);font-size:13px;line-height:1.6;color:var(--text);background:var(--bg);min-height:100vh;overflow-x:hidden}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:none;opacity:.85}
+::selection{background:var(--cyan);color:var(--bg)}
+
+/* Matrix canvas */
+#matrix-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
+
+/* Glow orbs */
+.glow-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0}
+.glow-orb-1{width:600px;height:600px;top:-180px;left:-120px;background:var(--cyan);opacity:.06;animation:orbFloat 12s ease-in-out infinite alternate}
+.glow-orb-2{width:500px;height:500px;bottom:-200px;right:-140px;background:var(--magenta);opacity:.05;animation:orbFloat 14s ease-in-out infinite alternate-reverse}
+
+/* Skip link */
+.skip{position:absolute;top:-80px;left:0;background:var(--cyan);color:var(--bg);padding:8px 14px;border-radius:0 0 8px 0;font-weight:700;z-index:100}
+.skip:focus{top:0}
+
+/* Layout */
+.container{width:min(var(--max),96vw);margin:0 auto}
+
+/* Header */
+.site-header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.header-row{display:flex;align-items:center;justify-content:space-between;min-height:56px;gap:12px}
+.brand{font-family:var(--mono);font-weight:500;font-size:14px;color:var(--heading);text-decoration:none}
+.brand span{color:var(--cyan)}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;color:var(--muted);text-decoration:none;transition:color .2s,background .2s}
+nav a:hover,nav a:focus-visible{color:var(--cyan);background:var(--surface)}
+
+/* Main */
+main{position:relative;z-index:1;padding:32px 0 60px}
+section{content-visibility:auto;contain-intrinsic-size:1px 680px;scroll-margin-top:72px}
+
+/* Sections */
+.section{margin-top:18px;padding:clamp(16px,3vw,28px);border-radius:14px;background:color-mix(in srgb,var(--surface) 70%,transparent);backdrop-filter:blur(4px)}
+.section h2{font-family:var(--mono);font-size:clamp(16px,2vw,22px);color:var(--heading);display:flex;align-items:center;gap:8px;letter-spacing:.03em}
+.section h2 svg{flex-shrink:0}
+.lead{color:var(--muted);max-width:100%;margin-top:6px;font-size:12.5px}
+
+/* Hero */
+.hero{padding:clamp(20px,4vw,44px);border-radius:16px;background:radial-gradient(ellipse at 0% 0%,color-mix(in srgb,var(--cyan) 12%,var(--bg)),transparent 60%),radial-gradient(ellipse at 100% 100%,color-mix(in srgb,var(--cyan) 8%,var(--bg)),transparent 50%),var(--surface);position:relative;overflow:clip}
+.hero-grid{display:grid;grid-template-columns:1.3fr .8fr;gap:16px;align-items:end;position:relative;z-index:2}
+.tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--cyan);border:1px solid color-mix(in srgb,var(--cyan) 30%,transparent);border-radius:999px;padding:4px 10px;margin-bottom:8px}
+h1{font-family:var(--mono);font-weight:400;font-size:clamp(22px,3.4vw,40px);color:var(--heading);line-height:1.15;letter-spacing:-.02em;text-wrap:balance}
+.hero-sub{color:var(--muted);margin-top:8px;max-width:64ch;font-size:13px}
+.actions{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 14px;border-radius:8px;font-weight:700;font-size:12px;text-decoration:none;border:1px solid transparent;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px);text-decoration:none}
+.btn-cyan{background:var(--cyan);color:var(--bg);box-shadow:0 6px 20px color-mix(in srgb,var(--cyan) 35%,transparent)}
+.btn-ghost{border-color:var(--line);color:var(--text);background:var(--surface);transition:border-color .25s,box-shadow .25s,transform .15s}
+.btn-ghost:hover{border-color:var(--cyan);box-shadow:0 0 14px color-mix(in srgb,var(--cyan) 15%,transparent)}
+
+/* Stats */
+.stat-row{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:90px;transition:border-color .25s,box-shadow .25s}
+.stat:hover{border-color:var(--cyan);box-shadow:0 0 12px color-mix(in srgb,var(--cyan) 12%,transparent)}
+.stat strong{display:block;font-family:var(--mono);font-weight:500;font-size:18px;color:var(--cyan)}
+.stat span{font-size:11px;color:var(--muted)}
+
+/* Hero panel */
+.hero-panel{display:flex;align-items:flex-end;justify-content:center;padding:0}
+.hero-photo{width:100%;max-width:300px;border-radius:14px 14px 0 0;object-fit:contain;margin-bottom:calc(-1 * clamp(20px,4vw,44px));filter:grayscale(.7) contrast(1.1) brightness(.9);mix-blend-mode:lighten}
+
+
+/* Pills */
+.pills{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--text);font-weight:600;background:var(--surface);transition:border-color .25s,box-shadow .25s,color .25s}
+.pill:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px color-mix(in srgb,var(--cyan) 10%,transparent)}
+
+/* Timeline */
+.timeline{margin-top:12px;padding:0;list-style:none;border-left:1px solid var(--line)}
+.timeline li{padding:0 0 14px 16px;position:relative;transition:text-shadow .25s}
+.timeline li:hover{text-shadow:0 0 6px color-mix(in srgb,var(--cyan) 20%,transparent)}
+.timeline li::before{content:'';position:absolute;left:-4px;top:5px;width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.timeline h3{font-size:13px;color:var(--heading);font-weight:600}
+.timeline .meta{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:2px}
+.timeline .desc{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* Projects */
+.projects-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.repo-badge{font-family:var(--mono);font-size:11px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 10%,transparent);color:var(--green);padding:3px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
+.projects-grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+
+/* 3D Flip card */
+.repo-flip{perspective:900px;height:340px}
+.repo-flip-inner{position:relative;width:100%;height:100%;transition:transform .6s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d}
+.repo-flip:hover .repo-flip-inner{transform:rotateY(180deg)}
+.repo-front,.repo-back{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;padding:14px;gap:6px;transition:border-color .25s,box-shadow .25s}
+.repo-flip:hover .repo-front,.repo-flip:hover .repo-back{border-color:var(--cyan);box-shadow:0 0 16px color-mix(in srgb,var(--cyan) 12%,transparent)}
+.repo-back{transform:rotateY(180deg);justify-content:flex-start}
+
+/* Card front */
+.repo-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.repo-rank{font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.5}
+.repo-langs{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.repo-langs .lang-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.repo-front h3{font-size:14px;color:var(--heading);font-weight:600}
+.repo-front h3 a{color:var(--heading);text-decoration:none}
+.repo-front h3 a:hover{color:var(--cyan)}
+.repo-front .repo-desc{font-size:11px;color:var(--muted);flex:1;line-height:1.5}
+.repo-front .topics{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.repo-front .topic{font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-family:var(--mono)}
+.repo-sparkline{margin-top:auto;padding-top:6px}
+.repo-sparkline-label{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.repo-sparkline svg{width:100%;height:40px;display:block}
+.repo-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;padding-top:6px;border-top:1px solid var(--line)}
+.repo-footer a{color:var(--cyan);font-size:10px;text-decoration:none;display:inline-flex;align-items:center;gap:3px;text-transform:uppercase;letter-spacing:.04em}
+.repo-footer a:hover{opacity:.8}
+.repo-stats{display:flex;align-items:center;gap:8px}
+.repo-pushed{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+/* Card back */
+.repo-back-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.repo-back-header h4{font-family:var(--mono);font-size:11px;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em}
+.repo-back-header span{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.commits-list{list-style:none;padding:0;margin:0;flex:1;display:flex;flex-direction:column;justify-content:center;gap:0}
+.commits-list li{display:grid;grid-template-columns:52px 62px 1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center;font-size:11px}
+.commits-list li:last-child{border:none}
+.cm-date{color:var(--muted);font-family:var(--mono);font-size:10px}
+.cm-sha{color:var(--cyan);font-family:var(--mono);font-size:10px;opacity:.7}
+.cm-msg{color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.repo-back-footer{margin-top:auto;padding-top:8px;border-top:1px solid var(--line);text-align:right}
+.repo-back-footer a{color:var(--cyan);font-family:var(--mono);font-size:10px;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px}
+.repo-back-footer a:hover{opacity:.8}
+
+#projects-loader{color:var(--cyan);font-family:var(--mono);font-size:12px;margin-top:10px}
+
+/* Spinner */
+.repo-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 0;grid-column:1/-1}
+.repo-spinner-ring{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--cyan);animation:spinRing .8s linear infinite;box-shadow:0 0 18px color-mix(in srgb,var(--cyan) 25%,transparent)}
+@keyframes spinRing{to{transform:rotate(360deg)}}
+.repo-spinner-text{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center}
+.repo-spinner-text span{color:var(--cyan)}
+.repo-spinner-sub{font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.6;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* Contact */
+.contact-grid{margin-top:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:10px}
+.ccard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;transition:border-color .25s,box-shadow .25s}
+.ccard:hover{border-color:var(--cyan);box-shadow:0 0 14px color-mix(in srgb,var(--cyan) 10%,transparent)}
+.ccard h3{font-size:14px;color:var(--heading)}
+.socials{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.socials a{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 10px;border:1px solid var(--line);border-radius:8px;color:var(--text);background:var(--surface-2);text-decoration:none;transition:border-color .25s,color .25s,box-shadow .25s}
+.socials a:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 12px color-mix(in srgb,var(--cyan) 12%,transparent)}
+
+/* Footer */
+.site-footer{padding:18px 0 30px;text-align:center;color:var(--muted);font-size:11px;font-family:var(--mono)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+
+/* Animations */
+.reveal{opacity:0;transform:translateY(12px)}
+.reveal.show{animation:rUp .6s ease forwards}
+@keyframes rUp{to{opacity:1;transform:translateY(0)}}
+@keyframes orbFloat{to{transform:translate(20px,-18px)}}
+@keyframes scanline{0%{top:-4px}100%{top:100%}}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.06;z-index:3;pointer-events:none;animation:scanline 4s linear infinite}
+
+/* Responsive */
+@media(max-width:1080px){.hero-grid,.contact-grid{grid-template-columns:1fr}.projects-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){nav{display:none}.projects-grid{grid-template-columns:1fr}.stat-row{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;transform:none!important;opacity:1!important}}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Rodrigo Matheus da Silva","jobTitle":"Gerente de Engenharia","address":{"@type":"PostalAddress","addressLocality":"Sao Paulo","addressCountry":"BR"},"email":"mailto:rodrigorizando@gmail.com","telephone":"+55 11 94180-0766","sameAs":["https://www.linkedin.com/in/rodrigorizando/","https://github.com/rodrigorizandobr/","https://x.com/rodrigorizando"]}</script>
+</head>
+<body>
+<canvas id="matrix-bg" aria-hidden="true"></canvas>
+<div class="glow-orb glow-orb-1" aria-hidden="true"></div>
+<div class="glow-orb glow-orb-2" aria-hidden="true"></div>
+<a class="skip" href="#content">Pular para conteúdo</a>
+
+<header class="site-header">
+<div class="container header-row">
+<a class="brand" href="#top">rodrigo<span> matheus</span></a>
+<nav aria-label="Menu">
+<a href="#about">Sobre</a>
+<a href="#projects">Projetos</a>
+<a href="#xp">Experiência</a>
+<a href="#edu">Formação</a>
+<a href="#contact">Contato</a>
+</nav>
+</div>
+</header>
+
+<main id="content" class="container">
+
+<!-- ══ HERO ══ -->
+<section id="top" class="hero reveal show">
+<div class="scan-line" aria-hidden="true"></div>
+<div class="hero-grid">
+<div>
+<span class="tag">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+Engineering Manager · AI Strategy · Fintech
+</span>
+<h1>Engenharia forte, direção executiva clara e resultados mensuráveis.</h1>
+<p class="hero-sub">22+ anos construindo e liderando times que entregam plataformas financeiras em escala. Arquitetura moderna, cultura de alta performance e uso pragmático de IA para acelerar negócio.</p>
+<div class="actions">
+<a class="btn btn-cyan" href="https://www.linkedin.com/in/rodrigorizando/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg> LinkedIn</a>
+<a class="btn btn-ghost" href="cv-pt-br.pdf" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Currículo PDF</a>
+<a class="btn btn-ghost" href="https://github.com/rodrigorizandobr/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.38c.6.11.82-.26.82-.58l-.01-2.04c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 011.23 3.22c0 4.61-2.8 5.62-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .32.21.7.82.58A12 12 0 0012 .3"/></svg> GitHub</a>
+</div>
+<div class="stat-row">
+<div class="stat"><strong>22+</strong><span>anos em tech</span></div>
+<div class="stat"><strong>40+</strong><span>pessoas lideradas</span></div>
+<div class="stat"><strong>16+</strong><span>liderando</span></div>
+</div>
+</div>
+<aside class="hero-panel">
+<img class="hero-photo" src="rodrigo.png" alt="Rodrigo Matheus da Silva" loading="eager"/>
+</aside>
+</div>
+</section>
+
+<!-- ══ SOBRE ══ -->
+<section id="about" class="section reveal">
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg> sobre</h2>
+<p class="lead">Líder de tecnologia com mais de 22 anos de trajetória em desenvolvimento, arquitetura e gestão. Atualmente responsável pela liderança executiva de times de alta performance com mais de 40 pessoas, integrando visão técnica e de negócios para entrega de produtos financeiros de alto impacto. Experiência robusta em transformação digital e gestão estratégica em empresas como Natura&amp;Co, Bankly, Itaú, Santander, Serasa e Casas Bahia. Especialista em alinhar tecnologia aos OKRs, implementar metodologias ágeis e gerenciar orçamentos complexos (Capex/Opex) para sustentar o crescimento de produtos digitais.</p>
+<div class="pills">
+<span class="pill">Engineering Management</span>
+<span class="pill">AI Strategy</span>
+<span class="pill">Arquitetura de Plataforma</span>
+<span class="pill">Crédito &amp; Fintech</span>
+<span class="pill">OKRs &amp; Governança</span>
+<span class="pill">Capex / Opex</span>
+<span class="pill">Microsserviços</span>
+<span class="pill">Cloud (AWS)</span>
+<span class="pill">Cultura &amp; E-NPS</span>
+<span class="pill">Machine Learning</span>
+</div>
+</section>
+
+<!-- ══ PROJETOS ══ -->
+<section id="projects" class="section reveal">
+<div class="projects-bar">
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> projetos</h2>
+<span class="repo-badge" id="repo-status"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> loading...</span>
+</div>
+<p class="lead">Todos os repositórios públicos carregados em tempo real da API do GitHub.</p>
+<div id="projects-grid" class="projects-grid" aria-live="polite">
+<div class="repo-spinner" id="repo-spinner">
+<div class="repo-spinner-ring"></div>
+<p class="repo-spinner-text">Conectando com <span>GitHub API</span></p>
+<p class="repo-spinner-sub" id="spinner-status">buscando repositórios...</p>
+</div>
+</div>
+<p id="projects-loader" hidden>Nenhum repositório encontrado.</p>
+</section>
+
+<!-- ══ EXPERIÊNCIA ══ -->
+<section id="xp" class="section reveal">
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg> experiência</h2>
+<ol class="timeline">
+<li><h3>banQi &#8212; Casas Bahia</h3><p class="meta">Gerente de Engenharia &#183; junho de 2024 &#8594; Presente</p><p class="desc">Liderança direta e indireta de mais de 40 profissionais distribuídos em múltiplos times de engenharia, garantindo a evolução de produtos de crédito que representam o pilar principal de receita da companhia. Gestão técnica e operacional da tribo de produtos de crédito, incluindo Empréstimo Pessoal, Consignado, BNPL, Antecipação de FGTS, Consórcio e Cobrança. Responsável pela gestão completa de pessoas, arquitetura, Capex &amp; Opex, planejamento de contratos de consultorias e definição de OKRs. Gestão do ciclo de E-NPS, elevando o índice de 3.8 para 6.5 através de estratégias de desenvolvimento de talentos e melhoria de processos, ferramentas e cultura. Implementação de planejamento trimestral e visão de plataforma para microsserviços, reduzindo a complexidade técnica e o tempo de desenvolvimento.</p></li>
+<li><h3>Natura Pay &#8212; Natura &amp;Co</h3><p class="meta">Coordenador de Engenharia &#183; setembro de 2022 &#8594; maio de 2024</p><p class="desc">Liderança de times responsáveis por sistemas críticos de decisão de crédito e cobrança (FICO, Crivo, Clear Sales) em ambiente de microsserviços e alta disponibilidade. Desenvolvimento de plataforma de crédito agnóstica para operações em múltiplos países da América Latina e múltiplas marcas, garantindo uptime de 99,9%.</p></li>
+<li><h3>Bankly &#8212; Banking as a Service</h3><p class="meta">Team Leader &#183; agosto de 2021 &#8594; setembro de 2022</p><p class="desc">Liderança direta de 3 squads de desenvolvimento, sendo responsável pela visão fim-a-fim de produtos financeiros críticos (PIX, Conta Remunerada e Cartão de Crédito). Estabelecimento e acompanhamento de OKRs, métricas de desempenho e processos ágeis que resultaram na aceleração de 35% no time-to-market de novos recursos financeiros. Gestão de orçamentos para pessoas e projetos, além da coordenação de fábricas de software externas. Implementação de trilhas de desenvolvimento técnico, workshops, mentoria individualizada e PDI, consolidando uma cultura de aprendizado contínuo e alto desempenho.</p></li>
+<li><h3>Natura Pay &#8212; Natura &amp;Co</h3><p class="meta">Coordenador de Engenharia &#183; setembro de 2019 &#8594; agosto de 2021</p><p class="desc">Supervisão do desenvolvimento do banco digital white label e sistemas de renegociação de dívidas, liderando times terceirizados em ambiente de microsserviços. Viabilização de parcerias estratégicas com players como Super Digital, Getnet e Dock para lançamento de soluções de pagamentos e expansão do ecossistema financeiro. Otimização de processos com a implementação de design system, resultando em aumento de 30% na produtividade de desenvolvimento. Gestão do orçamento de fábricas de software, garantindo a entrega de projetos dentro do prazo e dos custos previstos.</p></li>
+<li><h3>Itaú Unibanco</h3><p class="meta">Líder Técnico &#183; janeiro de 2019 &#8594; setembro de 2019</p><p class="desc">Liderança da squad de PLD (Prevenção à Lavagem de Dinheiro) e gestão financeira, coordenando a integração entre mais de 8 times, criando, desenhando a solução e desenvolvendo a plataforma de PLD responsável por captar e monitorar todas as transações do banco. Projeto entregue em 8 meses, em uma época em que cloud ainda não existia no banco e provisionar um servidor tinha SLA de meses.</p></li>
+<li><h3>Serasa Experian &#8212; Especialista em TI</h3><p class="meta">janeiro de 2017 &#8594; janeiro de 2019</p><p class="desc">Coordenação de projetos estratégicos em Java e .NET com equipes bodyshop, gerenciando o ciclo completo desde o discovery até incidentes em produção no programa de Transformação Digital. Definição de arquitetura e requisitos de segurança em parceria com times corporativos, sendo responsável pela avaliação de propostas e definição de escopo para contratação de equipes terceirizadas. Liderança de processos de seleção e contratação que estruturaram equipes técnicas de alto desempenho, superando as metas de produtividade estabelecidas. Execução de POCs estratégicas para validação de conceitos técnicos, resultando em economia de recursos e aceleração do cronograma de desenvolvimento. Estabelecimento de abordagem de MVP para equilibrar a entrega de valor imediato com escalabilidade a longo prazo, permitindo ciclos de feedback rápidos. Otimização da gestão orçamentária dos times de desenvolvimento, manutenção e infraestrutura, garantindo eficiência máxima na alocação de recursos financeiros.</p></li>
+<li><h3>Serasa Experian &#8212; Especialista em Arquitetura de Software e Inovação</h3><p class="meta">janeiro de 2015 &#8594; janeiro de 2017</p><p class="desc">Definição da arquitetura técnica da unidade de negócios Serasa Consumidor em colaboração direta com times de desenvolvimento e departamentos corporativos. Estabelecimento de boas práticas e padrões de desenvolvimento para PHP e Node.js na AWS, alinhando as soluções técnicas às necessidades estratégicas da organização. Implementação de padrões e boas práticas de desenvolvimento que reduziu de 2 meses para 2 semanas o tempo de onboarding de novos desenvolvedores. Condução de POCs para novas tecnologias que resultaram na adoção de soluções inovadoras, elevando a performance e a escalabilidade dos sistemas críticos. Definição de padrões técnicos e processo de downstream que reduziram incidentes em produção em 40%. Criação de padrão de documentação arquitetural de referência para facilitar a integração entre sistemas e acelerar o desenvolvimento de novas funcionalidades.</p></li>
+<li><h3>Serasa Experian &#8212; Especialista em Captação de Dados</h3><p class="meta">janeiro de 2012 &#8594; janeiro de 2015</p><p class="desc">Entrega de uma plataforma capaz de capturar mais de 1 bilhão de dados em um único ano, expandindo significativamente o ativo de informações da companhia. Introdução pioneira de tecnologias e metodologias disruptivas na empresa, incluindo Node.js, testes automatizados, microsserviços e integração contínua (CI). Implementação de processos otimizados que reduziram custos operacionais e aumentaram a agilidade na captação de dados de meses para dias. Reconhecimento através de prêmio corporativo pela inovação tecnológica da plataforma de captura de dados e pela estruturação eficiente da equipe. Pioneirismo na adoção de cloud computing (AWS) na organização.</p></li>
+<li><h3>Serasa Experian &#8212; Especialista Mobile</h3><p class="meta">janeiro de 2011 &#8594; janeiro de 2012</p><p class="desc">Liderança pioneira do desenvolvimento do primeiro aplicativo mobile da companhia, coordenando squads em Java e Objective-C. Gestão do processo de ponta a ponta, desde a avaliação de propostas e contratação de consultorias até a definição de arquitetura e segurança. Gerenciamento eficiente de orçamentos para desenvolvimento e infraestrutura, garantindo entregas dentro do escopo planejado. Estabelecimento de uma arquitetura mobile segura e escalável que se tornou o padrão de referência para os aplicativos subsequentes da empresa. Validação de conceitos via POCs técnicas para minimização de riscos antes da implementação completa da solução.</p></li>
+<li><h3>Serasa Experian &#8212; Desenvolvedor Front-end (Sênior)</h3><p class="meta">janeiro de 2010 &#8594; janeiro de 2011</p><p class="desc">Liderança técnica na definição de arquitetura e manutenção de sites institucionais e plataformas de e-commerce B2B e B2C. Implementação de otimizações de performance que aumentaram a velocidade de carregamento dos sites em 60%. Desenvolvimento de estratégias de SEO que resultaram em um crescimento de 45% no tráfego orgânico para palavras-chave estratégicas. Seleção e treinamento de desenvolvedores, acelerando a integração de novos membros e elevando a qualidade técnica da equipe. Estruturação de arquiteturas escaláveis que suportaram o crescimento volumétrico de transações em plataformas de e-commerce sem degradação de serviço.</p></li>
+<li><h3>GoNow</h3><p class="meta">Desenvolvedor Front-end (Sênior) &#183; dezembro de 2008 &#8594; dezembro de 2009</p><p class="desc">Liderança técnica no desenvolvimento de interfaces para os portais de classificados e mapas, conhecido como Páginas Amarillas em vários países da América Latina. Atuação como Scrum Master, coordenando ritos ágeis do Scrum e garantindo a eficiência das entregas dos projetos. Ponte estratégica entre as áreas de criação e tecnologia para o alinhamento de requisitos e viabilidade técnica das demandas de front-end. Desenvolvimento de arquitetura da informação, front-end (HTML, jQuery, CSS3) e implementação de melhores práticas de SEO, acessibilidade e usabilidade.</p></li>
+<li><h3>Santander Universia</h3><p class="meta">Desenvolvedor Fullstack (Pleno) &#183; novembro de 2007 &#8594; novembro de 2008</p><p class="desc">Desenvolvimento de sites, sistemas e portais do Universia utilizando Java, PHP, JavaScript, HTML e CSS, com foco em inovação e análise de tendências web para melhorar métricas de visitação. Execução de estratégias de SEO e manutenção do portal Universia.</p></li>
+<li><h3>A1.Brasil</h3><p class="meta">Analista de Qualidade (Junior) &#183; janeiro de 2006 &#8594; outubro de 2007</p><p class="desc">Garantia da qualidade, acessibilidade e usabilidade de projetos para clientes como Vivo, Credicard, Pirelli e Porto Seguro. Acompanhamento e otimização de processos internos para assegurar gates de aprovação e qualidade. Homologação de código de acordo com as normas W3C e manuais de aplicação de marca dos clientes.</p></li>
+<li><h3>Santander Universia</h3><p class="meta">Desenvolvedor Fullstack (Junior) &#183; maio de 2006 &#8594; maio de 2007</p><p class="desc">Levantamento de requisitos diretamente com clientes internos e desenvolvimento de protótipos, sistemas e ferramentas em Java e PHP com SQL Server, voltadas à geração de conteúdo para o portal.</p></li>
+<li><h3>Lobster Media Creative Studio</h3><p class="meta">Desenvolvedor Fullstack (Junior) &#183; janeiro de 2006 &#8594; abril de 2006</p><p class="desc">Atuação no desenvolvimento PHP com MySQL, execução de testes e administração de usuários e sistemas.</p></li>
+<li><h3>Ponto ED</h3><p class="meta">Estagiário &#183; janeiro de 2005 &#8594; dezembro de 2005</p><p class="desc">Desenvolvimento de sites e sistemas em ASP e ASP.NET com SQL Server.</p></li>
+</ol>
+</section>
+
+<!-- ══ FORMAÇÃO ══ -->
+<section id="edu" class="section reveal">
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg> educação</h2>
+<ol class="timeline">
+<li><h3>FIAP &#8212; Pós-graduação Lato Sensu &#8212; Especialização em Inteligência Artificial, Machine Learning Engineering</h3><p class="meta">outubro de 2024 &#8594; outubro de 2025</p></li>
+<li><h3>MBA USP/Esalq &#8212; Master of Business Administration (MBA) &#8212; Gestão de Negócios</h3><p class="meta">junho de 2019 &#8594; junho de 2021</p></li>
+<li><h3>Faculdades Metropolitanas Unidas (FMU) &#8212; Graduação &#8212; Comunicação</h3><p class="meta">2016 &#8594; 2018</p></li>
+<li><h3>FIAP &#8212; Bacharelado &#8212; Sistemas da Informação (Incompleto)</h3><p class="meta">janeiro de 2000 &#8594; dezembro de 2002</p></li>
+</ol>
+</section>
+
+<!-- ══ CONTATO ══ -->
+<section id="contact" class="section reveal">
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> contato</h2>
+<div class="contact-grid">
+<div class="ccard">
+<h3>Vamos trocar uma ideia sobre tecnologia e liderança?</h3>
+<p class="lead">Gosto de conversar sobre engenharia, IA, gestão de times e produtos digitais. Se quiser bater um papo, trocar experiências ou discutir colaborações, é só chamar.</p>
+<div style="margin-top:10px"><a class="btn btn-cyan" href="mailto:rodrigorizando@gmail.com"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Enviar e-mail</a></div>
+</div>
+<div class="ccard">
+<h3>Contato direto</h3>
+<p style="font-size:12px;color:var(--muted);margin-top:6px">rodrigorizando@gmail.com<br>+55 11 94180-0766<br>São Paulo, SP &#8212; Brasil</p>
+<div class="socials">
+<a href="https://www.linkedin.com/in/rodrigorizando/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg> LinkedIn</a>
+<a href="https://github.com/rodrigorizandobr/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.38c.6.11.82-.26.82-.58l-.01-2.04c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 011.23 3.22c0 4.61-2.8 5.62-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .32.21.7.82.58A12 12 0 0012 .3"/></svg> GitHub</a>
+<a href="https://x.com/rodrigorizando" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> X</a>
+</div>
+</div>
+</div>
+</section>
+
+<footer class="site-footer"><p>rodrigo.matheus // engineering · ai · strategy</p></footer>
+</main>
+
+<script>
+/* ── Matrix Rain Background ── */
+(function(){
+var c=document.getElementById("matrix-bg");
+if(!c)return;
+var ctx=c.getContext("2d"),W,H,cols,drops;
+var chars="01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン";
+var S=14;
+function init(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;cols=Math.floor(W/S);drops=[];for(var i=0;i<cols;i++)drops[i]=1;}
+function draw(){ctx.fillStyle="rgba(10,10,15,0.06)";ctx.fillRect(0,0,W,H);ctx.fillStyle="#00f0ff";ctx.font=S+"px monospace";for(var i=0;i<cols;i++){var t=chars[Math.floor(Math.random()*chars.length)];ctx.fillText(t,i*S,drops[i]*S);if(drops[i]*S>H&&Math.random()>0.975)drops[i]=0;drops[i]++;}}
+init();window.addEventListener("resize",init);setInterval(draw,45);
+})();
+
+/* ── Scroll Reveal ── */
+(function(){
+var io=new IntersectionObserver(function(entries){
+for(var i=0;i<entries.length;i++){if(entries[i].isIntersecting){entries[i].target.classList.add("show");io.unobserve(entries[i].target);}}
+},{threshold:0.12});
+var els=document.querySelectorAll(".reveal");
+for(var i=0;i<els.length;i++){if(!els[i].classList.contains("show"))io.observe(els[i]);}
+})();
+
+/* ── GitHub Repos: single API call to backend ── */
+(function(){
+var grid=document.getElementById("projects-grid");
+var loader=document.getElementById("projects-loader");
+var badge=document.getElementById("repo-status");
+
+var langColors={
+JavaScript:"#f1e05a",TypeScript:"#3178c6",Python:"#3572a5",Java:"#b07219",
+PHP:"#4f5d95",HTML:"#e34c26",CSS:"#563d7c",Shell:"#89e051",
+Ruby:"#701516",Go:"#00add8",Rust:"#dea584",Swift:"#f05138",Kotlin:"#a97bff",
+Dart:"#00b4ab","Jupyter Notebook":"#da5b0b",C:"#555555","C++":"#f34b7d","C#":"#178600",
+Vue:"#41b883",SCSS:"#c6538c",Dockerfile:"#384d54",Makefile:"#427819",HCL:"#844fba",
+"ASP.NET":"#9400ff",Lua:"#000080",R:"#198ce7",Perl:"#0298c3"
+};
+
+function safe(s){var d=document.createElement("div");d.textContent=String(s||"");return d.innerHTML;}
+
+function timeAgo(date){
+var diff=Date.now()-new Date(date).getTime();
+var h=Math.floor(diff/3600000);
+if(h<1)return"agora";
+if(h<24)return h+"h atrás";
+var d=Math.floor(h/24);
+if(d===1)return"ontem";
+if(d<30)return d+"d atrás";
+var m=Math.floor(d/30);
+if(m<12)return m+"m atrás";
+return Math.floor(m/12)+"a atrás";
+}
+
+function shortDate(date){
+var d=new Date(date);
+return d.toLocaleDateString("pt-BR",{day:"numeric",month:"short"});
+}
+
+var sparkCounter=0;
+function buildSparklineSVG(sparkData){
+if(!sparkData||!sparkData.days||!sparkData.days.length)return null;
+sparkCounter++;
+var uid="sg"+sparkCounter;
+var days=sparkData.days;
+var max=Math.max.apply(null,days)||1;
+var w=280,h=40,barW=w/days.length;
+var points=[];
+for(var i=0;i<days.length;i++){
+var x=i*barW+barW/2;
+var y=h-2-(days[i]/max)*(h-6);
+points.push(x.toFixed(1)+","+y.toFixed(1));
+}
+var line=points.join(" ");
+var area=points[0].split(",")[0]+","+h+" "+line+" "+points[points.length-1].split(",")[0]+","+h;
+var svg='<svg viewBox="0 0 '+w+" "+h+'" preserveAspectRatio="none">'
++'<defs><linearGradient id="'+uid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00f0ff" stop-opacity=".3"/><stop offset="100%" stop-color="#00f0ff" stop-opacity="0"/></linearGradient></defs>'
++'<polygon points="'+area+'" fill="url(#'+uid+')"/>'
++'<polyline points="'+line+'" fill="none" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
++'</svg>';
+return{svg:svg,commits:sparkData.commits};
+}
+
+function buildCard(r,idx){
+var color=langColors[r.language]||"#6e6e82";
+var langHtml=r.language?'<span class="repo-langs"><span class="lang-dot" style="background:'+color+'"></span>'+safe(r.language)+'</span>':"";
+var topics="";
+if(r.topics&&r.topics.length){var t=r.topics.slice(0,5);for(var j=0;j<t.length;j++){topics+='<span class="topic">'+safe(t[j])+"</span>";}}
+var stars=r.stargazers_count?'<span>&#9733; '+r.stargazers_count+'</span>':"";
+var forks=r.forks_count?'<span>&#9741; '+r.forks_count+'</span>':"";
+
+// Sparkline (dados já vêm do backend)
+var sparkHtml="";
+var spark=buildSparklineSVG(r.sparkline);
+if(spark){
+sparkHtml='<span class="repo-sparkline-label">28d &middot; '+spark.commits+' commit'+(spark.commits!==1?'s':'')+'</span>'+spark.svg;
+}
+
+// Commits (dados já vêm do backend)
+var commitsHtml="";
+if(r.commits&&r.commits.length){
+for(var c=0;c<r.commits.length;c++){
+commitsHtml+='<li><span class="cm-date">'+safe(shortDate(r.commits[c].date))+'</span><span class="cm-sha">'+safe(r.commits[c].sha)+'</span><span class="cm-msg">'+safe((r.commits[c].message||"").substring(0,55)+(r.commits[c].message&&r.commits[c].message.length>55?"…":""))+'</span></li>';
+}
+}else{
+commitsHtml='<li style="grid-column:1/-1;text-align:center;color:var(--muted)">Nenhum commit recente</li>';
+}
+
+var front='<div class="repo-front">'
++'<div class="repo-card-header"><span class="repo-rank">#'+(idx+1)+'</span>'+langHtml+'<span class="repo-pushed">Pushed '+safe(timeAgo(r.pushed_at))+'</span></div>'
++'<h3><a href="'+safe(r.html_url)+'" target="_blank" rel="noreferrer">'+safe(r.name)+'</a></h3>'
++'<p class="repo-desc">'+safe(r.description||"Sem descrição.")+'</p>'
++(topics?'<div class="topics">'+topics+'</div>':'')
++'<div class="repo-sparkline">'+sparkHtml+'</div>'
++'<div class="repo-footer"><div class="repo-stats">'+stars+forks+'</div>'
++'<a href="'+safe(r.html_url)+'" target="_blank" rel="noreferrer">GitHub &rarr;</a></div>'
++'</div>';
+
+var back='<div class="repo-back">'
++'<div class="repo-back-header"><h4>Recent Commits</h4><span>'+safe(r.name)+'</span></div>'
++'<ul class="commits-list">'+commitsHtml+'</ul>'
++'<div class="repo-back-footer"><a href="'+safe(r.html_url)+'" target="_blank" rel="noreferrer">View on GitHub &rarr;</a></div>'
++'</div>';
+
+return '<article class="repo-flip" data-repo="'+safe(r.name)+'">'
++'<div class="repo-flip-inner">'+front+back+'</div></article>';
+}
+
+var spinnerStatus=document.getElementById("spinner-status");
+function setSpinnerMsg(msg){if(spinnerStatus)spinnerStatus.textContent=msg;}
+
+setSpinnerMsg("carregando repositórios...");
+fetch("/api/repos").then(function(r){
+if(!r.ok)throw new Error(r.status);
+return r.json();
+}).then(function(repos){
+if(!repos.length){loader.hidden=false;badge.textContent="0 repos";return;}
+badge.textContent=repos.length+" public repos";
+var html="";
+for(var i=0;i<repos.length;i++){
+html+=buildCard(repos[i],i);
+}
+grid.innerHTML=html;
+}).catch(function(){
+loader.hidden=false;
+badge.textContent="erro ao carregar";
+});
+})();
+</script>
+</body>
+</html>

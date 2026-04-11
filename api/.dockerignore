@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env
+public/
+github_cache.json
+cv.md
+profile.yml
+cv-pt-br.pdf
