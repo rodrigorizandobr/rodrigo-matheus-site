@@ -24,7 +24,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --min-instances 0 \
   --max-instances 2 \
   --timeout 300 \
-  --set-env-vars "GITHUB_TOKEN=${GITHUB_TOKEN:-}" \
+  --set-env-vars "GITHUB_TOKEN=${GITHUB_TOKEN:-},REFRESH_KEY=${REFRESH_KEY:-},GCS_BUCKET=${GCS_BUCKET:-}" \
   --quiet
 
 echo "✔ Cloud Run deployed"

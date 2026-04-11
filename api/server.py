@@ -233,7 +233,7 @@ def _get_repos_data() -> dict:
 def api_repos():
     data = _get_repos_data()
     resp = jsonify(data["repos"])
-    resp.headers["Cache-Control"] = "public, max-age=3600"
+    resp.headers["Cache-Control"] = "private, max-age=600"
     return resp
 
 
