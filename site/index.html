@@ -56,6 +56,10 @@ nav{display:flex;gap:6px;flex-wrap:wrap}
 nav a{font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;color:var(--muted);text-decoration:none;transition:color .2s,background .2s}
 nav a:hover,nav a:focus-visible{color:var(--cyan);background:var(--surface)}
 
+/* Language button */
+.lang-btn{font-family:var(--mono);font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;transition:border-color .25s,color .25s,box-shadow .25s}
+.lang-btn:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px color-mix(in srgb,var(--cyan) 12%,transparent)}
+
 /* Main */
 main{position:relative;z-index:1;padding:32px 0 60px}
 section{content-visibility:auto;contain-intrinsic-size:1px 680px;scroll-margin-top:72px}
@@ -109,7 +113,7 @@ h1{font-family:var(--mono);font-weight:400;font-size:clamp(22px,3.4vw,40px);colo
 
 /* Projects */
 .projects-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.repo-badge{font-family:var(--mono);font-size:11px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 10%,transparent);color:var(--green);padding:3px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
+.repo-badge{font-family:var(--mono);font-size:11px;border:1px solid color-mix(in srgb,var(--cyan) 40%,transparent);background:color-mix(in srgb,var(--cyan) 10%,transparent);color:var(--cyan);padding:3px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
 .projects-grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 
 /* 3D Flip card */
@@ -200,18 +204,19 @@ h1{font-family:var(--mono);font-weight:400;font-size:clamp(22px,3.4vw,40px);colo
 <canvas id="matrix-bg" aria-hidden="true"></canvas>
 <div class="glow-orb glow-orb-1" aria-hidden="true"></div>
 <div class="glow-orb glow-orb-2" aria-hidden="true"></div>
-<a class="skip" href="#content">Pular para conteúdo</a>
+<a class="skip" href="#content" id="skip-link">Pular para conteúdo</a>
 
 <header class="site-header">
 <div class="container header-row">
 <a class="brand" href="#top">rodrigo<span> matheus</span></a>
 <nav aria-label="Menu">
-<a href="#about">Sobre</a>
-<a href="#projects">Projetos</a>
-<a href="#xp">Experiência</a>
-<a href="#edu">Formação</a>
-<a href="#contact">Contato</a>
+<a href="#about" id="nav-about">Sobre</a>
+<a href="#projects" id="nav-projects">Projetos</a>
+<a href="#xp" id="nav-xp">Experiência</a>
+<a href="#edu" id="nav-edu">Formação</a>
+<a href="#contact" id="nav-contact">Contato</a>
 </nav>
+<button id="lang-toggle" class="lang-btn" aria-label="Switch language" title="English">EN</button>
 </div>
 </header>
 
@@ -224,20 +229,16 @@ h1{font-family:var(--mono);font-weight:400;font-size:clamp(22px,3.4vw,40px);colo
 <div>
 <span class="tag">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
-Engineering Manager · AI Strategy · Fintech
+<span id="hero-tag">Engineering Manager · AI Strategy · Fintech</span>
 </span>
-<h1>Engenharia forte, direção executiva clara e resultados mensuráveis.</h1>
-<p class="hero-sub">22+ anos construindo e liderando times que entregam plataformas financeiras em escala. Arquitetura moderna, cultura de alta performance e uso pragmático de IA para acelerar negócio.</p>
+<h1 id="hero-title">Engenharia forte, direção executiva clara e resultados mensuráveis.</h1>
+<p class="hero-sub" id="hero-subtitle">22+ anos construindo e liderando times que entregam plataformas financeiras em escala. Arquitetura moderna, cultura de alta performance e uso pragmático de IA para acelerar negócio.</p>
 <div class="actions">
-<a class="btn btn-cyan" href="https://www.linkedin.com/in/rodrigorizando/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg> LinkedIn</a>
-<a class="btn btn-ghost" href="cv-pt-br.pdf" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Currículo PDF</a>
-<a class="btn btn-ghost" href="https://github.com/rodrigorizandobr/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.38c.6.11.82-.26.82-.58l-.01-2.04c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 011.23 3.22c0 4.61-2.8 5.62-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .32.21.7.82.58A12 12 0 0012 .3"/></svg> GitHub</a>
+<a class="btn btn-cyan" href="https://www.linkedin.com/in/rodrigorizando/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg> <span id="btn-linkedin">LinkedIn</span></a>
+<a class="btn btn-ghost" id="btn-cv-link" href="cv-pt-br.pdf" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> <span id="btn-cv">Currículo PDF</span></a>
+<a class="btn btn-ghost" href="https://github.com/rodrigorizandobr/" target="_blank" rel="noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.38c.6.11.82-.26.82-.58l-.01-2.04c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 011.23 3.22c0 4.61-2.8 5.62-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .32.21.7.82.58A12 12 0 0012 .3"/></svg> <span id="btn-github">GitHub</span></a>
 </div>
-<div class="stat-row">
-<div class="stat"><strong>22+</strong><span>anos em tech</span></div>
-<div class="stat"><strong>40+</strong><span>pessoas lideradas</span></div>
-<div class="stat"><strong>16+</strong><span>anos liderando</span></div>
-</div>
+<div class="stat-row" id="stat-row"></div>
 </div>
 <aside class="hero-panel">
 <img class="hero-photo" src="rodrigo.png" alt="Rodrigo Matheus da Silva" loading="eager"/>
@@ -247,81 +248,48 @@ Engineering Manager · AI Strategy · Fintech
 
 <!-- ══ SOBRE ══ -->
 <section id="about" class="section reveal">
-<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg> sobre</h2>
-<p class="lead">Líder de tecnologia com mais de 22 anos de trajetória em desenvolvimento, arquitetura e gestão. Atualmente responsável pela liderança executiva de times de alta performance com mais de 40 pessoas, integrando visão técnica e de negócios para entrega de produtos financeiros de alto impacto. Experiência robusta em transformação digital e gestão estratégica em empresas como Natura&amp;Co, Bankly, Itaú, Santander, Serasa e Casas Bahia. Especialista em alinhar tecnologia aos OKRs, implementar metodologias ágeis e gerenciar orçamentos complexos (Capex/Opex) para sustentar o crescimento de produtos digitais.</p>
-<div class="pills">
-<span class="pill">Engineering Management</span>
-<span class="pill">AI Strategy</span>
-<span class="pill">Arquitetura de Plataforma</span>
-<span class="pill">Crédito &amp; Fintech</span>
-<span class="pill">OKRs &amp; Governança</span>
-<span class="pill">Capex / Opex</span>
-<span class="pill">Microsserviços</span>
-<span class="pill">Cloud (AWS)</span>
-<span class="pill">Cultura &amp; E-NPS</span>
-<span class="pill">Machine Learning</span>
-</div>
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg> <span id="about-heading">sobre</span></h2>
+<p class="lead" id="about-lead"></p>
+<div class="pills" id="about-pills"></div>
 </section>
 
 <!-- ══ PROJETOS ══ -->
 <section id="projects" class="section reveal">
 <div class="projects-bar">
-<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> projetos</h2>
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> <span id="projects-heading">projetos</span></h2>
 <span class="repo-badge" id="repo-status"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> loading...</span>
 </div>
-<p class="lead">Todos os repositórios públicos carregados em tempo real da API do GitHub.</p>
+<p class="lead" id="projects-lead"></p>
 <div id="projects-grid" class="projects-grid" aria-live="polite">
 <div class="repo-spinner" id="repo-spinner">
 <div class="repo-spinner-ring"></div>
-<p class="repo-spinner-text">Conectando com <span>GitHub API</span></p>
-<p class="repo-spinner-sub" id="spinner-status">buscando repositórios...</p>
+<p class="repo-spinner-text" id="spinner-text"><span>GitHub API</span></p>
+<p class="repo-spinner-sub" id="spinner-status"></p>
 </div>
 </div>
-<p id="projects-loader" hidden>Nenhum repositório encontrado.</p>
+<p id="projects-loader" hidden></p>
 </section>
 
 <!-- ══ EXPERIÊNCIA ══ -->
 <section id="xp" class="section reveal">
-<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg> experiência</h2>
-<ol class="timeline">
-<li><h3>banQi &#8212; Casas Bahia</h3><p class="meta">Gerente de Engenharia &#183; junho de 2024 &#8594; Presente</p><p class="desc">Liderança direta e indireta de mais de 40 profissionais distribuídos em múltiplos times de engenharia, garantindo a evolução de produtos de crédito que representam o pilar principal de receita da companhia. Gestão técnica e operacional da tribo de produtos de crédito, incluindo Empréstimo Pessoal, Consignado, BNPL, Antecipação de FGTS, Consórcio e Cobrança. Responsável pela gestão completa de pessoas, arquitetura, Capex &amp; Opex, planejamento de contratos de consultorias e definição de OKRs. Gestão do ciclo de E-NPS, elevando o índice de 3.8 para 6.5 através de estratégias de desenvolvimento de talentos e melhoria de processos, ferramentas e cultura. Implementação de planejamento trimestral e visão de plataforma para microsserviços, reduzindo a complexidade técnica e o tempo de desenvolvimento.</p></li>
-<li><h3>Natura Pay &#8212; Natura &amp;Co</h3><p class="meta">Coordenador de Engenharia &#183; setembro de 2022 &#8594; maio de 2024</p><p class="desc">Liderança de times responsáveis por sistemas críticos de decisão de crédito e cobrança (FICO, Crivo, Clear Sales) em ambiente de microsserviços e alta disponibilidade. Desenvolvimento de plataforma de crédito agnóstica para operações em múltiplos países da América Latina e múltiplas marcas, garantindo uptime de 99,9%.</p></li>
-<li><h3>Bankly &#8212; Banking as a Service</h3><p class="meta">Team Leader &#183; agosto de 2021 &#8594; setembro de 2022</p><p class="desc">Liderança direta de 3 squads de desenvolvimento, sendo responsável pela visão fim-a-fim de produtos financeiros críticos (PIX, Conta Remunerada e Cartão de Crédito). Estabelecimento e acompanhamento de OKRs, métricas de desempenho e processos ágeis que resultaram na aceleração de 35% no time-to-market de novos recursos financeiros. Gestão de orçamentos para pessoas e projetos, além da coordenação de fábricas de software externas. Implementação de trilhas de desenvolvimento técnico, workshops, mentoria individualizada e PDI, consolidando uma cultura de aprendizado contínuo e alto desempenho.</p></li>
-<li><h3>Natura Pay &#8212; Natura &amp;Co</h3><p class="meta">Coordenador de Engenharia &#183; setembro de 2019 &#8594; agosto de 2021</p><p class="desc">Supervisão do desenvolvimento do banco digital white label e sistemas de renegociação de dívidas, liderando times terceirizados em ambiente de microsserviços. Viabilização de parcerias estratégicas com players como Super Digital, Getnet e Dock para lançamento de soluções de pagamentos e expansão do ecossistema financeiro. Otimização de processos com a implementação de design system, resultando em aumento de 30% na produtividade de desenvolvimento. Gestão do orçamento de fábricas de software, garantindo a entrega de projetos dentro do prazo e dos custos previstos.</p></li>
-<li><h3>Itaú Unibanco</h3><p class="meta">Líder Técnico &#183; janeiro de 2019 &#8594; setembro de 2019</p><p class="desc">Liderança da squad de PLD (Prevenção à Lavagem de Dinheiro) e gestão financeira, coordenando a integração entre mais de 8 times, criando, desenhando a solução e desenvolvendo a plataforma de PLD responsável por captar e monitorar todas as transações do banco. Projeto entregue em 8 meses, em uma época em que cloud ainda não existia no banco e provisionar um servidor tinha SLA de meses.</p></li>
-<li><h3>Serasa Experian &#8212; Especialista em TI</h3><p class="meta">janeiro de 2017 &#8594; janeiro de 2019</p><p class="desc">Coordenação de projetos estratégicos em Java e .NET com equipes bodyshop, gerenciando o ciclo completo desde o discovery até incidentes em produção no programa de Transformação Digital. Definição de arquitetura e requisitos de segurança em parceria com times corporativos, sendo responsável pela avaliação de propostas e definição de escopo para contratação de equipes terceirizadas. Liderança de processos de seleção e contratação que estruturaram equipes técnicas de alto desempenho, superando as metas de produtividade estabelecidas. Execução de POCs estratégicas para validação de conceitos técnicos, resultando em economia de recursos e aceleração do cronograma de desenvolvimento. Estabelecimento de abordagem de MVP para equilibrar a entrega de valor imediato com escalabilidade a longo prazo, permitindo ciclos de feedback rápidos. Otimização da gestão orçamentária dos times de desenvolvimento, manutenção e infraestrutura, garantindo eficiência máxima na alocação de recursos financeiros.</p></li>
-<li><h3>Serasa Experian &#8212; Especialista em Arquitetura de Software e Inovação</h3><p class="meta">janeiro de 2015 &#8594; janeiro de 2017</p><p class="desc">Definição da arquitetura técnica da unidade de negócios Serasa Consumidor em colaboração direta com times de desenvolvimento e departamentos corporativos. Estabelecimento de boas práticas e padrões de desenvolvimento para PHP e Node.js na AWS, alinhando as soluções técnicas às necessidades estratégicas da organização. Implementação de padrões e boas práticas de desenvolvimento que reduziu de 2 meses para 2 semanas o tempo de onboarding de novos desenvolvedores. Condução de POCs para novas tecnologias que resultaram na adoção de soluções inovadoras, elevando a performance e a escalabilidade dos sistemas críticos. Definição de padrões técnicos e processo de downstream que reduziram incidentes em produção em 40%. Criação de padrão de documentação arquitetural de referência para facilitar a integração entre sistemas e acelerar o desenvolvimento de novas funcionalidades.</p></li>
-<li><h3>Serasa Experian &#8212; Especialista em Captação de Dados</h3><p class="meta">janeiro de 2012 &#8594; janeiro de 2015</p><p class="desc">Entrega de uma plataforma capaz de capturar mais de 1 bilhão de dados em um único ano, expandindo significativamente o ativo de informações da companhia. Introdução pioneira de tecnologias e metodologias disruptivas na empresa, incluindo Node.js, testes automatizados, microsserviços e integração contínua (CI). Implementação de processos otimizados que reduziram custos operacionais e aumentaram a agilidade na captação de dados de meses para dias. Reconhecimento através de prêmio corporativo pela inovação tecnológica da plataforma de captura de dados e pela estruturação eficiente da equipe. Pioneirismo na adoção de cloud computing (AWS) na organização.</p></li>
-<li><h3>Serasa Experian &#8212; Especialista Mobile</h3><p class="meta">janeiro de 2011 &#8594; janeiro de 2012</p><p class="desc">Liderança pioneira do desenvolvimento do primeiro aplicativo mobile da companhia, coordenando squads em Java e Objective-C. Gestão do processo de ponta a ponta, desde a avaliação de propostas e contratação de consultorias até a definição de arquitetura e segurança. Gerenciamento eficiente de orçamentos para desenvolvimento e infraestrutura, garantindo entregas dentro do escopo planejado. Estabelecimento de uma arquitetura mobile segura e escalável que se tornou o padrão de referência para os aplicativos subsequentes da empresa. Validação de conceitos via POCs técnicas para minimização de riscos antes da implementação completa da solução.</p></li>
-<li><h3>Serasa Experian &#8212; Desenvolvedor Front-end (Sênior)</h3><p class="meta">janeiro de 2010 &#8594; janeiro de 2011</p><p class="desc">Liderança técnica na definição de arquitetura e manutenção de sites institucionais e plataformas de e-commerce B2B e B2C. Implementação de otimizações de performance que aumentaram a velocidade de carregamento dos sites em 60%. Desenvolvimento de estratégias de SEO que resultaram em um crescimento de 45% no tráfego orgânico para palavras-chave estratégicas. Seleção e treinamento de desenvolvedores, acelerando a integração de novos membros e elevando a qualidade técnica da equipe. Estruturação de arquiteturas escaláveis que suportaram o crescimento volumétrico de transações em plataformas de e-commerce sem degradação de serviço.</p></li>
-<li><h3>GoNow</h3><p class="meta">Desenvolvedor Front-end (Sênior) &#183; dezembro de 2008 &#8594; dezembro de 2009</p><p class="desc">Liderança técnica no desenvolvimento de interfaces para os portais de classificados e mapas, conhecido como Páginas Amarillas em vários países da América Latina. Atuação como Scrum Master, coordenando ritos ágeis do Scrum e garantindo a eficiência das entregas dos projetos. Ponte estratégica entre as áreas de criação e tecnologia para o alinhamento de requisitos e viabilidade técnica das demandas de front-end. Desenvolvimento de arquitetura da informação, front-end (HTML, jQuery, CSS3) e implementação de melhores práticas de SEO, acessibilidade e usabilidade.</p></li>
-<li><h3>Santander Universia</h3><p class="meta">Desenvolvedor Fullstack (Pleno) &#183; novembro de 2007 &#8594; novembro de 2008</p><p class="desc">Desenvolvimento de sites, sistemas e portais do Universia utilizando Java, PHP, JavaScript, HTML e CSS, com foco em inovação e análise de tendências web para melhorar métricas de visitação. Execução de estratégias de SEO e manutenção do portal Universia.</p></li>
-<li><h3>A1.Brasil</h3><p class="meta">Analista de Qualidade (Junior) &#183; janeiro de 2006 &#8594; outubro de 2007</p><p class="desc">Garantia da qualidade, acessibilidade e usabilidade de projetos para clientes como Vivo, Credicard, Pirelli e Porto Seguro. Acompanhamento e otimização de processos internos para assegurar gates de aprovação e qualidade. Homologação de código de acordo com as normas W3C e manuais de aplicação de marca dos clientes.</p></li>
-<li><h3>Santander Universia</h3><p class="meta">Desenvolvedor Fullstack (Junior) &#183; maio de 2006 &#8594; maio de 2007</p><p class="desc">Levantamento de requisitos diretamente com clientes internos e desenvolvimento de protótipos, sistemas e ferramentas em Java e PHP com SQL Server, voltadas à geração de conteúdo para o portal.</p></li>
-<li><h3>Lobster Media Creative Studio</h3><p class="meta">Desenvolvedor Fullstack (Junior) &#183; janeiro de 2006 &#8594; abril de 2006</p><p class="desc">Atuação no desenvolvimento PHP com MySQL, execução de testes e administração de usuários e sistemas.</p></li>
-<li><h3>Ponto ED</h3><p class="meta">Estagiário &#183; janeiro de 2005 &#8594; dezembro de 2005</p><p class="desc">Desenvolvimento de sites e sistemas em ASP e ASP.NET com SQL Server.</p></li>
-</ol>
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg> <span id="xp-heading">experiência</span></h2>
+<ol class="timeline" id="xp-timeline"></ol>
 </section>
 
 <!-- ══ FORMAÇÃO ══ -->
 <section id="edu" class="section reveal">
-<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg> educação</h2>
-<ol class="timeline">
-<li><h3>FIAP &#8212; Pós-graduação Lato Sensu &#8212; Especialização em Inteligência Artificial, Machine Learning Engineering</h3><p class="meta">outubro de 2024 &#8594; outubro de 2025</p></li>
-<li><h3>MBA USP/Esalq &#8212; Master of Business Administration (MBA) &#8212; Gestão de Negócios</h3><p class="meta">junho de 2019 &#8594; junho de 2021</p></li>
-<li><h3>Faculdades Metropolitanas Unidas (FMU) &#8212; Graduação &#8212; Comunicação</h3><p class="meta">2016 &#8594; 2018</p></li>
-<li><h3>FIAP &#8212; Bacharelado &#8212; Sistemas da Informação (Incompleto)</h3><p class="meta">janeiro de 2000 &#8594; dezembro de 2002</p></li>
-</ol>
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg> <span id="edu-heading">educação</span></h2>
+<ol class="timeline" id="edu-timeline"></ol>
 </section>
 
 <!-- ══ CONTATO ══ -->
 <section id="contact" class="section reveal">
-<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> contato</h2>
+<h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> <span id="contact-heading">contato</span></h2>
 <div class="contact-grid">
 <div class="ccard">
-<h3>Vamos trocar uma ideia sobre tecnologia e liderança?</h3>
-<p class="lead">Gosto de conversar sobre engenharia, IA, gestão de times e produtos digitais. Se quiser bater um papo, trocar experiências ou discutir colaborações, é só chamar.</p>
-<div style="margin-top:10px"><a class="btn btn-cyan" href="mailto:rodrigorizando@gmail.com"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Enviar e-mail</a></div>
+<h3 id="contact-title"></h3>
+<p class="lead" id="contact-text"></p>
+<div style="margin-top:10px"><a class="btn btn-cyan" href="mailto:rodrigorizando@gmail.com"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> <span id="btn-email">Enviar e-mail</span></a></div>
 </div>
 <div class="ccard" style="display:flex;align-items:center;justify-content:center">
 <div class="socials">
@@ -334,7 +302,7 @@ Engineering Manager · AI Strategy · Fintech
 </div>
 </section>
 
-<footer class="site-footer"><p>rodrigo.matheus // engineering · ai · strategy</p></footer>
+<footer class="site-footer"><p id="footer-text">rodrigo.matheus // engineering · ai · strategy</p></footer>
 </main>
 
 <script>
@@ -359,11 +327,17 @@ var els=document.querySelectorAll(".reveal");
 for(var i=0;i<els.length;i++){if(!els[i].classList.contains("show"))io.observe(els[i]);}
 })();
 
-/* ── GitHub Repos: single API call to backend ── */
+/* ── i18n + Data ── */
 (function(){
+var _i18n={};
+var _repos=[];
+var _currentLang=localStorage.getItem("lang")||"en";
+
+/* DOM refs */
 var grid=document.getElementById("projects-grid");
 var loader=document.getElementById("projects-loader");
 var badge=document.getElementById("repo-status");
+var langBtn=document.getElementById("lang-toggle");
 
 var langColors={
 JavaScript:"#f1e05a",TypeScript:"#3178c6",Python:"#3572a5",Java:"#b07219",
@@ -376,22 +350,24 @@ Vue:"#41b883",SCSS:"#c6538c",Dockerfile:"#384d54",Makefile:"#427819",HCL:"#844fb
 
 function safe(s){var d=document.createElement("div");d.textContent=String(s||"");return d.innerHTML;}
 
+function t(){return _i18n[_currentLang]||_i18n.pt||{};}
+
 function timeAgo(date){
+var ta=t().projects&&t().projects.time_ago||{};
 var diff=Date.now()-new Date(date).getTime();
-var h=Math.floor(diff/3600000);
-if(h<1)return"agora";
-if(h<24)return h+"h atrás";
+var min=Math.floor(diff/60000);
+if(min<1)return ta.now||"now";
+if(min<60)return min+" "+(ta.minutes||"min ago");
+var h=Math.floor(min/60);
+if(h<24)return h+" "+(ta.hours||"h ago");
 var d=Math.floor(h/24);
-if(d===1)return"ontem";
-if(d<30)return d+"d atrás";
-var m=Math.floor(d/30);
-if(m<12)return m+"m atrás";
-return Math.floor(m/12)+"a atrás";
+return d+" "+(ta.days||"d ago");
 }
 
 function shortDate(date){
 var d=new Date(date);
-return d.toLocaleDateString("pt-BR",{day:"numeric",month:"short"});
+var locale=_currentLang==="pt"?"pt-BR":"en-US";
+return d.toLocaleDateString(locale,{day:"numeric",month:"short"});
 }
 
 var sparkCounter=0;
@@ -419,34 +395,36 @@ return{svg:svg,commits:sparkData.commits};
 }
 
 function buildCard(r,idx){
+var lang=t();
+var noCommit=_currentLang==="pt"?"Nenhum commit recente":"No recent commits";
+var noDesc=_currentLang==="pt"?"Sem descrição.":"No description.";
 var color=langColors[r.language]||"#6e6e82";
 var langHtml=r.language?'<span class="repo-langs"><span class="lang-dot" style="background:'+color+'"></span>'+safe(r.language)+'</span>':"";
 var topics="";
-if(r.topics&&r.topics.length){var t=r.topics.slice(0,5);for(var j=0;j<t.length;j++){topics+='<span class="topic">'+safe(t[j])+"</span>";}}
+if(r.topics&&r.topics.length){var tp=r.topics.slice(0,5);for(var j=0;j<tp.length;j++){topics+='<span class="topic">'+safe(tp[j])+"</span>";}}
 var stars=r.stargazers_count?'<span>&#9733; '+r.stargazers_count+'</span>':"";
 var forks=r.forks_count?'<span>&#9741; '+r.forks_count+'</span>':"";
 
-// Sparkline (dados já vêm do backend)
 var sparkHtml="";
 var spark=buildSparklineSVG(r.sparkline);
 if(spark){
-sparkHtml='<span class="repo-sparkline-label">'+spark.commits+' commit'+(spark.commits!==1?'s':'')+' nos últimos 28 dias</span>'+spark.svg;
+var slabel=(lang.projects&&lang.projects.sparkline_label)||"commits in the last 28 days";
+sparkHtml='<span class="repo-sparkline-label">'+spark.commits+' commit'+(spark.commits!==1?'s':'')+' '+slabel+'</span>'+spark.svg;
 }
 
-// Commits (dados já vêm do backend)
 var commitsHtml="";
 if(r.commits&&r.commits.length){
 for(var c=0;c<r.commits.length;c++){
 commitsHtml+='<li><span class="cm-date">'+safe(shortDate(r.commits[c].date))+'</span><span class="cm-sha">'+safe(r.commits[c].sha)+'</span><span class="cm-msg">'+safe((r.commits[c].message||"").substring(0,55)+(r.commits[c].message&&r.commits[c].message.length>55?"…":""))+'</span></li>';
 }
 }else{
-commitsHtml='<li style="grid-column:1/-1;text-align:center;color:var(--muted)">Nenhum commit recente</li>';
+commitsHtml='<li style="grid-column:1/-1;text-align:center;color:var(--muted)">'+noCommit+'</li>';
 }
 
 var front='<div class="repo-front">'
 +'<div class="repo-card-header"><span class="repo-rank">#'+(idx+1)+'</span>'+langHtml+'<span class="repo-pushed">Pushed '+safe(timeAgo(r.pushed_at))+'</span></div>'
 +'<h3><a href="'+safe(r.html_url)+'" target="_blank" rel="noreferrer">'+safe(r.name)+'</a></h3>'
-+'<p class="repo-desc">'+safe(r.description||"Sem descrição.")+'</p>'
++'<p class="repo-desc">'+safe(r.description||noDesc)+'</p>'
 +(topics?'<div class="topics">'+topics+'</div>':'')
 +'<div class="repo-sparkline">'+sparkHtml+'</div>'
 +'<div class="repo-footer"><div class="repo-stats">'+stars+forks+'</div>'
@@ -463,24 +441,122 @@ return '<article class="repo-flip" data-repo="'+safe(r.name)+'">'
 +'<div class="repo-flip-inner">'+front+back+'</div></article>';
 }
 
+function renderRepos(){
+if(!_repos.length){loader.hidden=false;badge.textContent="0 repos";return;}
+badge.textContent=_repos.length+" public repos";
+var html="";
+for(var i=0;i<_repos.length;i++){html+=buildCard(_repos[i],i);}
+grid.innerHTML=html;
+}
+
+function applyLang(){
+var lang=t();
+if(!lang.nav)return;
+
+/* HTML lang */
+document.documentElement.lang=lang.html_lang||"pt-BR";
+
+/* Meta */
+document.title=lang.meta.title;
+var metaDesc=document.querySelector('meta[name="description"]');
+if(metaDesc)metaDesc.content=lang.meta.description;
+
+/* Nav */
+document.getElementById("nav-about").textContent=lang.nav.about;
+document.getElementById("nav-projects").textContent=lang.nav.projects;
+document.getElementById("nav-xp").textContent=lang.nav.experience;
+document.getElementById("nav-edu").textContent=lang.nav.education;
+document.getElementById("nav-contact").textContent=lang.nav.contact;
+document.getElementById("skip-link").textContent=lang.skip;
+
+/* Lang button */
+var other=_currentLang==="pt"?"EN":"PT";
+langBtn.textContent=other;
+langBtn.title=_currentLang==="pt"?"English":"Português";
+
+/* Hero */
+document.getElementById("hero-tag").textContent=lang.hero.tag;
+document.getElementById("hero-title").textContent=lang.hero.title;
+document.getElementById("hero-subtitle").textContent=lang.hero.subtitle;
+document.getElementById("btn-linkedin").textContent=lang.hero.btn_linkedin;
+document.getElementById("btn-cv").textContent=lang.hero.btn_cv;
+document.getElementById("btn-github").textContent=lang.hero.btn_github;
+
+var statRow=document.getElementById("stat-row");
+var statsHtml="";
+for(var i=0;i<lang.hero.stats.length;i++){
+var s=lang.hero.stats[i];
+statsHtml+='<div class="stat"><strong>'+safe(s.value)+'</strong><span>'+safe(s.label)+'</span></div>';
+}
+statRow.innerHTML=statsHtml;
+
+/* About */
+document.getElementById("about-heading").textContent=lang.about.heading;
+document.getElementById("about-lead").textContent=lang.about.lead;
+var pillsHtml="";
+for(var i=0;i<lang.about.pills.length;i++){pillsHtml+='<span class="pill">'+safe(lang.about.pills[i])+'</span>';}
+document.getElementById("about-pills").innerHTML=pillsHtml;
+
+/* Projects */
+document.getElementById("projects-heading").textContent=lang.projects.heading;
+document.getElementById("projects-lead").textContent=lang.projects.lead;
+document.getElementById("spinner-text").innerHTML=safe(lang.projects.loading)+' <span>'+safe(lang.projects.loading_api)+'</span>';
+document.getElementById("spinner-status").textContent=lang.projects.loading_sub;
+document.getElementById("projects-loader").textContent=lang.projects.empty;
+
+/* Experience */
+document.getElementById("xp-heading").textContent=lang.experience.heading;
+var xpHtml="";
+for(var i=0;i<lang.experience.items.length;i++){
+var x=lang.experience.items[i];
+xpHtml+='<li><h3>'+safe(x.company)+'</h3><p class="meta">'+safe(x.role)+' &#183; '+safe(x.period)+'</p><p class="desc">'+safe(x.description)+'</p></li>';
+}
+document.getElementById("xp-timeline").innerHTML=xpHtml;
+
+/* Education */
+document.getElementById("edu-heading").textContent=lang.education.heading;
+var eduHtml="";
+for(var i=0;i<lang.education.items.length;i++){
+var e=lang.education.items[i];
+eduHtml+='<li><h3>'+safe(e.institution)+' &#8212; '+safe(e.degree)+'</h3><p class="meta">'+safe(e.period)+'</p></li>';
+}
+document.getElementById("edu-timeline").innerHTML=eduHtml;
+
+/* Contact */
+document.getElementById("contact-heading").textContent=lang.contact.heading;
+document.getElementById("contact-title").textContent=lang.contact.card_title;
+document.getElementById("contact-text").textContent=lang.contact.card_text;
+document.getElementById("btn-email").textContent=lang.contact.btn_email;
+
+/* Footer */
+document.getElementById("footer-text").textContent=lang.footer;
+
+/* Re-render repos with new lang strings */
+if(_repos.length)renderRepos();
+}
+
+/* Language toggle */
+langBtn.addEventListener("click",function(){
+_currentLang=_currentLang==="pt"?"en":"pt";
+localStorage.setItem("lang",_currentLang);
+applyLang();
+});
+
+/* Fetch data */
 var spinnerStatus=document.getElementById("spinner-status");
 function setSpinnerMsg(msg){if(spinnerStatus)spinnerStatus.textContent=msg;}
 
-setSpinnerMsg("carregando repositórios...");
-fetch("/api/repos").then(function(r){
+fetch("/api/data").then(function(r){
 if(!r.ok)throw new Error(r.status);
 return r.json();
-}).then(function(repos){
-if(!repos.length){loader.hidden=false;badge.textContent="0 repos";return;}
-badge.textContent=repos.length+" public repos";
-var html="";
-for(var i=0;i<repos.length;i++){
-html+=buildCard(repos[i],i);
-}
-grid.innerHTML=html;
+}).then(function(data){
+_i18n=data.i18n||{};
+_repos=data.repos||[];
+applyLang();
+renderRepos();
 }).catch(function(){
 loader.hidden=false;
-badge.textContent="erro ao carregar";
+badge.textContent="error";
 });
 })();
 </script>

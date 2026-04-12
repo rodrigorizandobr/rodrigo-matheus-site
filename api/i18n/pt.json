@@ -1,0 +1,193 @@
+{
+  "lang": "pt",
+  "html_lang": "pt-BR",
+  "meta": {
+    "title": "Rodrigo Matheus — Engineering · AI · Strategy",
+    "description": "Rodrigo Matheus da Silva — 22+ anos liderando engenharia, IA e produtos financeiros de alto impacto."
+  },
+  "nav": {
+    "about": "Sobre",
+    "projects": "Projetos",
+    "experience": "Experiência",
+    "education": "Formação",
+    "contact": "Contato"
+  },
+  "hero": {
+    "tag": "Engineering Manager · AI Strategy · Fintech",
+    "title": "Engenharia forte, direção executiva clara e resultados mensuráveis.",
+    "subtitle": "22+ anos construindo e liderando times que entregam plataformas financeiras em escala. Arquitetura moderna, cultura de alta performance e uso pragmático de IA para acelerar negócio.",
+    "btn_linkedin": "LinkedIn",
+    "btn_cv": "Currículo PDF",
+    "btn_github": "GitHub",
+    "stats": [
+      { "value": "22+", "label": "anos em tech" },
+      { "value": "40+", "label": "pessoas lideradas" },
+      { "value": "16+", "label": "anos liderando" }
+    ]
+  },
+  "about": {
+    "heading": "sobre",
+    "lead": "Líder de tecnologia com mais de 22 anos de trajetória em desenvolvimento, arquitetura e gestão. Atualmente responsável pela liderança executiva de times de alta performance com mais de 40 pessoas, integrando visão técnica e de negócios para entrega de produtos financeiros de alto impacto. Experiência robusta em transformação digital e gestão estratégica em empresas como Natura&Co, Bankly, Itaú, Santander, Serasa e Casas Bahia. Especialista em alinhar tecnologia aos OKRs, implementar metodologias ágeis e gerenciar orçamentos complexos (Capex/Opex) para sustentar o crescimento de produtos digitais.",
+    "pills": [
+      "Engineering Management",
+      "AI Strategy",
+      "Arquitetura de Plataforma",
+      "Crédito & Fintech",
+      "OKRs & Governança",
+      "Capex / Opex",
+      "Microsserviços",
+      "Cloud (AWS)",
+      "Cultura & E-NPS",
+      "Machine Learning"
+    ]
+  },
+  "projects": {
+    "heading": "projetos",
+    "lead": "Todos os repositórios públicos carregados em tempo real da API do GitHub.",
+    "loading": "Conectando com",
+    "loading_api": "GitHub API",
+    "loading_sub": "buscando repositórios...",
+    "empty": "Nenhum repositório encontrado.",
+    "sparkline_label": "commits nos últimos 28 dias",
+    "time_ago": {
+      "now": "agora",
+      "minutes": "min atrás",
+      "hours": "h atrás",
+      "days": "d atrás"
+    }
+  },
+  "experience": {
+    "heading": "experiência",
+    "items": [
+      {
+        "company": "banQi — Casas Bahia",
+        "role": "Gerente de Engenharia",
+        "period": "junho de 2024 → Presente",
+        "description": "Liderança direta e indireta de mais de 40 profissionais distribuídos em múltiplos times de engenharia, garantindo a evolução de produtos de crédito que representam o pilar principal de receita da companhia. Gestão técnica e operacional da tribo de produtos de crédito, incluindo Empréstimo Pessoal, Consignado, BNPL, Antecipação de FGTS, Consórcio e Cobrança. Responsável pela gestão completa de pessoas, arquitetura, Capex & Opex, planejamento de contratos de consultorias e definição de OKRs. Gestão do ciclo de E-NPS, elevando o índice de 3.8 para 6.5 através de estratégias de desenvolvimento de talentos e melhoria de processos, ferramentas e cultura. Implementação de planejamento trimestral e visão de plataforma para microsserviços, reduzindo a complexidade técnica e o tempo de desenvolvimento."
+      },
+      {
+        "company": "Natura Pay — Natura &Co",
+        "role": "Coordenador de Engenharia",
+        "period": "setembro de 2022 → maio de 2024",
+        "description": "Liderança de times responsáveis por sistemas críticos de decisão de crédito e cobrança (FICO, Crivo, Clear Sales) em ambiente de microsserviços e alta disponibilidade. Desenvolvimento de plataforma de crédito agnóstica para operações em múltiplos países da América Latina e múltiplas marcas, garantindo uptime de 99,9%."
+      },
+      {
+        "company": "Bankly — Banking as a Service",
+        "role": "Team Leader",
+        "period": "agosto de 2021 → setembro de 2022",
+        "description": "Liderança direta de 3 squads de desenvolvimento, sendo responsável pela visão fim-a-fim de produtos financeiros críticos (PIX, Conta Remunerada e Cartão de Crédito). Estabelecimento e acompanhamento de OKRs, métricas de desempenho e processos ágeis que resultaram na aceleração de 35% no time-to-market de novos recursos financeiros. Gestão de orçamentos para pessoas e projetos, além da coordenação de fábricas de software externas. Implementação de trilhas de desenvolvimento técnico, workshops, mentoria individualizada e PDI, consolidando uma cultura de aprendizado contínuo e alto desempenho."
+      },
+      {
+        "company": "Natura Pay — Natura &Co",
+        "role": "Coordenador de Engenharia",
+        "period": "setembro de 2019 → agosto de 2021",
+        "description": "Supervisão do desenvolvimento do banco digital white label e sistemas de renegociação de dívidas, liderando times terceirizados em ambiente de microsserviços. Viabilização de parcerias estratégicas com players como Super Digital, Getnet e Dock para lançamento de soluções de pagamentos e expansão do ecossistema financeiro. Otimização de processos com a implementação de design system, resultando em aumento de 30% na produtividade de desenvolvimento. Gestão do orçamento de fábricas de software, garantindo a entrega de projetos dentro do prazo e dos custos previstos."
+      },
+      {
+        "company": "Itaú Unibanco",
+        "role": "Líder Técnico",
+        "period": "janeiro de 2019 → setembro de 2019",
+        "description": "Liderança da squad de PLD (Prevenção à Lavagem de Dinheiro) e gestão financeira, coordenando a integração entre mais de 8 times, criando, desenhando a solução e desenvolvendo a plataforma de PLD responsável por captar e monitorar todas as transações do banco. Projeto entregue em 8 meses, em uma época em que cloud ainda não existia no banco e provisionar um servidor tinha SLA de meses."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Especialista em TI",
+        "period": "janeiro de 2017 → janeiro de 2019",
+        "description": "Coordenação de projetos estratégicos em Java e .NET com equipes bodyshop, gerenciando o ciclo completo desde o discovery até incidentes em produção no programa de Transformação Digital. Definição de arquitetura e requisitos de segurança em parceria com times corporativos, sendo responsável pela avaliação de propostas e definição de escopo para contratação de equipes terceirizadas. Liderança de processos de seleção e contratação que estruturaram equipes técnicas de alto desempenho, superando as metas de produtividade estabelecidas. Execução de POCs estratégicas para validação de conceitos técnicos, resultando em economia de recursos e aceleração do cronograma de desenvolvimento. Estabelecimento de abordagem de MVP para equilibrar a entrega de valor imediato com escalabilidade a longo prazo, permitindo ciclos de feedback rápidos. Otimização da gestão orçamentária dos times de desenvolvimento, manutenção e infraestrutura, garantindo eficiência máxima na alocação de recursos financeiros."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Especialista em Arquitetura de Software e Inovação",
+        "period": "janeiro de 2015 → janeiro de 2017",
+        "description": "Definição da arquitetura técnica da unidade de negócios Serasa Consumidor em colaboração direta com times de desenvolvimento e departamentos corporativos. Estabelecimento de boas práticas e padrões de desenvolvimento para PHP e Node.js na AWS, alinhando as soluções técnicas às necessidades estratégicas da organização. Implementação de padrões e boas práticas de desenvolvimento que reduziu de 2 meses para 2 semanas o tempo de onboarding de novos desenvolvedores. Condução de POCs para novas tecnologias que resultaram na adoção de soluções inovadoras, elevando a performance e a escalabilidade dos sistemas críticos. Definição de padrões técnicos e processo de downstream que reduziram incidentes em produção em 40%. Criação de padrão de documentação arquitetural de referência para facilitar a integração entre sistemas e acelerar o desenvolvimento de novas funcionalidades."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Especialista em Captação de Dados",
+        "period": "janeiro de 2012 → janeiro de 2015",
+        "description": "Entrega de uma plataforma capaz de capturar mais de 1 bilhão de dados em um único ano, expandindo significativamente o ativo de informações da companhia. Introdução pioneira de tecnologias e metodologias disruptivas na empresa, incluindo Node.js, testes automatizados, microsserviços e integração contínua (CI). Implementação de processos otimizados que reduziram custos operacionais e aumentaram a agilidade na captação de dados de meses para dias. Reconhecimento através de prêmio corporativo pela inovação tecnológica da plataforma de captura de dados e pela estruturação eficiente da equipe. Pioneirismo na adoção de cloud computing (AWS) na organização."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Especialista Mobile",
+        "period": "janeiro de 2011 → janeiro de 2012",
+        "description": "Liderança pioneira do desenvolvimento do primeiro aplicativo mobile da companhia, coordenando squads em Java e Objective-C. Gestão do processo de ponta a ponta, desde a avaliação de propostas e contratação de consultorias até a definição de arquitetura e segurança. Gerenciamento eficiente de orçamentos para desenvolvimento e infraestrutura, garantindo entregas dentro do escopo planejado. Estabelecimento de uma arquitetura mobile segura e escalável que se tornou o padrão de referência para os aplicativos subsequentes da empresa. Validação de conceitos via POCs técnicas para minimização de riscos antes da implementação completa da solução."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Desenvolvedor Front-end (Sênior)",
+        "period": "janeiro de 2010 → janeiro de 2011",
+        "description": "Liderança técnica na definição de arquitetura e manutenção de sites institucionais e plataformas de e-commerce B2B e B2C. Implementação de otimizações de performance que aumentaram a velocidade de carregamento dos sites em 60%. Desenvolvimento de estratégias de SEO que resultaram em um crescimento de 45% no tráfego orgânico para palavras-chave estratégicas. Seleção e treinamento de desenvolvedores, acelerando a integração de novos membros e elevando a qualidade técnica da equipe. Estruturação de arquiteturas escaláveis que suportaram o crescimento volumétrico de transações em plataformas de e-commerce sem degradação de serviço."
+      },
+      {
+        "company": "GoNow",
+        "role": "Desenvolvedor Front-end (Sênior)",
+        "period": "dezembro de 2008 → dezembro de 2009",
+        "description": "Liderança técnica no desenvolvimento de interfaces para os portais de classificados e mapas, conhecido como Páginas Amarillas em vários países da América Latina. Atuação como Scrum Master, coordenando ritos ágeis do Scrum e garantindo a eficiência das entregas dos projetos. Ponte estratégica entre as áreas de criação e tecnologia para o alinhamento de requisitos e viabilidade técnica das demandas de front-end. Desenvolvimento de arquitetura da informação, front-end (HTML, jQuery, CSS3) e implementação de melhores práticas de SEO, acessibilidade e usabilidade."
+      },
+      {
+        "company": "Santander Universia",
+        "role": "Desenvolvedor Fullstack (Pleno)",
+        "period": "novembro de 2007 → novembro de 2008",
+        "description": "Desenvolvimento de sites, sistemas e portais do Universia utilizando Java, PHP, JavaScript, HTML e CSS, com foco em inovação e análise de tendências web para melhorar métricas de visitação. Execução de estratégias de SEO e manutenção do portal Universia."
+      },
+      {
+        "company": "A1.Brasil",
+        "role": "Analista de Qualidade (Junior)",
+        "period": "janeiro de 2006 → outubro de 2007",
+        "description": "Garantia da qualidade, acessibilidade e usabilidade de projetos para clientes como Vivo, Credicard, Pirelli e Porto Seguro. Acompanhamento e otimização de processos internos para assegurar gates de aprovação e qualidade. Homologação de código de acordo com as normas W3C e manuais de aplicação de marca dos clientes."
+      },
+      {
+        "company": "Santander Universia",
+        "role": "Desenvolvedor Fullstack (Junior)",
+        "period": "maio de 2006 → maio de 2007",
+        "description": "Levantamento de requisitos diretamente com clientes internos e desenvolvimento de protótipos, sistemas e ferramentas em Java e PHP com SQL Server, voltadas à geração de conteúdo para o portal."
+      },
+      {
+        "company": "Lobster Media Creative Studio",
+        "role": "Desenvolvedor Fullstack (Junior)",
+        "period": "janeiro de 2006 → abril de 2006",
+        "description": "Atuação no desenvolvimento PHP com MySQL, execução de testes e administração de usuários e sistemas."
+      },
+      {
+        "company": "Ponto ED",
+        "role": "Estagiário",
+        "period": "janeiro de 2005 → dezembro de 2005",
+        "description": "Desenvolvimento de sites e sistemas em ASP e ASP.NET com SQL Server."
+      }
+    ]
+  },
+  "education": {
+    "heading": "educação",
+    "items": [
+      {
+        "institution": "FIAP",
+        "degree": "Pós-graduação Lato Sensu — Especialização em Inteligência Artificial, Machine Learning Engineering",
+        "period": "outubro de 2024 → outubro de 2025"
+      },
+      {
+        "institution": "MBA USP/Esalq",
+        "degree": "Master of Business Administration (MBA) — Gestão de Negócios",
+        "period": "junho de 2019 → junho de 2021"
+      },
+      {
+        "institution": "Faculdades Metropolitanas Unidas (FMU)",
+        "degree": "Graduação — Comunicação",
+        "period": "2016 → 2018"
+      },
+      {
+        "institution": "FIAP",
+        "degree": "Bacharelado — Sistemas da Informação (Incompleto)",
+        "period": "janeiro de 2000 → dezembro de 2002"
+      }
+    ]
+  },
+  "contact": {
+    "heading": "contato",
+    "card_title": "Vamos trocar uma ideia sobre tecnologia e liderança?",
+    "card_text": "Gosto de conversar sobre engenharia, IA, gestão de times e produtos digitais. Se quiser bater um papo, trocar experiências ou discutir colaborações, é só chamar.",
+    "btn_email": "Enviar e-mail"
+  },
+  "footer": "rodrigo.matheus // engineering · ai · strategy",
+  "skip": "Pular para conteúdo"
+}

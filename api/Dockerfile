@@ -10,5 +10,5 @@ COPY . .
 # Cloud Run injeta a variável PORT
 ENV PORT=8080
 
-# Warm-up do cache na inicialização + gunicorn para produção
-CMD ["sh", "-c", "python -c \"from server import warmup; warmup()\" && gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120 server:app"]
+# Gunicorn starts immediately; warmup runs in background thread on import
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "2", "--timeout", "120", "server:app"]
