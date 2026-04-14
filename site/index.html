@@ -620,6 +620,11 @@ var label=href.indexOf('mailto')!==-1?'email':href.indexOf('linkedin')!==-1?'lin
 gaEvt('contact_click',{channel:label});
 });
 
+/* ── GA4: See all repos ── */
+document.getElementById('repos-see-all').addEventListener('click',function(){
+gaEvt('see_all_repos');
+});
+
 })();
 </script>
 </body>
