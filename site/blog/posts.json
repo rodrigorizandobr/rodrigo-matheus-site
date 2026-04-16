@@ -1,0 +1,53 @@
+[
+  {
+    "slug": "why-i-moved-to-cloud-run",
+    "date": "2026-04-10",
+    "tags": ["cloud", "gcp", "architecture"],
+    "i18n": {
+      "en": {
+        "title": "Why I Moved My Portfolio to Cloud Run",
+        "summary": "A quick breakdown of why Firebase Hosting + Cloud Run turned out to be the simplest and cheapest way to serve a dynamic portfolio site.",
+        "body": "<p>When I first built this portfolio, I considered several hosting options: Vercel, Netlify, a bare VPS, and Google Cloud. After experimenting with all of them, I landed on <strong>Firebase Hosting</strong> for static files and <strong>Cloud Run</strong> for the API layer.</p><h3>Why not just static?</h3><p>My site pulls live data from the GitHub API — repo stats, sparklines, recent commits. That data changes every time I push code. A purely static site would require a rebuild and redeploy every time, which felt heavy for such a simple need.</p><h3>The Cloud Run sweet spot</h3><p>Cloud Run scales to zero. When nobody visits, I pay nothing. When someone does, a cold start takes ~2 seconds, then the container stays warm for a while. The API endpoint (<code>/api/data</code>) is cached by Firebase's CDN for 10 minutes, so Cloud Run barely wakes up.</p><h3>Cost so far</h3><p>After two weeks of running: <strong>$0.00</strong>. The free tier covers everything comfortably for a personal site.</p><p>If you're building something similar, I highly recommend this stack. It's simple, fast, and essentially free.</p>"
+      },
+      "pt": {
+        "title": "Por que migrei meu portfólio para o Cloud Run",
+        "summary": "Um resumo rápido de por que Firebase Hosting + Cloud Run acabou sendo a forma mais simples e barata de servir um site de portfólio dinâmico.",
+        "body": "<p>Quando construí este portfólio pela primeira vez, considerei várias opções de hospedagem: Vercel, Netlify, um VPS básico e Google Cloud. Depois de experimentar todas, escolhi <strong>Firebase Hosting</strong> para arquivos estáticos e <strong>Cloud Run</strong> para a camada de API.</p><h3>Por que não apenas estático?</h3><p>Meu site puxa dados ao vivo da API do GitHub — estatísticas de repos, sparklines, commits recentes. Esses dados mudam toda vez que faço push. Um site puramente estático exigiria rebuild e redeploy a cada vez, o que parecia pesado para uma necessidade tão simples.</p><h3>O ponto ideal do Cloud Run</h3><p>Cloud Run escala para zero. Quando ninguém visita, eu não pago nada. Quando alguém visita, um cold start leva ~2 segundos, depois o container fica ativo por um tempo. O endpoint da API (<code>/api/data</code>) é cacheado pelo CDN do Firebase por 10 minutos, então o Cloud Run mal acorda.</p><h3>Custo até agora</h3><p>Depois de duas semanas rodando: <strong>R$ 0,00</strong>. O free tier cobre tudo confortavelmente para um site pessoal.</p><p>Se você está construindo algo parecido, recomendo muito esse stack. É simples, rápido e essencialmente gratuito.</p>"
+      }
+    }
+  },
+  {
+    "slug": "engineering-management-lessons",
+    "date": "2026-04-08",
+    "tags": ["leadership", "engineering", "management"],
+    "i18n": {
+      "en": {
+        "title": "5 Lessons from 22 Years of Engineering Management",
+        "summary": "Hard-won insights on leading engineering teams — from startups to enterprise fintech.",
+        "body": "<p>Over 22 years I've managed teams of 3 and teams of 80+. Here are five things I keep coming back to:</p><h3>1. Hire for curiosity, not just skill</h3><p>Skills can be taught. Curiosity is innate. The engineers who ask \"why\" and \"what if\" consistently outperform those who only ask \"how\".</p><h3>2. Architecture is a team sport</h3><p>The best architectures emerge from collaborative design, not from a single architect's vision. Run design reviews early and often. Let junior engineers challenge assumptions.</p><h3>3. Meetings are expensive</h3><p>A 1-hour meeting with 8 people costs 8 hours of engineering time. Default to async communication. Reserve synchronous time for decisions that genuinely need real-time debate.</p><h3>4. Ship small, ship often</h3><p>The fastest way to learn is to deploy. Feature flags, canary releases, and progressive rollouts let you ship with confidence. Big-bang releases are almost always a mistake.</p><h3>5. Culture eats strategy</h3><p>A team with psychological safety will outperform a \"brilliant\" team that's afraid to speak up. Invest in trust-building, blameless postmortems, and celebrating learning from failure.</p>"
+      },
+      "pt": {
+        "title": "5 Lições de 22 Anos de Gestão de Engenharia",
+        "summary": "Insights conquistados na prática sobre liderar times de engenharia — de startups a fintech enterprise.",
+        "body": "<p>Em 22 anos gerenciei times de 3 e times de 80+ pessoas. Aqui estão cinco coisas que sempre revisito:</p><h3>1. Contrate por curiosidade, não só por habilidade</h3><p>Habilidades podem ser ensinadas. Curiosidade é inata. Os engenheiros que perguntam \"por quê\" e \"e se\" consistentemente superam aqueles que só perguntam \"como\".</p><h3>2. Arquitetura é esporte coletivo</h3><p>As melhores arquiteturas surgem de design colaborativo, não da visão de um único arquiteto. Faça revisões de design cedo e frequentemente. Deixe engenheiros juniores desafiarem premissas.</p><h3>3. Reuniões são caras</h3><p>Uma reunião de 1 hora com 8 pessoas custa 8 horas de tempo de engenharia. Prefira comunicação assíncrona. Reserve tempo síncrono para decisões que genuinamente precisam de debate em tempo real.</p><h3>4. Entregue pequeno, entregue sempre</h3><p>A forma mais rápida de aprender é fazer deploy. Feature flags, canary releases e rollouts progressivos permitem entregar com confiança. Releases big-bang são quase sempre um erro.</p><h3>5. Cultura come estratégia no café da manhã</h3><p>Um time com segurança psicológica vai superar um time \"brilhante\" que tem medo de falar. Invista em construção de confiança, postmortems sem culpa e em celebrar o aprendizado com falhas.</p>"
+      }
+    }
+  },
+  {
+    "slug": "ai-pragmatic-approach",
+    "date": "2026-04-05",
+    "tags": ["ai", "strategy", "fintech"],
+    "i18n": {
+      "en": {
+        "title": "A Pragmatic Approach to AI in Fintech",
+        "summary": "Not every problem needs a neural network. Here's how I decide when AI makes sense and when simpler solutions win.",
+        "body": "<p>AI is transforming fintech, but not every problem needs a machine learning model. After years of building financial platforms, I've developed a simple framework for deciding when AI is the right tool.</p><h3>Start with the business problem</h3><p>Before thinking about models, ask: what decision are we trying to improve? If the answer is clear and the rules are well-defined, a decision tree or a set of business rules might be all you need.</p><h3>When ML actually helps</h3><p>ML shines when patterns are complex, data is abundant, and the cost of being wrong is manageable. Fraud detection, credit scoring, and personalized recommendations are classic examples where the ROI is clear.</p><h3>The hidden cost of ML</h3><p>Training a model is 10% of the work. The other 90% is data pipeline maintenance, model monitoring, drift detection, retraining schedules, and explainability. If you can't commit to that ongoing investment, don't start.</p><h3>My rule of thumb</h3><p>If a human expert can explain the decision in under 2 minutes, you probably don't need ML. If they struggle to articulate the pattern, that's where ML earns its keep.</p>"
+      },
+      "pt": {
+        "title": "Uma Abordagem Pragmática de IA em Fintech",
+        "summary": "Nem todo problema precisa de uma rede neural. Veja como eu decido quando IA faz sentido e quando soluções mais simples ganham.",
+        "body": "<p>IA está transformando fintech, mas nem todo problema precisa de um modelo de machine learning. Após anos construindo plataformas financeiras, desenvolvi um framework simples para decidir quando IA é a ferramenta certa.</p><h3>Comece pelo problema de negócio</h3><p>Antes de pensar em modelos, pergunte: que decisão estamos tentando melhorar? Se a resposta é clara e as regras são bem definidas, uma árvore de decisão ou um conjunto de regras de negócio pode ser tudo que você precisa.</p><h3>Quando ML realmente ajuda</h3><p>ML brilha quando padrões são complexos, dados são abundantes e o custo de errar é gerenciável. Detecção de fraude, scoring de crédito e recomendações personalizadas são exemplos clássicos onde o ROI é claro.</p><h3>O custo escondido de ML</h3><p>Treinar um modelo é 10% do trabalho. Os outros 90% são manutenção de pipeline de dados, monitoramento de modelo, detecção de drift, agendas de retreino e explicabilidade. Se você não pode se comprometer com esse investimento contínuo, não comece.</p><h3>Minha regra prática</h3><p>Se um especialista humano consegue explicar a decisão em menos de 2 minutos, você provavelmente não precisa de ML. Se ele tem dificuldade em articular o padrão, é aí que ML prova seu valor.</p>"
+      }
+    }
+  }
+]
