@@ -8,6 +8,9 @@ venv/
 # Secrets
 .env
 
+# Firebase logs
+firebase-debug.log
+
 # Cache local
 github_cache.json
 
