@@ -114,3 +114,16 @@ Erro de processo registrado: toda a investigação anterior (fps, codec, backdro
 parte) mediu ESTADO (`!v.paused`, `readyState`) e nunca PIXEL. A regeneração dos 5 takes (~R$ 90) foi
 desnecessária — os originais já tinham percurso de câmera correto; foram restaurados, e os novos ficam
 em `.gen/alt-l-*.mp4`. Novo script: `scripts/contact-sheet.mjs` (olhar quadros antes de empacotar).
+
+## 2026-09-14 (noite) — o cross-dissolve na entrega
+
+PO: "tem algum efeito entre a transição e o filme da sessão, tipo iluminação/fade out". Medido quadro a
+quadro: na entrega a camada do loop subia 0 → 1 em ~550 ms enquanto o clipe caía 1 → 0 em 400 ms — dois
+fades sobrepostos. Causa do 550 ms: `instant` vinha de `useClip`, que deriva de `moveFor()`, que devolve
+null na fase `show` — exatamente no instante da troca o `data-instant` virava false. A mídia estava certa
+(Δ luminância ≤ 1,2 e Δ pixel ≤ 9,6 entre último frame do clipe e frame 0 do loop).
+
+Correção: `src/stage/layerPlan.ts` (puro, 10 testes) com a invariante "o que está debaixo do clipe é o
+destino dele" → clipe sai por unmount (corte), sem linger. Achado extra na mesma medição: o destino era
+revelado no `onPlaying`, durante o fade de entrada do clipe — piscava antes da viagem; agora espera o
+clipe ficar opaco (`clipCovering`). Verificado nas 3 chegadas, na volta e no salto pelo menu.

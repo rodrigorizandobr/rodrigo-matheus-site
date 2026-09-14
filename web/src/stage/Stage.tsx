@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { initial, reduce, REST_ID, type StageEvent, type StageState } from './sceneMachine'
 import { sceneFor, posterSrcSet, videoSrc, transitionSrc, linkSrc, isNeighbour, type Scene, type VideoSources } from './scenes'
+import { planLayers } from './layerPlan'
 import { useActiveSection } from './useActiveSection'
 import { useMotionAllowed } from './media'
 import { prefetchScenes } from './prefetch'
@@ -8,19 +9,17 @@ import { prefetchScenes } from './prefetch'
 const ZOOM_IN_MS = 900
 const ZOOM_OUT_MS = 700
 const HOLD_MS = 450
-/** after a clip lands, keep it fading over the layer underneath for this long — hides any residual mismatch */
-const LINGER_MS = 400
 /** transition clips are 8 s Veo takes re-timed to 2.5× / 60 fps at encode time (scripts/pack-transitions.mjs) */
 const TRANSITION_MS = 8000 / 2.5
 /** once a clip has STARTED, treat it as finished by then even if `ended` never fires */
 const TRANSITION_MAX_MS = TRANSITION_MS + 1500
 /** a clip that has not started by then (cold network) is abandoned → CSS zoom for that part */
 const CLIP_LOAD_CAP_MS = 12000
+/** `.stage-trans` fade-in in tokens.css: until it elapses the clip is still translucent */
+const CLIP_FADE_MS = 200
 
 /** one camera move: which clip, where it lands, what it looks at */
 type Move = { key: string; src: (mobile: boolean) => VideoSources; pos: string; dir: 'in' | 'out' }
-type Landed = { move: Move }
-
 const reducer = (s: StageState, e: StageEvent) => reduce(s, e, isNeighbour)
 
 /** the clip for the current phase: bust → part, part → part (neighbours), or part → bust */
@@ -43,7 +42,11 @@ function moveFor(state: StageState, scene: Scene | null): Move | null {
  * on a `trans` layer, generated with first+last frame so it starts on the pixels of the layer it
  * leaves and ends on frame 0 of the loop it reveals: bust → part for the first section, PART → PART
  * between neighbouring sections (one camera, never back to the bust), part → bust (reversed) for
- * jumps. Scenes without clips fall back to a CSS zoom / crossfade. Rules live in sceneMachine.ts.
+ * jumps. Scenes without clips fall back to a CSS zoom / crossfade.
+ *
+ * The clip's destination sits opaque UNDERNEATH it while it plays, so unmounting the clip at
+ * `ended` is a perfect cut — never a cross-dissolve (planLayers keeps that invariant; a dissolve
+ * here reads as a lighting/fade artefact). Choreography rules live in sceneMachine.ts.
  *
  * Phones decode ONE video at a time: whichever layer is visible plays, the others are paused
  * (buffered, not decoding). Two concurrent decodes is what made the film stutter on a real phone.
@@ -75,6 +78,14 @@ export function Stage() {
   // has the current transition clip actually started playing?
   const [clipStarted, setClipStarted] = useState(false)
   useEffect(() => { setClipStarted(false) }, [state.phase, state.scene])
+  // ...and is it already opaque? Revealing the destination during the clip's fade-in would flash the
+  // arrival before the camera even travels.
+  const [clipCovering, setClipCovering] = useState(false)
+  useEffect(() => {
+    if (!clipStarted) { setClipCovering(false); return }
+    const t = window.setTimeout(() => setClipCovering(true), CLIP_FADE_MS)
+    return () => clearTimeout(t)
+  }, [clipStarted, state.phase, state.scene])
 
   // timers. CSS zoom: fixed durations. Clip: the current layer stays put (crisp, its loop playing)
   // until the clip is playing; only then does the "must have ended by" timer start. If it never
@@ -95,40 +106,27 @@ export function Stage() {
     return () => clearTimeout(t)
   }, [state.phase, state.scene, state.pending, travelling, useClip, clipStarted, move?.key])
 
-  // When a clip ends it stays mounted, fading, over the layer that took over (loop after 'in', bust
-  // after 'out'). `landed` is set in the same event as the phase change so the very first render of
-  // the new phase still has the layer mounted under the same key — no unmount/remount, no restart.
-  const [landed, setLanded] = useState<Landed | null>(null)
+  // did the loop now on screen arrive by clip? decides cut (clip) vs fade (CSS fallback) at hand-over
+  const [arrivedByClip, setArrivedByClip] = useState(false)
   useEffect(() => {
-    if (!landed) return
-    const t = window.setTimeout(() => setLanded(null), LINGER_MS)
-    return () => clearTimeout(t)
-  }, [landed])
+    if (state.phase === 'zoomIn') setArrivedByClip(useClip)
+  }, [state.phase, state.scene, useClip])
 
   // stable identities: TransitionLayer keys its play() effect on these; new functions each render
   // would re-run it and restart an already-ended clip during the linger
   const phaseRef = useRef(state.phase); phaseRef.current = state.phase
   const moveRef = useRef(move); moveRef.current = move
   const onClipEnded = useCallback(() => {
-    const mv = moveRef.current
-    if (phaseRef.current === 'zoomIn') { if (mv) setLanded({ move: mv }); dispatch({ type: 'zoomed' }) }
-    else if (phaseRef.current === 'zoomOut') { if (mv) setLanded({ move: mv }); dispatch({ type: 'rested' }) }
+    // no linger: the layer underneath already shows this clip's last frame, so the cut is invisible
+    if (phaseRef.current === 'zoomIn') dispatch({ type: 'zoomed' })
+    else if (phaseRef.current === 'zoomOut') dispatch({ type: 'rested' })
   }, [])
   const onClipError = useCallback(() => { const key = moveRef.current?.key; if (key) setBroken((b) => ({ ...b, [key]: true })) }, [])
 
-  // CSS fallbacks: bust zoom when arriving from the bust; crossfade when arriving from another part
+  // CSS fallback (clip missing/failed): zoom the bust when arriving from the bust
   const zoom = !useClip && !fromScene && (state.phase === 'zoomIn' || state.phase === 'show') ? scene?.zoom : null
   const showScene = state.phase === 'show'
-  const clipCovers = useClip && travelling && clipStarted
-  // who is on screen: the clip once it plays; before that, whoever was there. The bust layer is the
-  // opaque floor (its `visible` only drives play/pause). The layer being left (previous part's loop
-  // on the way out or on a part → part move) stays visible under the clip — paused once the clip
-  // plays — otherwise the move would flash the bust first.
-  const leavingPart = useClip && (state.phase === 'zoomOut' || !!fromScene)
-  const restVisible = !clipCovers && !showScene && !leavingPart
-  const sceneVisible = showScene || (useClip && state.phase === 'zoomOut') || (!useClip && !!fromScene)
-  const scenePlaying = sceneVisible && !clipCovers
-  const trans: Landed | null = move && useClip && travelling ? { move } : landed
+  const plan = planLayers({ phase: state.phase, useClip, clipCovering, hasFrom: !!fromScene, arrivedByClip })
 
   return (
     <div
@@ -138,21 +136,20 @@ export function Stage() {
       data-scene-active={showScene ? scene?.section : 'hero'}
     >
       <Layer
-        scene={sceneFor(REST_ID)} rest visible={restVisible} mobile={!desktop}
+        scene={sceneFor(REST_ID)} rest visible={plan.restPlaying} mobile={!desktop}
         style={{ ['--zs' as string]: zoom ? zoom.scale : 1, ['--zo' as string]: zoom ? zoom.origin : '50% 30%', ['--zd' as string]: `${state.phase === 'zoomOut' ? ZOOM_OUT_MS : ZOOM_IN_MS}ms` }}
       />
       {fromScene && (
-        <Layer key={fromScene.section} scene={fromScene} visible playing={!clipCovers} mobile={!desktop} instant />
+        <Layer key={fromScene.section} scene={fromScene} visible={plan.fromVisible} playing={plan.fromVisible} mobile={!desktop} instant />
       )}
       {scene && (travelling || showScene) && (
-        <Layer key={scene.section} scene={scene} visible={sceneVisible} playing={scenePlaying} mobile={!desktop} instant={useClip} />
+        <Layer key={scene.section} scene={scene} visible={plan.sceneVisible} playing={plan.scenePlaying} mobile={!desktop} instant={plan.sceneInstant} />
       )}
-      {trans && (
+      {move && useClip && travelling && (
         <TransitionLayer
-          key={trans.move.key}
-          src={trans.move.src(!desktop)}
-          pos={trans.move.pos}
-          fading={!travelling}
+          key={move.key}
+          src={move.src(!desktop)}
+          pos={move.pos}
           onStarted={() => setClipStarted(true)}
           onEnded={onClipEnded}
           onError={onClipError}
@@ -217,16 +214,16 @@ function Layer({ scene, visible, playing = visible, rest = false, mobile, style,
 }
 
 /** Plays one camera-move clip once. Visible from its first decoded frame until it ends. */
-function TransitionLayer({ src, pos, fading = false, onStarted, onEnded, onError }: { src: VideoSources; pos: string; fading?: boolean; onStarted?: () => void; onEnded: () => void; onError: () => void }) {
+function TransitionLayer({ src, pos, onStarted, onEnded, onError }: { src: VideoSources; pos: string; onStarted?: () => void; onEnded: () => void; onError: () => void }) {
   const [ready, setReady] = useState(false)
   const ref = useRef<HTMLVideoElement>(null)
   useEffect(() => {
     const v = ref.current
-    if (!v || fading || v.ended) return
+    if (!v || v.ended) return
     v.play().catch(() => onError())
-  }, [onError, fading])
+  }, [onError])
   return (
-    <div className="stage-layer stage-trans absolute inset-0" data-visible={ready && !fading} data-ready={ready} data-fading={fading}>
+    <div className="stage-layer stage-trans absolute inset-0" data-visible={ready} data-ready={ready}>
       <video ref={ref} className="stage-video stage-trans-video" muted playsInline autoPlay preload="auto" disablePictureInPicture
              style={{ ['--pos' as string]: pos }}
              onPlaying={() => { setReady(true); onStarted?.() }} onEnded={onEnded} onError={onError}>

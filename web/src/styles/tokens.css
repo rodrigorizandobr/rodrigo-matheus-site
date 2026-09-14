@@ -355,11 +355,13 @@ body::before {
   /* the close-up fades in at the end of the zoom, out at the start of the zoom back */
   .stage-scene { opacity: 0; transition: opacity .55s ease; }
   .stage-scene[data-visible="true"][data-ready="true"] { opacity: 1; }
-  /* transition clip: quick fade over the bust on its first frame; hard cut into the loop at its last */
-  .stage-trans { opacity: 0; transition: opacity .25s ease; z-index: 2; }
+  /* Clipe de transição. Entra com um fade curto sobre a origem (o loop está num ponto qualquer do
+     palíndromo e o clipe começa no still — a diferença é pequena, mas existe). SAI por unmount, sem
+     fade nenhum: o último frame do clipe é o frame 0 do que está por baixo, então o corte é
+     invisível. Um fade aqui viraria cross-dissolve — o "efeito de iluminação" reportado pelo PO. */
+  .stage-trans { opacity: 0; transition: opacity .2s ease; z-index: 2; }
   .stage-trans[data-ready="true"] { opacity: 1; }
-  .stage-trans[data-fading="true"] { opacity: 0; transition: opacity .4s ease; }
-  /* arriving by clip: the loop's first frame is the clip's last, so it appears instantly under the fading clip */
+  /* chegando por clipe: o loop aparece por baixo dele sem transição, para a saída ser um corte */
   .stage-scene[data-instant="true"] { transition: none; }
   .stage-trans-video { object-position: var(--pos, 50% 26%); }
   .stage-img, .stage-video {
