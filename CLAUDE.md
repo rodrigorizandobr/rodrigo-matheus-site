@@ -165,6 +165,14 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   primeiro+último frame (`gen-video --in busto --last still`, só 8 s/720p), cujo último frame é o primeiro do
   loop; a volta é o clipe invertido. Sem clipe, cai para zoom CSS do busto. Nunca esconda um `<video>` com
   `display:none` — ele ainda baixa e decodifica.
+- **Velocidade da viagem é assada no encode, nunca `playbackRate`.** Os clipes Veo (8 s/24 fps) saem do
+  `pack-transitions.mjs` já a 2,2× e 30 fps (3,6 s). A 2,2× no browser o celular precisava decodificar ~53 fps
+  — VP9 por software não dá conta e o filme engasga. Mudou `SPEED`? Mude `TRANSITION_MS` no `Stage.tsx`.
+- **Mobile só recebe H.264 (`*.m.mp4`), nunca webm.** Chrome/Safari escolhem o primeiro `<source>` que *podem*
+  tocar; VP9 em software num telefone = travado. `videoSrc/transitionSrc(…, mobile)` devolvem só `mp4` (testado).
+- **Um vídeo decodificando por vez.** Camada toca só enquanto `playing`; a cena é montada com `preload="auto"`
+  (buffer, pausada no frame 0 = último do clipe) e só dá `play()` na entrega. Na volta o loop fica visível
+  e pausado sob o clipe — senão o busto pisca antes do clipe aparecer.
 - **Clipes são pré-buscados após o load** (`prefetch.ts`, ordem de leitura, respeita Save-Data/2G/reduced-motion) e a
   viagem só começa em `onPlaying` — sem isso, celular em rede lenta vê corte seco.
 - **Só o androide aparece no site** — sem foto pessoal (decisão do PO).

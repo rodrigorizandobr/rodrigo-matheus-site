@@ -1,4 +1,4 @@
-import { SCENES, transitionSrc, videoSrc } from './scenes'
+import { SCENES, transitionSrc, videoSrc, type VideoSources } from './scenes'
 
 /**
  * Warm the HTTP cache with the clips the visitor is about to need, in reading order, one file at a
@@ -9,7 +9,7 @@ import { SCENES, transitionSrc, videoSrc } from './scenes'
  */
 /** Reading-order list of clip URLs: per scene, in-clip first (needed first), then loop, then out-clip. */
 export function prefetchQueue(mobile: boolean, webm: boolean): string[] {
-  const pick = (s: { webm: string; mp4: string }) => (webm ? s.webm : s.mp4)
+  const pick = (s: VideoSources) => (webm && s.webm ? s.webm : s.mp4)
   const queue: string[] = []
   for (const sc of SCENES) {
     if (sc.part === 'rest' || sc.video === false) continue

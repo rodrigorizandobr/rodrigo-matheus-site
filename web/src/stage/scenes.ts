@@ -34,19 +34,23 @@ export const posterSrcSet = (s: Scene) =>
     ? { srcSet: '/hero/hero-wide-1280.webp 1280w, /hero/hero-wide-1920.webp 1920w', src: '/hero/hero-wide-1280.webp' }
     : { srcSet: `/scenes/${s.part}-1280.webp 1280w, /scenes/${s.part}-1920.webp 1920w`, src: `/scenes/${s.part}-1280.webp` }
 
-/** `mobile` picks the 854px encodes (scripts/pack-mobile.mjs) — same loops, ~half the bytes. */
-export const videoSrc = (s: Scene, mobile = false) => {
-  const sfx = mobile ? '.m' : ''
-  return s.part === 'rest'
-    ? { webm: `/hero/idle${sfx}.webm`, mp4: `/hero/idle${sfx}.mp4` }
-    : { webm: `/scenes/${s.part}${sfx}.webm`, mp4: `/scenes/${s.part}${sfx}.mp4` }
+export type VideoSources = { mp4: string; webm?: string }
+
+/**
+ * Desktop gets webm (VP9) + mp4; `mobile` gets ONLY the 854px H.264 mp4 (scripts/pack-mobile.mjs).
+ * Every phone decodes H.264 in hardware; VP9 often lands in software and stutters, and Chrome/Safari
+ * would pick the webm <source> first just because they *can* play it.
+ */
+export const videoSrc = (s: Scene, mobile = false): VideoSources => {
+  const base = s.part === 'rest' ? '/hero/idle' : `/scenes/${s.part}`
+  return mobile ? { mp4: `${base}.m.mp4` } : { webm: `${base}.webm`, mp4: `${base}.mp4` }
 }
 
 /**
  * Transition clip for a scene: 'in' = camera travels from the resting bust to the part (its last
  * frame is the close-up still, i.e. the loop's first frame); 'out' = the same clip reversed.
  */
-export const transitionSrc = (s: Scene, dir: 'in' | 'out', mobile = false) => {
-  const sfx = mobile ? '.m' : ''
-  return { webm: `/scenes/${s.part}-${dir}${sfx}.webm`, mp4: `/scenes/${s.part}-${dir}${sfx}.mp4` }
+export const transitionSrc = (s: Scene, dir: 'in' | 'out', mobile = false): VideoSources => {
+  const base = `/scenes/${s.part}-${dir}`
+  return mobile ? { mp4: `${base}.m.mp4` } : { webm: `${base}.webm`, mp4: `${base}.mp4` }
 }

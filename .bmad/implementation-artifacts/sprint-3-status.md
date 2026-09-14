@@ -76,3 +76,11 @@ node scripts/pack-scenes.mjs fist && node scripts/pack-mobile.mjs   # e trocar p
 - Desfoque do busto removido.
 
 Verificado com emulação mobile + Slow 4G no Chrome: 18 clipes pré-buscados após o load; BIO: busto nítido até ~1 s, clipe completo, pouso no loop.
+
+## 2026-09-14 — fluidez no celular real
+
+Sintoma (PO, aba anônima no telefone): vídeos "travados, sem fluidez". Causa: `playbackRate 2.2` sobre clipes
+24 fps (≈53 fps a decodificar), webm/VP9 escolhido pelo browser e decodificado por software, e loop da cena
+decodificando junto com o clipe. Correções: velocidade assada no encode (30 fps, 3,6 s), mobile só H.264,
+uma camada decodificando por vez (`playing` separado de `visible`), linger unificado ida/volta (`landed`),
+loop pausado sob o clipe de volta. `public/scenes` 45 → 33 MB. Continuidade último frame preservada (Δ ≤ 2,2).
