@@ -30,5 +30,10 @@ export const posterSrcSet = (s: Scene) =>
     ? { srcSet: '/hero/hero-wide-1280.webp 1280w, /hero/hero-wide-1920.webp 1920w', src: '/hero/hero-wide-1280.webp' }
     : { srcSet: `/scenes/${s.part}-1280.webp 1280w, /scenes/${s.part}-1920.webp 1920w`, src: `/scenes/${s.part}-1280.webp` }
 
-export const videoSrc = (s: Scene) =>
-  s.part === 'rest' ? { webm: '/hero/idle.webm', mp4: '/hero/idle.mp4' } : { webm: `/scenes/${s.part}.webm`, mp4: `/scenes/${s.part}.mp4` }
+/** `mobile` picks the 854px encodes (scripts/pack-mobile.mjs) — same loops, ~half the bytes. */
+export const videoSrc = (s: Scene, mobile = false) => {
+  const sfx = mobile ? '.m' : ''
+  return s.part === 'rest'
+    ? { webm: `/hero/idle${sfx}.webm`, mp4: `/hero/idle${sfx}.mp4` }
+    : { webm: `/scenes/${s.part}${sfx}.webm`, mp4: `/scenes/${s.part}${sfx}.mp4` }
+}

@@ -354,6 +354,8 @@ body::before {
     transform: scale(1.04);
   }
   .stage-video { opacity: 0; transition: opacity 1.2s ease; }
+  .band-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .9s ease; }
+  .scene-band[data-playing="true"] .band-video { opacity: 1; }
   .stage-layer[data-video="true"] .stage-video { opacity: 1; }
 }
 

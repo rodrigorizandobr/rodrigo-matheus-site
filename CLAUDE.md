@@ -150,8 +150,9 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
 - **`sharp` é dependência real** do pipeline de imagens (`scripts/pack-hero.mjs`), não transitiva.
 - **O loop de vídeo é um palíndromo** (clipe + clipe invertido). O Veo não garante que o último frame
   bata com o primeiro; o ffmpeg garante. `scale` tem que ficar **dentro** do `filter_complex`.
-- **Vídeo só no desktop** (`min-width: 768px`), nunca com `prefers-reduced-motion` nem `Save-Data`.
-  O still é sempre renderizado por baixo — é o LCP e o fallback.
+- **Vídeo em todo lugar, mas com orçamento:** desktop usa os encodes 1280 px; mobile usa `*.m.*`
+  (854 px), `preload="none"` e só carrega/toca quando a faixa está perto da viewport (`useInViewPlayback`).
+  `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
 - **Os atalhos da HintsBar são promessas.** `◀ ▶`, `↵` e `L` estão ligados em `Hero.tsx`; se mudar
   um, mude o outro.
 - **Todo CSS próprio vive em `@layer`** (`base` para elementos, `components` para `.panel/.chip/.cta`…).

@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { initial, reduce, REST_ID } from './sceneMachine'
 import { sceneFor, posterSrcSet, videoSrc, type Scene } from './scenes'
 import { useActiveSection } from './useActiveSection'
+import { useMotionAllowed } from './media'
 
 const REST_MS = 520      // how long the resting bust holds between two focuses
 const SCENE_FADE_MS = 700
@@ -54,18 +55,8 @@ function StageDesktop() {
   )
 }
 
-function useMediaFlags() {
-  const [f, setF] = useState({ video: false, fine: false })
-  useEffect(() => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
-    setF({ video: !reduce && !saveData, fine: window.matchMedia('(pointer: fine)').matches && !reduce })
-  }, [])
-  return f
-}
-
 function Layer({ scene, visible, rest = false }: { scene: Scene; visible: boolean; rest?: boolean }) {
-  const { video: wantVideo } = useMediaFlags()
+  const wantVideo = useMotionAllowed()
   const [ready, setReady] = useState(false)
   const [vid, setVid] = useState(false)
   const poster = posterSrcSet(scene)

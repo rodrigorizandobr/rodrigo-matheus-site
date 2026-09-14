@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Dictionary } from '../../i18n/types'
+import { useInViewPlayback, useMotionAllowed } from '../../stage/media'
+import { sceneFor, videoSrc } from '../../stage/scenes'
 
 /**
  * The hero character, full-bleed behind the HUD. Layers, bottom to top:
@@ -13,14 +15,10 @@ export function HeroPortrait({ hud }: { hud: Dictionary['hud'] }) {
   const host = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   const [video, setVideo] = useState(false)
-  const [wantVideo, setWantVideo] = useState(false)
-
-  useEffect(() => {
-    const desktop = window.matchMedia('(min-width: 768px)').matches
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
-    setWantVideo(desktop && !reduce && !saveData)
-  }, [])
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const wantVideo = useMotionAllowed()
+  const src = videoSrc(sceneFor('hero'), true) // this component only renders below lg → mobile encodes
+  useInViewPlayback(host, videoRef, wantVideo)
 
   useEffect(() => {
     const el = host.current
@@ -63,18 +61,18 @@ export function HeroPortrait({ hud }: { hud: Dictionary['hud'] }) {
       </picture>
       {wantVideo && (
         <video
+          ref={videoRef}
           className="portrait-video"
-          autoPlay
           muted
           loop
           playsInline
-          preload="auto"
+          preload="none"
           disablePictureInPicture
-          onCanPlay={() => setVideo(true)}
+          onPlaying={() => setVideo(true)}
           onError={() => setVideo(false)}
         >
-          <source src="/hero/idle.webm" type="video/webm" />
-          <source src="/hero/idle.mp4" type="video/mp4" />
+          <source src={src.webm} type="video/webm" />
+          <source src={src.mp4} type="video/mp4" />
         </video>
       )}
       <div className="portrait-glow" />
