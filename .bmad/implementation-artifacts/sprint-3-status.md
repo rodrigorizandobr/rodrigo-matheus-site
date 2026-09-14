@@ -101,3 +101,16 @@ coração→cérebro, cérebro→punho, punho→mãos) com primeiro/último fram
 `from` + predicado `direct` (vizinhas = clipe direto; saltos = via busto); `Stage` mantém a camada da parte
 de origem visível/pausada sob o clipe; prefetch na ordem descer → subir → saídas. Take coração→cérebro
 regerado (o primeiro virou caveira no meio).
+
+## 2026-09-14 (tarde) — o clipe tocava invisível
+
+Depois de 3 rodadas de "não mudou nada", a gravação real do palco (contact sheet de 10 quadros por
+transição) mostrou 8 quadros parados na cena anterior + corte seco: o `<video>` da camada de transição
+saía com `opacity: 0` (cascata — `.stage-video{opacity:0}` depois de `.stage-trans-video{opacity:1}`,
+mesma especificidade). A camada não tem still por baixo, então renderizava transparente. Corrigido com
+`.stage-trans .stage-video` + teste de regressão que lê o CSS.
+
+Erro de processo registrado: toda a investigação anterior (fps, codec, backdrop-filter, clipes parte →
+parte) mediu ESTADO (`!v.paused`, `readyState`) e nunca PIXEL. A regeneração dos 5 takes (~R$ 90) foi
+desnecessária — os originais já tinham percurso de câmera correto; foram restaurados, e os novos ficam
+em `.gen/alt-l-*.mp4`. Novo script: `scripts/contact-sheet.mjs` (olhar quadros antes de empacotar).

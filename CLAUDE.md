@@ -154,6 +154,12 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
 - **Os atalhos da HintsBar são promessas.** `◀ ▶`, `↵` e `L` estão ligados em `Hero.tsx`; se mudar
   um, mude o outro.
+- **A camada do clipe de transição não tem still por baixo — se o `<video>` dela ficar transparente, a
+  viagem inteira some e vira corte seco.** Foi o bug que escondeu TODAS as transições: `.stage-video
+  { opacity: 0 }` vem depois de `.stage-trans-video { opacity: 1 }` com a mesma especificidade e vencia.
+  Hoje `.stage-trans .stage-video` (duas classes) garante o `opacity: 1`, com regressão em
+  `src/styles/stage-css.test.ts`. **Lição de depuração:** "o vídeo está tocando" não prova que ele
+  aparece — confira o `opacity` computado do `<video>`, não só o da camada.
 - **Todo CSS próprio vive em `@layer`** (`base` para elementos, `components` para `.panel/.chip/.cta`…).
   Fora de layer ele vence as utilities do Tailwind v4 e quebra `md:hidden`, `text-*`, `!bg-*` em silêncio.
 - **`backdrop-filter` vira containing block de `fixed`.** Overlays (menu mobile) saem por `createPortal(document.body)`.
@@ -193,5 +199,12 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   antes de empacotar: o Veo mostrou dentes em dois takes da boca — por isso `blog` é `video: false`.
 - **Todo número do cromo é real.** REPOS/COMMITS/ONLINE/LAST COMMIT vêm de `/api/data`. Se a
   API estiver com cache velho (só atualiza via `/api/refresh`), o site mostra o número velho.
+- **Cada take do Veo custa dinheiro — um rejeitado custa igual a um aprovado.** 8 s ≈ US$ 3 (~R$ 17);
+  o projeto já gastou ~R$ 430 em 23 takes, ~R$ 50 deles em takes descartados. Antes de gerar: escreva o
+  prompt com percurso explícito (a câmera nunca para, com pontos de passagem) e negative prompt com
+  `dissolve, cross-fade, static camera, slow motion`. Depois de gerar: **sempre**
+  `node scripts/contact-sheet.mjs /tmp/sheet.jpg .gen/<take>.mp4` e olhe os 6 quadros — se o meio repete
+  as pontas, o Veo fez um dissolver, não uma viagem, e o clipe não serve. Interpolar/reempacotar com
+  ffmpeg é de graça; regerar não é.
 - **A chave do Gemini vive em `web/.env.local`** (gitignored, `chmod 600`). Nunca em flag de CLI,
   nunca no código.
