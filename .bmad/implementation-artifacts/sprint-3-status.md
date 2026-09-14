@@ -92,3 +92,12 @@ reamostrados 52,8 → 30 fps tinham cadência 2,7/2,7/2,7/1,5 e os loops eram 24
 transições a 2,5× = 60 fps exatos (3,2 s) e loops interpolados a 60 fps (`scripts/interp60.mjs`, mci, ~20 min
 com 7 em paralelo). Após tudo: `show`/scroll 0/121 frames longos no M1.
 Fechamento: header e rodapé (`backdrop-blur-xl`, sobre o vídeo) eram o resto do jank em Contato (7/114 → 0/121 sem eles). Removidos.
+
+## 2026-09-14 — uma câmera só: parte → parte
+
+PO: "entre uma cena e outra falta uma filmagem que roda uma vez: do último frame da seção anterior ao primeiro
+da atual". Antes: olhos → busto → pescoço. Agora 5 clipes Veo parte → parte (olhos→pescoço, pescoço→coração,
+coração→cérebro, cérebro→punho, punho→mãos) com primeiro/último frame travados nos stills; máquina ganhou
+`from` + predicado `direct` (vizinhas = clipe direto; saltos = via busto); `Stage` mantém a camada da parte
+de origem visível/pausada sob o clipe; prefetch na ordem descer → subir → saídas. Take coração→cérebro
+regerado (o primeiro virou caveira no meio).

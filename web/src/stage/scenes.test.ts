@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sceneFor, transitionSrc, videoSrc, SCENES } from './scenes'
+import { sceneFor, transitionSrc, videoSrc, linkSrc, isNeighbour, SCENES } from './scenes'
 
 describe('scenes — fontes de vídeo por dispositivo', () => {
   it('loop: desktop vs mobile', () => {
@@ -19,5 +19,19 @@ describe('scenes — fontes de vídeo por dispositivo', () => {
     expect(sceneFor('blog').part).toBe('fist')
     const parts = SCENES.map((s) => s.part)
     expect(new Set(parts).size).toBe(parts.length)
+  })
+})
+
+describe('scenes — clipes parte → parte entre seções vizinhas', () => {
+  it('vizinhas na ordem de leitura são ligadas; hero não (ele usa o clipe busto → parte)', () => {
+    expect(isNeighbour('about', 'experience')).toBe(true)
+    expect(isNeighbour('experience', 'about')).toBe(true)
+    expect(isNeighbour('about', 'projects')).toBe(false)
+    expect(isNeighbour('hero', 'about')).toBe(false)
+    expect(isNeighbour('about', 'about')).toBe(false)
+  })
+  it('linkSrc nomeia o clipe pela origem e destino (a volta é o arquivo invertido)', () => {
+    expect(linkSrc(sceneFor('about'), sceneFor('experience'))).toEqual({ webm: '/scenes/eyes-neck.webm', mp4: '/scenes/eyes-neck.mp4' })
+    expect(linkSrc(sceneFor('experience'), sceneFor('about'), true)).toEqual({ mp4: '/scenes/neck-eyes.m.mp4' })
   })
 })

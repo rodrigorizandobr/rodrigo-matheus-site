@@ -54,3 +54,19 @@ export const transitionSrc = (s: Scene, dir: 'in' | 'out', mobile = false): Vide
   const base = `/scenes/${s.part}-${dir}`
   return mobile ? { mp4: `${base}.m.mp4` } : { webm: `${base}.webm`, mp4: `${base}.mp4` }
 }
+
+/** Neighbours in reading order (both non-rest): the camera travels between them directly. */
+export const isNeighbour = (a: string, b: string): boolean => {
+  const ia = SCENES.findIndex((s) => s.section === a)
+  const ib = SCENES.findIndex((s) => s.section === b)
+  return ia > 0 && ib > 0 && Math.abs(ia - ib) === 1
+}
+
+/**
+ * Part → part clip (scripts/pack-links.mjs): first frame = `from`'s still (its loop's frame 0),
+ * last frame = `to`'s still. Both directions exist as files; the reverse one is the same take reversed.
+ */
+export const linkSrc = (from: Scene, to: Scene, mobile = false): VideoSources => {
+  const base = `/scenes/${from.part}-${to.part}`
+  return mobile ? { mp4: `${base}.m.mp4` } : { webm: `${base}.webm`, mp4: `${base}.mp4` }
+}

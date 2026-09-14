@@ -1,4 +1,4 @@
-import { SCENES, transitionSrc, videoSrc, type VideoSources } from './scenes'
+import { SCENES, transitionSrc, videoSrc, linkSrc, type VideoSources } from './scenes'
 
 /**
  * Warm the HTTP cache with the clips the visitor is about to need, in reading order, one file at a
@@ -7,17 +7,25 @@ import { SCENES, transitionSrc, videoSrc, type VideoSources } from './scenes'
  *
  * Skipped on Save-Data and on 2G. Order per scene: in-clip (needed first), loop, out-clip.
  */
-/** Reading-order list of clip URLs: per scene, in-clip first (needed first), then loop, then out-clip. */
+/**
+ * Reading-order list of clip URLs. Scrolling down: the arrival clip of each part (bust → eyes for the
+ * first, part → part after) followed by its loop. Then what scrolling up needs (part → part reversed),
+ * then the bust exits used by menu jumps.
+ */
 export function prefetchQueue(mobile: boolean, webm: boolean): string[] {
   const pick = (s: VideoSources) => (webm && s.webm ? s.webm : s.mp4)
-  const queue: string[] = []
-  for (const sc of SCENES) {
-    if (sc.part === 'rest' || sc.video === false) continue
-    if (sc.transition) queue.push(pick(transitionSrc(sc, 'in', mobile)))
-    queue.push(pick(videoSrc(sc, mobile)))
-    if (sc.transition) queue.push(pick(transitionSrc(sc, 'out', mobile)))
-  }
-  return queue
+  const parts = SCENES.filter((sc) => sc.part !== 'rest' && sc.video !== false)
+  const down: string[] = []
+  const up: string[] = []
+  const exits: string[] = []
+  parts.forEach((sc, i) => {
+    const prev = i > 0 ? parts[i - 1] : null
+    if (sc.transition) down.push(prev ? pick(linkSrc(prev, sc, mobile)) : pick(transitionSrc(sc, 'in', mobile)))
+    down.push(pick(videoSrc(sc, mobile)))
+    if (prev && sc.transition) up.unshift(pick(linkSrc(sc, prev, mobile)))
+    if (sc.transition) exits.push(pick(transitionSrc(sc, 'out', mobile)))
+  })
+  return [...down, ...up, ...exits]
 }
 
 export function prefetchScenes(mobile: boolean, signal?: AbortSignal): void {

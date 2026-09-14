@@ -161,10 +161,14 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   voltar a ser `.cta` puro, o LinkedIn fica branco no branco de novo.
 - **Screenshot full-page do Chrome mente nesta página** (hero `100svh` + `body::before` fixo).
   Verifique por viewport ou fatie em tiles.
-- **O palco é uma viagem contínua, não troca de vídeo.** Cada parte tem um clipe busto→parte gerado com
-  primeiro+último frame (`gen-video --in busto --last still`, só 8 s/720p), cujo último frame é o primeiro do
-  loop; a volta é o clipe invertido. Sem clipe, cai para zoom CSS do busto. Nunca esconda um `<video>` com
-  `display:none` — ele ainda baixa e decodifica.
+- **O palco é UMA câmera, não troca de vídeo.** Entre seções vizinhas a câmera vai **parte → parte**
+  (`scripts/pack-links.mjs`, clipes `l-<a>-<b>` gerados com `--in still(a) --last still(b)`, 8 s/720p; a volta é
+  o arquivo invertido `<b>-<a>`). Só a primeira seção usa busto → olhos, e só saltos pelo menu passam pelo
+  busto (`<parte>-out` + `<parte>-in`). `isNeighbour` em `scenes.ts` decide; a máquina recebe o predicado.
+  Ao gerar um clipe parte → parte, **olhe o meio dele** — o Veo já trocou o rosto por uma caveira num take
+  (coração → cérebro); meça também Δ do primeiro/último frame contra os stills (bom: < 10; controle ~33).
+  Sem clipe, cai para zoom CSS do busto (ou crossfade, se vinha de outra parte). Nunca esconda um `<video>`
+  com `display:none` — ele ainda baixa e decodifica.
 - **Tudo que toca no palco é 60 fps.** O Veo entrega 24 fps — em tela de 60/120 Hz isso é pulldown 3:2 e nunca
   parece fluido, por melhor que decodifique. `scripts/interp60.mjs` interpola cada take uma vez (minterpolate
   mci, ~6 min por take, todos em paralelo) para `.gen/i60-*.mp4`; os `pack-*` preferem esse intermediário.
