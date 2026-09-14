@@ -134,3 +134,69 @@ describe('reduce — a câmera anda de parte em parte até o destino', () => {
       .toEqual({ phase: 'zoomOut', scene: 'about', pending: 'experience' })
   })
 })
+
+describe('reduce — rolar TUDO de uma vez até o topo (bug reportado pelo PO)', () => {
+  const ORDEM = ['hero', 'about', 'experience', 'projects', 'education', 'blog', 'contact']
+  /** mesmo cálculo de scenes.stepToward, incluindo a volta ao busto */
+  const step = (from: string, to: string) => {
+    const a = ORDEM.indexOf(from), b = ORDEM.indexOf(to)
+    if (a <= 0 || b < 0 || a === b) return null
+    const next = ORDEM[a + (b > a ? 1 : -1)]
+    return next === 'hero' ? null : next
+  }
+  /** aplica os focos na ordem em que a rolagem rápida os dispara */
+  const focar = (inicial: StageState, secoes: string[]) =>
+    secoes.reduce((st, section) => reduce(st, { type: 'focus', section }, step), inicial)
+
+  it('rolagem rápida até o topo ainda refaz o caminho inteiro', () => {
+    // o usuário está na última seção e sobe tudo de uma vez: os focos chegam em rajada,
+    // e o ÚLTIMO é o topo da página
+    let estado = focar({ phase: 'show', scene: 'contact', pending: null },
+                       ['blog', 'education', 'projects', 'experience', 'about', 'hero'])
+
+    const visitadas: string[] = []
+    for (let i = 0; i < 12 && estado.phase === 'zoomIn'; i++) {
+      visitadas.push(estado.scene!)
+      estado = reduce(estado, { type: 'zoomed' }, step)
+    }
+    expect(visitadas).toEqual(['blog', 'education', 'projects', 'experience', 'about'])
+    expect(estado.phase).toBe('zoomOut')
+    expect(estado.scene).toBe('about')
+  })
+
+  it('e termina no repouso, sem cena presa', () => {
+    let estado = focar({ phase: 'show', scene: 'contact', pending: null },
+                       ['blog', 'education', 'projects', 'experience', 'about', 'hero'])
+    for (let i = 0; i < 12 && estado.phase === 'zoomIn'; i++) estado = reduce(estado, { type: 'zoomed' }, step)
+    expect(reduce(estado, { type: 'rested' }, step)).toEqual({ phase: 'rest', scene: null, pending: null })
+  })
+
+  it('rolagem rápida até o meio da página também anda o caminho', () => {
+    let estado = focar({ phase: 'show', scene: 'contact', pending: null },
+                       ['blog', 'education', 'projects'])
+    const visitadas: string[] = []
+    for (let i = 0; i < 12 && estado.phase === 'zoomIn'; i++) {
+      visitadas.push(estado.scene!)
+      estado = reduce(estado, { type: 'zoomed' }, step)
+    }
+    expect(visitadas).toEqual(['blog', 'education', 'projects'])
+    expect(estado).toEqual({ phase: 'show', scene: 'projects', pending: null })
+  })
+
+  it('descer tudo de uma vez a partir do repouso também percorre as partes', () => {
+    let estado = focar({ phase: 'rest', scene: null, pending: null },
+                       ['about', 'experience', 'projects', 'education', 'blog', 'contact'])
+    const visitadas: string[] = []
+    for (let i = 0; i < 12 && estado.phase === 'zoomIn'; i++) {
+      visitadas.push(estado.scene!)
+      estado = reduce(estado, { type: 'zoomed' }, step)
+    }
+    expect(visitadas).toEqual(['about', 'experience', 'projects', 'education', 'blog', 'contact'])
+  })
+
+  it('voltar ao topo já estando na PRIMEIRA parte é o clipe parte → busto, sem rodeio', () => {
+    const show: StageState = { phase: 'show', scene: 'about', pending: null }
+    expect(reduce(show, { type: 'focus', section: 'hero' }, step))
+      .toEqual({ phase: 'zoomOut', scene: 'about', pending: null })
+  })
+})

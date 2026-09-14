@@ -271,10 +271,15 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
 - **Screenshot full-page do Chrome mente nesta página** (hero `100svh` + `body::before` fixo).
   Verifique por viewport ou fatie em tiles.
 - **A câmera REFAZ o caminho na volta.** `stepToward(from, to)` devolve UM passo, e a máquina emenda o
-  próximo a cada pouso: da última seção para a primeira ela anda mãos → punho → cérebro → coração →
-  pescoço → olhos, em vez de cortar para o busto e pular. Verificado em produção. Só o topo da página
-  (hero) é alcançado pelo clipe parte → busto, porque é o clipe que existe. Custo: a volta inteira leva
-  ~16 s de vídeo (5 trechos), o que é o ponto — é uma viagem, não um corte.
+  próximo a cada pouso: da última seção ao topo ela anda mãos → punho → cérebro → coração → pescoço →
+  olhos → busto, em vez de cortar. Verificado em produção. Custo: ~19 s de vídeo, o que é o ponto — é
+  uma viagem, não um corte.
+- **O destino fica guardado MESMO sendo o topo da página.** Rolagem rápida dispara os focos em rajada e
+  o ÚLTIMO é o `hero`; zerar `pending` nesse foco (o que o código fazia) apagava o caminho de volta, e o
+  palco pousava na parte do meio e cortava para o busto. Sintoma exato relatado pelo PO: "devagar
+  funciona, tudo de uma vez não". `pending` só vira null ao ENTRAR em `zoomOut` (`exitPending`).
+- **Do busto, a câmera alcança qualquer parte direto** — o clipe busto → parte existe para cada uma, e
+  por isso descer de uma vez a partir do topo é uma chegada, não uma viagem por todas as partes.
 - **O palco é UMA câmera, não troca de vídeo.** Entre seções vizinhas a câmera vai **parte → parte**
   (`scripts/pack-links.mjs`, clipes `l-<a>-<b>` gerados com `--in still(a) --last still(b)`, 8 s/720p; a volta é
   o arquivo invertido `<b>-<a>`). Só a primeira seção usa busto → olhos, e só saltos pelo menu passam pelo

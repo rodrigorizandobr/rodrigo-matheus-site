@@ -25,26 +25,34 @@ export const REST_ID: SceneId = 'hero'
 export const initial = (section: SceneId = REST_ID): StageState =>
   section === REST_ID ? { phase: 'rest', scene: null, pending: null } : { phase: 'zoomIn', scene: section, pending: null }
 
+/** `pending` guarda o DESTINO, inclusive o topo; só o que entra em `zoomOut` vira null. */
+const exitPending = (target: SceneId) => (target === REST_ID ? null : target)
+
 export function reduce(s: StageState, e: StageEvent, step: Step = noStep): StageState {
   switch (e.type) {
     case 'focus': {
-      const target = e.section === REST_ID ? null : e.section
+      const target = e.section
       switch (s.phase) {
         case 'rest':
-          return target ? { phase: 'zoomIn', scene: target, pending: null } : s
+          // do busto a câmera alcança qualquer parte direto — o clipe busto → parte existe
+          return target === REST_ID ? s : { phase: 'zoomIn', scene: target, pending: null }
         case 'zoomIn':
+          // O destino fica guardado MESMO sendo o topo. Zerar aqui era o bug da rolagem
+          // rápida: o último foco da subida é o hero, e ele apagava o caminho de volta.
           return s.scene === target ? { ...s, pending: null } : { ...s, pending: target }
         case 'show': {
           if (s.scene === target) return s
-          const next = target && s.scene ? step(s.scene, target) : null
+          const next = s.scene ? step(s.scene, target) : null
           if (next) return { phase: 'zoomIn', scene: next, from: s.scene!, pending: next === target ? null : target }
-          return { phase: 'zoomOut', scene: s.scene, pending: target }
+          return { phase: 'zoomOut', scene: s.scene, pending: exitPending(target) }
         }
         case 'zoomOut':
-          if (target && target === s.scene) return { phase: 'zoomIn', scene: target, pending: null } // came back: cancel the exit
-          return s.pending === target ? s : { ...s, pending: target }
+          if (target !== REST_ID && target === s.scene) return { phase: 'zoomIn', scene: target, pending: null } // voltou: cancela a saída
+          return s.pending === exitPending(target) ? s : { ...s, pending: exitPending(target) }
         case 'hold':
-          return target ? (s.pending === target ? s : { ...s, pending: target }) : { phase: 'rest', scene: null, pending: null }
+          return target === REST_ID
+            ? { phase: 'rest', scene: null, pending: null }
+            : (s.pending === target ? s : { ...s, pending: target })
       }
       return s
     }
@@ -53,7 +61,7 @@ export function reduce(s: StageState, e: StageEvent, step: Step = noStep): Stage
       if (s.pending === null || s.pending === s.scene) return { phase: 'show', scene: s.scene, pending: null }
       const next = s.scene ? step(s.scene, s.pending) : null
       if (next) return { phase: 'zoomIn', scene: next, from: s.scene!, pending: next === s.pending ? null : s.pending }
-      return { phase: 'zoomOut', scene: s.scene, pending: s.pending }
+      return { phase: 'zoomOut', scene: s.scene, pending: exitPending(s.pending) }
     }
     case 'rested':
       if (s.phase !== 'zoomOut') return s

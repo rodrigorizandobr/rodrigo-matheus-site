@@ -70,14 +70,19 @@ export const isNeighbour = (a: string, b: string): boolean => {
  * A máquina chama isto a cada pouso e emenda o próximo trecho, o que faz a volta
  * parecer a mesma câmera refazendo o caminho — e não um corte para o busto.
  *
- * `null` quando não há passo: voltar ao topo (hero) ou sair dele usa os clipes
- * busto → parte e parte → busto.
+ * Voltar ao TOPO também anda: subindo da última seção, a câmera recua parte por parte
+ * até a primeira e só então usa o clipe parte → busto. Por isso `to` pode ser o hero.
+ *
+ * `null` quando não há passo a dar — já se está na primeira parte a caminho do topo, ou
+ * se está no próprio busto (de lá a câmera alcança qualquer parte direto, com o clipe
+ * busto → parte que existe para cada uma).
  */
 export const stepToward = (from: string, to: string): string | null => {
   const ia = SCENES.findIndex((s) => s.section === from)
   const ib = SCENES.findIndex((s) => s.section === to)
-  if (ia <= 0 || ib <= 0 || ia === ib) return null
-  return SCENES[ia + (ib > ia ? 1 : -1)].section
+  if (ia <= 0 || ib < 0 || ia === ib) return null
+  const next = SCENES[ia + (ib > ia ? 1 : -1)]
+  return next.part === 'rest' ? null : next.section
 }
 
 /**

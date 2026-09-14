@@ -60,8 +60,13 @@ describe('stepToward — a câmera anda de parte em parte, nunca teleporta', () 
     expect(caminho).toEqual(['blog', 'education', 'projects', 'experience', 'about'])
   })
 
-  it('voltar ao topo (hero) não tem passo — é o clipe de volta ao busto', () => {
-    expect(stepToward('contact', 'hero')).toBeNull()
+  it('voltar ao topo ANDA de volta pelas partes, uma a uma', () => {
+    expect(stepToward('contact', 'hero')).toBe('blog')
+    expect(stepToward('experience', 'hero')).toBe('about')
+  })
+
+  it('só na PRIMEIRA parte é que o topo vira o clipe parte → busto', () => {
+    expect(stepToward('about', 'hero')).toBeNull()
   })
 
   it('sair do hero também não tem passo — é o clipe busto → parte', () => {
