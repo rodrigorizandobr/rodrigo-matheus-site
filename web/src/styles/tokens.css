@@ -381,6 +381,19 @@ body::before {
   .badge[data-status="published"] { border-color: var(--red); color: var(--red); }
   .badge[data-status="scheduled"] { border-color: #b8860b; color: #8a6508; }
 
+  /* Prévia do post: cobre a tela inteira, com a barra de controles fixa no topo.
+     Opaca de propósito — o objetivo é ver o post como o leitor vê, sem o painel atrás. */
+  .preview-overlay {
+    position: fixed; inset: 0; z-index: 70; background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  .preview-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+    padding: .6rem clamp(.75rem, 4vw, 1.5rem); border-bottom: 1px solid var(--line);
+    background: var(--surface); flex-wrap: wrap;
+  }
+  .preview-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
   /* Botão de dia da semana / alternância curta. */
   .toggle-chip {
     height: 2rem; min-width: 2.6rem; padding: 0 .55rem; border: 1px solid var(--line);
@@ -423,7 +436,9 @@ body::before {
   .stage-trans .stage-video { opacity: 1; transition: none; }
   /* below lg the fixed band pushes the page down by its own height */
   @media (max-width: 1023px) {
-    main { padding-top: var(--stage-h); }
+    /* Só a home tem a banda fixa do robô. Sem este `[data-stage]`, blog e painel
+       abriam com 38svh de vazio no topo, empurrando o conteúdo para fora da tela. */
+    main[data-stage="true"] { padding-top: var(--stage-h); }
     .stage-img, .stage-video { object-position: 50% 22%; }
     /* the band is part of the header: content scrolls UNDER it (above main's z-10, below header's z-50) */
     .stage { z-index: 20; border-bottom: 1px solid var(--line); box-shadow: 0 10px 28px -14px rgb(20 20 26 / .28); }
@@ -448,4 +463,23 @@ body::before {
   .prose-log ul, .prose-log ol { padding-left: 1.4em; } .prose-log li + li { margin-top: .35em; }
   .prose-log blockquote { border-left: 3px solid var(--red); padding-left: 1em; color: var(--muted); }
   .prose-log img { max-width: 100%; height: auto; }
+
+  /* Corpo do post gerado. Os títulos de seção são FRASES ("Por que medimos a coisa
+     errada"), não rótulos de uma palavra — em caixa alta viram três linhas gritando e
+     o olho deixa de separá-los do parágrafo, que foi o "texto corrido" reportado pelo PO.
+     Aqui: caixa normal, marca vermelha do site (//) e um respiro grande entre seções. */
+  .post-body h2 {
+    text-transform: none;
+    letter-spacing: -.01em;
+    font-size: 19px;
+    line-height: 1.25;
+    margin-top: 0;
+  }
+  .post-body h2::before { content: "// "; color: var(--red); }
+  .post-body section + section { margin-top: 2.6rem; }
+  .post-body p { margin-top: .9rem; }
+  @media (min-width: 768px) {
+    .post-body h2 { font-size: 23px; }
+    .post-body section + section { margin-top: 3rem; }
+  }
 }

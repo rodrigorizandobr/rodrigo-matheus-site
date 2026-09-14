@@ -46,3 +46,21 @@ anterior. Agora o `deploy.sh` carrega o arquivo sozinho com `set -a`.
 Post gerado de verdade: 582 palavras em pt, 534 em en, 4 tags, capa gerada pelo Gemini na direção
 de arte do site (laboratório branco, vermelho como único acento), agendado automaticamente para
 2 dias depois às 8h de São Paulo, conforme a configuração padrão.
+
+## Revisão de responsividade e prévia (2026-09-14, tarde)
+
+Reportado pelo PO no celular: painel "estourado", falta de botão visualizar, um vazio no topo da
+página do post, e a sensação de que o post era "texto corrido" apesar de ter seções.
+
+| Achado | Causa | Correção |
+|---|---|---|
+| Meia tela de vazio no topo do blog e do painel | `main { padding-top: var(--stage-h) }` valia para TODA página abaixo de 1024px, mas só a home tem a banda do robô | `main[data-stage="true"]` |
+| "Texto corrido" | `.prose-log h2` forçava `uppercase`, herdado do blog v2; títulos que são frases viravam 3 linhas em caixa alta e sumiam no meio do parágrafo | `.post-body h2` sem uppercase, com a marca `//` vermelha e respiro maior entre seções |
+| Sem visualizar | não existia | Prévia dentro do painel (lista e editor), usando o MESMO renderizador da página pública; funciona em rascunho sem abrir porta pública |
+| Editor pesado no celular | uma caixa por seção = 8 caixas para 4 seções em 2 idiomas | Um campo por idioma, `##` abre seção; conversão testada nos dois sentidos |
+| Lista espremida | linha única com miniatura + título + 3 botões | Empilha abaixo de `sm`, botões ocupando a largura |
+
+Capa passou para o topo do post, em largura total, como o PO pediu.
+
+Verificado a 390 px com uma bancada de layout nova (`/dev-admin.html`, só em dev): sem rolagem
+horizontal e sem elemento estourando, na lista, no editor, na configuração e na prévia.

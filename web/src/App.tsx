@@ -30,7 +30,7 @@ export default function App() {
     return (
       <>
         <Header />
-        <main className="relative z-10">
+        <main className="relative z-10" data-stage="false">
           <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando painel…</div>}>
             <AdminPage />
           </Suspense>
@@ -44,7 +44,7 @@ export default function App() {
     return (
       <>
         <Header />
-        <main className="relative z-10"><BlogPage slug={route.slug} /></main>
+        <main className="relative z-10" data-stage="false"><BlogPage slug={route.slug} /></main>
         <div className="relative z-10"><Footer /></div>
       </>
     )
@@ -55,7 +55,7 @@ export default function App() {
       <a href="#about" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-red focus:text-white focus:px-3 focus:py-2">{t.skip}</a>
       <Stage />
       <Header />
-      <main className="relative z-10">
+      <main className="relative z-10" data-stage="true">
         <Hero />
         <About />
         <Campaigns />

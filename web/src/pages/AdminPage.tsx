@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { blogApi, ApiError } from '../blog/api'
 import type { BlogConfig, Post } from '../blog/types'
-import { coverUrl } from '../blog/types'
 import { PostEditor } from './admin/PostEditor'
 import { ConfigPanel } from './admin/ConfigPanel'
+import { PostList } from './admin/PostList'
+import { PostPreview } from './admin/PostPreview'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 
 type Tab = 'posts' | 'config'
 type Session = { email: string } | null
-
-const dateOf = (post: Post) => (post.publishedAt || post.scheduledFor || post.createdAt || '').slice(0, 10)
 
 /**
  * Painel do blog em /admin.
@@ -25,6 +24,7 @@ export function AdminPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [config, setConfig] = useState<BlogConfig | null>(null)
   const [editing, setEditing] = useState<Post | null>(null)
+  const [previewing, setPreviewing] = useState<Post | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'erro'; text: string } | null>(null)
   const [topic, setTopic] = useState('')
@@ -122,6 +122,7 @@ export function AdminPage() {
           busy={busy}
           onChange={update}
           onClose={() => setEditing(null)}
+          onPreview={() => setPreviewing(editing)}
           onSave={() => run('save', async () => {
             update(await api.update(editing.id, { i18n: editing.i18n, tags: editing.tags }))
           }, 'Post salvo.')}
@@ -176,38 +177,10 @@ export function AdminPage() {
           {busy === 'load' && <p className="text-muted text-[13px]">Carregando…</p>}
           {busy !== 'load' && posts.length === 0 && <p className="panel p-8 text-center text-muted text-[14px]">Nenhum post ainda.</p>}
 
-          <ul className="grid gap-3">
-            {posts.map((post) => {
-              const cover = coverUrl(post.image)
-              return (
-                <li key={post.id} className="panel p-3 flex items-center gap-4">
-                  {cover
-                    ? <img src={cover} alt="" className="w-24 h-16 object-cover border border-line shrink-0" />
-                    : <div className="w-24 h-16 border border-line shrink-0 grid place-items-center font-mono text-[10px] text-muted">sem capa</div>}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="badge" data-status={post.status}>{post.status}</span>
-                      <span className="font-mono text-[11px] text-muted">{dateOf(post)}</span>
-                      {post.generation && <span className="font-mono text-[10px] text-muted">IA</span>}
-                    </div>
-                    <p className="font-display font-semibold text-heading text-[14px] mt-1 truncate">
-                      {post.i18n?.pt?.title || post.i18n?.en?.title || '(sem título)'}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {post.status === 'published' && (
-                      <a href={`/blog/${post.slug}`} target="_blank" rel="noopener"
-                         className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">ver</a>
-                    )}
-                    <button type="button" onClick={() => setEditing(post)}
-                            className="cta !py-2 !px-3 font-display font-semibold text-[11px] uppercase tracking-wider">editar</button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+          <PostList posts={posts} onPreview={setPreviewing} onEdit={setEditing} />
         </>
       )}
+      {previewing && <PostPreview post={previewing} onClose={() => setPreviewing(null)} />}
     </Shell>
   )
 }

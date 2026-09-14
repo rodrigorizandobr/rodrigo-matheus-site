@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Lang, Post } from '../../blog/types'
 import { coverUrl } from '../../blog/types'
-import { addSection, moveSection, paragraphsToText, parseTags, removeSection, setParagraphs } from '../../blog/editing'
+import { parseTags, sectionsToText, textToSections } from '../../blog/editing'
 
 type Props = {
   post: Post
@@ -15,7 +15,17 @@ type Props = {
   onSchedule: (when: Date) => void
   onDelete: () => void
   onClose: () => void
+  onPreview: () => void
 }
+
+/**
+ * Editor do post. O corpo é UM campo de texto por idioma (`##` abre seção), e não
+ * uma caixa por seção: com 4 seções em 2 línguas eram 8 caixas para mexer. O que
+ * se grava continua sendo estrutura — ver blog/editing.ts.
+ *
+ * `onBlur` (e não `onChange`) para converter: reconstruir as seções a cada tecla
+ * remontaria o textarea e jogaria o cursor para o fim.
+ */
 
 /** Data/hora para o input `datetime-local`, que trabalha em horário LOCAL do navegador. */
 const toLocalInput = (iso: string | null): string => {
@@ -40,10 +50,15 @@ export function PostEditor(p: Props) {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1">
             {(['pt', 'en'] as Lang[]).map((l) => (
-              <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l} className="toggle-chip uppercase">{l}</button>
+              <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l} className="toggle-chip">{l.toUpperCase()}</button>
             ))}
           </div>
-          <button type="button" onClick={p.onClose} className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">voltar à lista</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={p.onPreview}
+                    className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">visualizar</button>
+            <button type="button" onClick={p.onClose}
+                    className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">voltar à lista</button>
+          </div>
         </div>
 
         <div>
@@ -58,25 +73,16 @@ export function PostEditor(p: Props) {
                     onChange={(e) => setBody({ ...body, excerpt: e.target.value })} />
         </div>
 
-        <div className="grid gap-4">
-          <span className="field-label !mb-0">Seções ({lang})</span>
-          {body.sections.map((section, i) => (
-            <div key={i} className="border border-line p-3 grid gap-2">
-              <div className="flex items-center gap-2">
-                <input aria-label={`Título da seção ${i + 1}`} className="field" value={section.heading} disabled={disabled}
-                       onChange={(e) => setBody({ ...body, sections: body.sections.map((s, j) => (j === i ? { ...s, heading: e.target.value } : s)) })} />
-                <button type="button" className="toggle-chip" title="subir" disabled={disabled} onClick={() => setBody(moveSection(body, i, -1))}>↑</button>
-                <button type="button" className="toggle-chip" title="descer" disabled={disabled} onClick={() => setBody(moveSection(body, i, +1))}>↓</button>
-                <button type="button" className="toggle-chip" title="remover" disabled={disabled} onClick={() => setBody(removeSection(body, i))}>✕</button>
-              </div>
-              <textarea aria-label={`Parágrafos da seção ${i + 1}`} className="field" disabled={disabled}
-                        placeholder="Um parágrafo por bloco — separe com uma linha em branco."
-                        defaultValue={paragraphsToText(section)}
-                        onBlur={(e) => setBody(setParagraphs(body, i, e.target.value))} />
-            </div>
-          ))}
-          <button type="button" className="cta !py-2 !px-3 font-display font-semibold text-[11px] uppercase tracking-wider w-fit"
-                  disabled={disabled} onClick={() => setBody(addSection(body))}>+ seção</button>
+        <div>
+          <label className="field-label" htmlFor="ed-body">Conteúdo ({lang})</label>
+          <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
+            Um campo só. Comece uma linha com <code className="font-mono">##</code> para abrir uma seção;
+            deixe uma linha em branco entre parágrafos.
+          </p>
+          <textarea id="ed-body" className="field !min-h-[24rem] leading-[1.7]" disabled={disabled}
+                    key={`${p.post.id}-${lang}`}
+                    defaultValue={sectionsToText(body.sections)}
+                    onBlur={(e) => setBody({ ...body, sections: textToSections(e.target.value) })} />
         </div>
 
         <div>

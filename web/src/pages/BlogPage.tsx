@@ -5,6 +5,7 @@ import { Reveal } from '../components/ui/Reveal'
 import { SectionHead } from '../components/ui/SectionHead'
 import { IconArrowUpRight, IconBack } from '../components/ui/Icons'
 import { blogApi } from '../blog/api'
+import { PostArticle } from '../blog/PostArticle'
 import { bodyFor, coverUrl, type Lang, type Post } from '../blog/types'
 
 const dateOf = (post: Post) => (post.publishedAt || post.createdAt || '').slice(0, 10)
@@ -52,43 +53,13 @@ export function BlogPage({ slug }: { slug: string | null }) {
       )}
 
       {post && body && (
-        <article className="max-w-[72ch] mx-auto">
-          <a href="/blog/" onClick={() => gaEvt('nav_click', { target: '/blog' })} className="chip !h-8 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider mb-8">
+        <div className="max-w-[72ch] mx-auto">
+          <a href="/blog/" onClick={() => gaEvt('nav_click', { target: '/blog' })}
+             className="chip !h-8 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider mb-7 md:mb-8">
             <IconBack width={11} height={11} />{s.all}
           </a>
-          <div className="flex items-center gap-3 font-mono text-[11px] text-muted">
-            <span>{dateOf(post)}</span><span aria-hidden="true">·</span>
-            <span>{post.readingMinutes?.[lang as Lang] ?? 1} {s.min}</span>
-          </div>
-          <h1 className="font-display font-semibold text-heading text-[28px] md:text-[40px] leading-[1.1] mt-3 text-balance">{body.title}</h1>
-          <p className="text-[16px] leading-relaxed text-muted mt-4">{body.excerpt}</p>
-          <div className="flex flex-wrap gap-1.5 mt-4">
-            {post.tags.map((tag) => <span key={tag} className="font-mono text-[10.5px] px-1.5 py-0.5 border border-line text-muted">#{tag}</span>)}
-          </div>
-
-          {post.image && (
-            <figure className="mt-8">
-              <img src={coverUrl(post.image)!} alt={post.image.alt || post.imageAlt} loading="lazy" decoding="async"
-                   className="w-full aspect-[16/9] object-cover border border-line" />
-              <figcaption className="font-mono text-[10.5px] text-muted mt-2">
-                {post.image.sourceUrl
-                  ? <a href={post.image.sourceUrl} rel="noopener nofollow" target="_blank" className="hover:text-red">{post.image.credit}</a>
-                  : post.image.credit}
-              </figcaption>
-            </figure>
-          )}
-
-          <div className="panel p-6 md:p-10 mt-8 prose-log">
-            {body.sections.map((section, i) => (
-              <section key={i} className={i ? 'mt-8' : ''}>
-                {section.heading && <h2 className="font-display font-semibold text-heading text-[19px] md:text-[22px] leading-snug">{section.heading}</h2>}
-                {section.paragraphs.map((paragraph, j) => (
-                  <p key={j} className="text-[15px] leading-[1.75] text-text mt-3">{paragraph}</p>
-                ))}
-              </section>
-            ))}
-          </div>
-        </article>
+          <PostArticle post={post} lang={lang as Lang} minutes={post.readingMinutes?.[lang as Lang] ?? 1} />
+        </div>
       )}
 
       {!slug && (

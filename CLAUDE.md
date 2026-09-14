@@ -83,6 +83,22 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 - **As chaves do Firebase no `web/src/blog/firebase.ts` são públicas por desenho.** Quem protege é a
   allowlist no backend. Entrar com outra conta Google mostra o painel e toda ação volta 401.
 - **As regras do Firestore negam tudo**: o navegador nunca fala com o banco, só com a API.
+- **`main[data-stage="true"]`**: só a home tem a banda fixa do robô. A regra mobile que empurra o
+  `<main>` em 38svh vale SÓ para ela — sem esse atributo, blog e painel abriam com meia tela de vazio
+  no topo (o PO reportou como "um vazio no começo da página").
+- **Um renderizador de post só** (`web/src/blog/PostArticle.tsx`), usado pela página pública E pela
+  prévia do painel. Prévia que renderiza diferente do site não serve para decidir se publica.
+- **"Visualizar" funciona em rascunho** porque a prévia acontece DENTRO do painel, com o post que ele
+  já tem em mãos — não abrindo `/blog/<slug>`. Nunca abra uma porta pública para post não publicado.
+- **Corpo do post: um campo só por idioma** (`##` abre seção), convertido para seções em `onBlur`
+  (`blog/editing.ts`, ida-e-volta testada). Oito caixas para 4 seções em 2 línguas era impraticável;
+  HTML livre traria de volta o risco que as seções eliminam.
+- **Título de seção do post é FRASE, não rótulo** — por isso `.post-body h2` desliga o `uppercase`
+  herdado de `.prose-log h2` e usa a marca `//` vermelha. Em caixa alta, uma frase de três linhas
+  deixa de se distinguir do parágrafo e o post vira "texto corrido".
+- **Bancada de layout do painel**: `npm run dev` → `/dev-admin.html` monta lista, editor, config e
+  prévia com dados de exemplo. O painel real exige login com Google, o que impede conferir telas
+  estreitas durante o desenvolvimento. Não entra no build (o Vite só empacota o `index.html`).
 
 ## Comandos
 
@@ -136,7 +152,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 145 testes
-cd web && npm test                                  # 166 testes
+cd web && npm test                                  # 185 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
