@@ -165,6 +165,8 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   primeiro+último frame (`gen-video --in busto --last still`, só 8 s/720p), cujo último frame é o primeiro do
   loop; a volta é o clipe invertido. Sem clipe, cai para zoom CSS do busto. Nunca esconda um `<video>` com
   `display:none` — ele ainda baixa e decodifica.
+- **Clipes são pré-buscados após o load** (`prefetch.ts`, ordem de leitura, respeita Save-Data/2G/reduced-motion) e a
+  viagem só começa em `onPlaying` — sem isso, celular em rede lenta vê corte seco.
 - **Só o androide aparece no site** — sem foto pessoal (decisão do PO).
 - **Cena nova = still + loop do MESMO personagem** (`--in` no gen-image/gen-video). Revise os frames
   antes de empacotar: o Veo mostrou dentes em dois takes da boca — por isso `blog` é `video: false`.

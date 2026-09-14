@@ -65,3 +65,14 @@ node scripts/pack-scenes.mjs fist && node scripts/pack-mobile.mjs   # e trocar p
 - Medições de continuidade (Δ 0–255, menor é melhor; controle = busto↔still): olhos 3,7/3,1 (34) · pescoço 3,6/11 (21) · núcleo 3,7/6,1 (34) · cérebro 3,6/10,1 (24) · punho 3,7/3,6 (26) · mão 3,6/6,6 (9,7).
 
 **Ressalva honesta:** na volta (loop → clipe invertido) o loop está num instante qualquer e o clipe começa no still — há um fade de 250 ms cobrindo essa junta. Na ida a junta é exata.
+
+## Revisão do PO #3 — "no celular ficou ofuscado e o vídeo dos olhos apareceu do nada"
+
+**Causa:** o clipe de transição só começava a baixar ao entrar na seção; enquanto não chegava, o busto já estava desfocado (`filter: blur`) e, se o clipe não iniciava em ~5 s, o cronômetro de segurança pulava para o loop. Não havia pré-carregamento.
+
+**Correções:**
+- **Prefetch progressivo** (`src/stage/prefetch.ts`): após `requestIdleCallback`, busca em ordem de leitura — por cena: ida, loop, volta — um arquivo por vez, `fetch(..., {cache:'force-cache', priority:'low'})`, webm ou mp4 conforme `canPlayType`. Desligado com `Save-Data`, em 2G e com `prefers-reduced-motion`. Ordem testada (`prefetch.test.ts`).
+- **Viagem só começa quando o clipe está tocando:** o busto fica nítido e visível (idle rodando) até `onPlaying`; o cronômetro "deve ter terminado até" só arma a partir daí. Se o clipe não iniciar em 12 s, aquela parte cai para o zoom CSS — nunca para um corte seco.
+- Desfoque do busto removido.
+
+Verificado com emulação mobile + Slow 4G no Chrome: 18 clipes pré-buscados após o load; BIO: busto nítido até ~1 s, clipe completo, pouso no loop.

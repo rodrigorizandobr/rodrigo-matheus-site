@@ -351,7 +351,6 @@ body::before {
   .stage-layer { will-change: opacity, transform; }
   /* the resting bust never fades: it zooms. --zs/--zo/--zd come from the Stage per phase */
   .stage-rest { transform-origin: var(--zo, 50% 30%); transform: scale(var(--zs, 1)); transition: transform var(--zd, 900ms) cubic-bezier(.65,0,.35,1); }
-  .stage-rest[data-visible="false"] { filter: blur(6px); transition: transform var(--zd, 900ms) cubic-bezier(.65,0,.35,1), filter .5s ease; }
   /* the close-up fades in at the end of the zoom, out at the start of the zoom back */
   .stage-scene { opacity: 0; transition: opacity .55s ease; }
   .stage-scene[data-visible="true"][data-ready="true"] { opacity: 1; }
