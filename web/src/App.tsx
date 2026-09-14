@@ -11,7 +11,11 @@ import { useI18n } from './i18n/useI18n'
 import { Stage } from './stage/Stage'
 import { BlogPage } from './pages/BlogPage'
 import { currentRoute } from './pages/router'
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
+
+// O painel carrega o SDK do Firebase (~100 kB gzip). Sob demanda de propósito:
+// quem só lê o site nunca baixa isso.
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 
 export default function App() {
   const { t } = useI18n()
@@ -21,6 +25,20 @@ export default function App() {
     window.addEventListener('popstate', on); window.addEventListener('hashchange', on)
     return () => { window.removeEventListener('popstate', on); window.removeEventListener('hashchange', on) }
   }, [])
+
+  if (route.page === 'admin') {
+    return (
+      <>
+        <Header />
+        <main className="relative z-10">
+          <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando painel…</div>}>
+            <AdminPage />
+          </Suspense>
+        </main>
+        <div className="relative z-10"><Footer /></div>
+      </>
+    )
+  }
 
   if (route.page === 'blog') {
     return (

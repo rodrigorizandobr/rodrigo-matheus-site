@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// O navegador NUNCA fala com o Firestore neste projeto: todo acesso ao blog passa
+// pela API no Cloud Run, que confere o ID token contra a allowlist de e-mail
+// (api/blog/auth.py). O Admin SDK do servidor ignora estas regras, então negar
+// tudo aqui fecha a porta do cliente sem tirar nada do painel.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

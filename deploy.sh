@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Segredos ──────────────────────────────────────────────────────────
+# Carregado AQUI, e não por `source .env` antes de chamar o script: o .env usa
+# `KEY=valor` sem `export`, então as variáveis não atravessavam para este
+# subshell e o passo de env vars era pulado em silêncio (o Cloud Run subia sem
+# GITHUB_TOKEN/REFRESH_KEY). `set -a` exporta tudo que o arquivo definir.
+if [[ -f .env ]]; then
+  set -a; source .env; set +a
+  echo "✔ .env carregado"
+else
+  echo "⚠ .env não encontrado — o deploy segue, mas sem env vars"
+fi
+
 # ── Config ────────────────────────────────────────────────────────────
 PROJECT_ID="rodrigo-matheus"
 REGION="southamerica-east1"           # São Paulo
@@ -29,7 +41,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --region "$REGION" \
   --project "$PROJECT_ID" \
   --allow-unauthenticated \
-  --memory 256Mi \
+  --memory 512Mi \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 2 \
@@ -44,15 +56,27 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "REFRESH_KEY=${REFRESH_KEY}" \
     --set-env-vars "GITHUB_TOKEN=${GITHUB_TOKEN}" \
     --set-env-vars "GCS_BUCKET=${GCS_BUCKET:-rodrigo-matheus-cache}" \
+    --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:-}" \
+    --set-env-vars "BLOG_TICK_KEY=${BLOG_TICK_KEY:-}" \
+    --set-env-vars "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
+    --set-env-vars "BLOG_ADMIN_EMAILS=${BLOG_ADMIN_EMAILS:-rodrigorizando@gmail.com}" \
     --quiet
 else
-  echo "⚠ Env vars not loaded — run 'source .env' first. Skipping env update."
+  echo "⚠ REFRESH_KEY/GITHUB_TOKEN ausentes no .env — pulando atualização de env vars."
 fi
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
   --region "$REGION" --project "$PROJECT_ID" \
   --format="value(status.url)")
 echo "✔ Cloud Run deployed → $SERVICE_URL"
+
+# ── 1b. Shell do SPA no GCS ────────────────────────────────────────
+# api/blog/page.py serve /blog/<slug> com as metatags do post, mas o container da
+# API não tem o build do front. O shell vai por aqui, a cada deploy.
+echo ""
+echo "▸ [1b] Publicando o shell do SPA para as metatags do blog …"
+gcloud storage cp web/dist/index.html "gs://${GCS_BUCKET:-rodrigo-matheus-cache}/spa-shell.html" \
+  --project "$PROJECT_ID" --quiet && echo "✔ spa-shell.html atualizado"
 
 # ── 2. Firebase Hosting (serves web/dist) ──────────────────────────
 echo ""

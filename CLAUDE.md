@@ -11,7 +11,7 @@ Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 | Camada | Onde | O que faz |
 |---|---|---|
 | Frontend | `site/index.html` | Single-page, HTML/CSS/JS vanilla inline (~630 linhas). Canvas Matrix rain, cards 3D flip, sparklines SVG. |
-| Blog | `site/blog/index.html` + `site/blog/posts.json` | Lê `posts.json` estático via `fetch`. |
+| Blog | `web/src/pages/BlogPage.tsx` + `api/blog/` | **Gerenciado por IA.** Posts em Firestore, escritos pelo Gemini Flash Lite, painel em `/admin`. |
 | Backend | `api/server.py` | Flask. Agrega repos/commits do GitHub, gera sparklines de 28 dias, serve i18n. |
 | Hosting | Firebase Hosting | Serve `site/`; faz rewrite de `/api/**` → Cloud Run. |
 | API runtime | Cloud Run `portfolio-api` (`southamerica-east1`) | Gunicorn + Dockerfile. |
@@ -47,6 +47,43 @@ no `body::before`; `.panel` é **glass** (translúcido, cantos retos, highlight 
 | Dados | `src/data/character.ts` e `repos.ts` são **puros e testados** |
 | i18n | `src/i18n/*.json` embutido no build (não vem mais da API) |
 
+## Blog gerenciado por IA (`api/blog/` + `/admin`)
+
+Um post é um documento **bilíngue** no Firestore, escrito numa única chamada ao Gemini
+Flash Lite. O corpo são **seções** (`heading` + `paragraphs`), nunca HTML: texto de modelo
+entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitização na página.
+
+| Camada | Onde | Papel |
+|---|---|---|
+| Núcleo puro | `api/blog/model.py` | Slug, agendamento, cadência, tags, validação. **Sem rede.** |
+| Persistência | `api/blog/store.py` | Firestore `blog_posts` + `blog_config/settings`. |
+| Geração | `api/blog/gemini.py` | Texto pt+en numa chamada, `responseSchema` obrigatório. |
+| Capa | `api/blog/images.py` | Gemini → Pixabay (reserva) → JPEG no GCS pelo hash. |
+| Coreografia | `api/blog/service.py` | tema → texto → capa → grava; `tick()` do agendador. |
+| Portaria | `api/blog/auth.py` | ID token do Firebase + allowlist de e-mail. |
+| Rotas | `api/blog/routes.py` | Público / painel / agendador, portarias diferentes. |
+| Metatags | `api/blog/page.py` | Serve `/blog/<slug>` e `/sitemap.xml` com o conteúdo do momento. |
+| Painel | `web/src/pages/AdminPage.tsx` | Carregado sob demanda (`lazy`) — o visitante não baixa o Firebase. |
+
+**Armadilhas deste subsistema:**
+
+- **O site público nunca pode ver rascunho.** Por isso existem `list_public_posts`/`get_public_post`
+  separados do par administrativo, em vez de um filtro opcional que um dia alguém esquece de passar.
+  `INTERNAL_FIELDS` some da resposta pública (prompt da capa, metadados de geração, data agendada).
+- **Agendamento é no fuso local, não em UTC.** "Publicar às 8h" é 8h em São Paulo; um post gerado
+  23h de sábado em SP não pode contar como domingo. Tudo isso é testado em `test_blog_model.py`.
+- **O `tick` publica ANTES de gerar, e uma coisa não derruba a outra.** Publicar tem hora marcada;
+  gerar depende do Gemini estar de pé. Se inverter a ordem, uma cota estourada segura a fila.
+- **Uma geração por dia local.** O agendador bate de hora em hora; a guarda `last_generated_at`
+  é o que evita uma enxurrada de posts.
+- **Pauta esgotada não gera.** Repetir tema produz post quase igual ao anterior — pior que não publicar.
+- **A página do post é servida pelo Cloud Run**, não por HTML estático: um post que entra no ar
+  sozinho precisa da prévia de link certa na hora. O shell vem do `spa-shell.html` que o `deploy.sh`
+  publica no GCS a cada deploy; o cache de CDN (`s-maxage`) faz o container ser acionado raramente.
+- **As chaves do Firebase no `web/src/blog/firebase.ts` são públicas por desenho.** Quem protege é a
+  allowlist no backend. Entrar com outra conta Google mostra o painel e toda ação volta 401.
+- **As regras do Firestore negam tudo**: o navegador nunca fala com o banco, só com a API.
+
 ## Comandos
 
 ```bash
@@ -70,8 +107,12 @@ pip install -r requirements.txt && python server.py   # :5000
 # Frontend local
 cd site && python -m http.server 8080                 # :8080
 
-# Deploy completo: build+testes do front → Cloud Run → Hosting (web/dist) → refresh do cache
-source .env && ./deploy.sh        # firebase via npx firebase-tools@14
+# Deploy completo: build+testes do front → Cloud Run → shell no GCS → Hosting → refresh do cache
+./deploy.sh        # carrega o .env sozinho (set -a); firebase via npx firebase-tools@14
+
+# Blog: migrar posts antigos (uso único) e forçar uma batida do agendador
+cd api && GOOGLE_CLOUD_PROJECT=rodrigo-matheus python migrate_posts.py --dry
+curl -X POST "https://rodrigomatheus.com.br/api/blog/tick?key=$BLOG_TICK_KEY"
 
 # Rebuild do cache do GitHub
 curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
@@ -79,9 +120,13 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ## Armadilhas reais (verificadas no código)
 
-- **`source .env` antes do `./deploy.sh`.** Sem isso o script pula a atualização de env vars **silenciosamente** (só imprime um aviso) e o Cloud Run sobe sem `GITHUB_TOKEN`/`REFRESH_KEY`.
+- **O `deploy.sh` carrega o `.env` sozinho** (`set -a; source .env; set +a`). Antes era preciso
+  `source .env` antes de chamar — e como o arquivo usa `KEY=valor` sem `export`, as variáveis não
+  atravessavam para o subshell e o passo de env vars era pulado **em silêncio**. Já mordeu uma vez.
 - **`gcloud run deploy --source` reseta as env vars.** Por isso o `deploy.sh` as reaplica num segundo passo (`services update`). Não junte os dois passos.
 - **O README está desatualizado:** documenta `GET /api/repos`, mas a rota real em `api/server.py` é `GET /api/data`. `/api/repos` dá 404 no Flask.
+- **O blog não usa mais `web/public/blog/posts.json`** — os posts vivem no Firestore. O arquivo foi
+  removido; `migrate_posts.py` levou os três antigos para lá.
 - **Textos do site não estão no HTML.** A cópia pt/en vive em `api/i18n/*.json` e chega pelo `/api/data` — mudar texto é alteração de **backend**, e exige redeploy do Cloud Run.
 - **Cache é a fonte da verdade.** `/api/data` nunca chama o GitHub; só lê o cache. Dados novos só aparecem após `/api/refresh`.
 - `site/index.html` e `site/blog/index.html` têm CSS e JS **inline**. Não existe bundler — edite no lugar.
@@ -90,8 +135,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 23 testes, ~0.2s
-cd web && npm test                                  # 61 testes, ~1s
+cd api && source .venv/bin/activate && pytest      # 145 testes
+cd web && npm test                                  # 166 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
