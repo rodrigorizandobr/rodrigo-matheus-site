@@ -98,3 +98,52 @@ class TestPaginaDoPost:
         post = store.create_post(_post())
         store.publish_post(post["id"])
         assert client.get(f"/blog/{post['slug']}").status_code == 302
+
+
+class TestOrigemDoShell:
+    """De onde vem o HTML base — e por que não pode ser uma cópia que envelhece."""
+
+    def test_busca_o_shell_do_proprio_site_para_nunca_divergir_do_hosting(self, monkeypatch):
+        page._shell_cache.clear()
+        chamadas = []
+
+        class R:
+            ok, status_code, text = True, 200, SHELL
+
+        monkeypatch.setattr(page.requests, "get", lambda url, **kw: chamadas.append(url) or R())
+        assert page._shell() == SHELL
+        assert chamadas and chamadas[0].startswith(page.SITE)
+
+    def test_site_fora_do_ar_cai_na_copia_do_deploy_no_GCS(self, monkeypatch):
+        page._shell_cache.clear()
+        monkeypatch.setattr(page.requests, "get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("timeout")))
+        monkeypatch.setattr(page, "_shell_from_gcs", lambda: "<html>copia</html>")
+        assert page._shell() == "<html>copia</html>"
+
+    def test_sem_nenhuma_das_duas_devolve_None_em_vez_de_estourar(self, monkeypatch):
+        page._shell_cache.clear()
+        monkeypatch.setattr(page.requests, "get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+        monkeypatch.setattr(page, "_shell_from_gcs", lambda: None)
+        assert page._shell() is None
+
+    def test_resposta_sem_o_ponto_de_montagem_do_app_e_recusada(self, monkeypatch):
+        page._shell_cache.clear()
+
+        class R:
+            ok, status_code, text = True, 200, "<html><body>pagina de erro do CDN</body></html>"
+
+        monkeypatch.setattr(page.requests, "get", lambda *a, **k: R())
+        monkeypatch.setattr(page, "_shell_from_gcs", lambda: "<html>copia com <div id=\"root\"></div></html>")
+        assert "copia" in page._shell()
+
+    def test_memoiza_por_pouco_tempo_para_nao_buscar_a_cada_visita(self, monkeypatch):
+        page._shell_cache.clear()
+        chamadas = []
+
+        class R:
+            ok, status_code, text = True, 200, SHELL
+
+        monkeypatch.setattr(page.requests, "get", lambda url, **kw: chamadas.append(url) or R())
+        page._shell(); page._shell()
+        assert len(chamadas) == 1
+        assert page.SHELL_TTL <= 120, "cache longo faz a página do post ficar com o bundle velho após o deploy"

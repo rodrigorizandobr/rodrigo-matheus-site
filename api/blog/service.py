@@ -66,6 +66,9 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,
         "researched": bool(found.context), "pagesRead": found.pages_read,
     }
+    # Referências completas para a citação ABNT no fim do post. A data de acesso é
+    # gravada aqui — é quando a página foi de fato lida, e a norma pede essa data.
+    draft["references"] = [{**ref, "accessedAt": now.isoformat()} for ref in found.references[:8]]
     draft["sources"] = found.sources[:8]
     draft["image"] = images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
 

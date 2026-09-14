@@ -85,7 +85,11 @@ RULES = """REGRAS DE ESCRITA — leia com atenção, elas são o motivo deste bl
 7. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
 8. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo post, escrita como
    original em inglês — não tradução literal, e jamais um conteúdo diferente.
-9. IMAGEM. `imagePrompt` em INGLÊS, descrevendo uma cena para a capa na direção de arte do
+9. MATERIAL DE APOIO. Quando ele vier junto, o texto se apoia NELE: fatos, números e nomes
+   próprios têm de sair do material, não da sua memória. As fontes são listadas no fim do post,
+   em ABNT, e ficam visíveis ao leitor — afirmar o que não está no material é criar uma citação
+   falsa. Sem material, escreva do seu repertório e evite números específicos.
+10. IMAGEM. `imagePrompt` em INGLÊS, descrevendo uma cena para a capa na direção de arte do
    site: laboratório branco extremamente esterilizado, superfícies brancas, elementos
    biomecânicos, vermelho como ÚNICO acento, fotorrealista, sem texto e sem pessoas.
    `imageAlt` em português, descrevendo a imagem para quem não a vê."""
@@ -154,7 +158,7 @@ def generate_post(topic: str, context: str = "") -> dict[str, Any]:
     """Escreve um post inteiro (pt+en) sobre `topic`. `context` é material extra opcional."""
     prompt = f"""TEMA DO POST: {topic}
 
-{f'MATERIAL DE APOIO (use, não copie):{chr(10)}{context}{chr(10)}' if context.strip() else ''}
+{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto:{chr(10)}{context}{chr(10)}' if context.strip() else ''}
 Escreva o post completo em português e em inglês, seguindo as regras."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
 

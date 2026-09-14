@@ -12,6 +12,15 @@ export type CoverImage = {
   alt: string
 }
 
+/** Fonte usada pela pesquisa, com o que a ABNT pede para citar. */
+export type Reference = {
+  url: string
+  title: string
+  site: string
+  /** ISO-8601 de quando a página foi lida */
+  accessedAt: string
+}
+
 export type Post = {
   id: string
   slug: string
@@ -24,6 +33,10 @@ export type Post = {
   imagePrompt?: string
   topic?: string
   generation?: { model: string; generatedAt: string; topic: string } | null
+  /** fontes da pesquisa — públicas: o leitor precisa ver de onde o texto saiu */
+  references?: Reference[]
+  /** posts antigos guardavam só as URLs */
+  sources?: string[]
   createdAt: string
   updatedAt: string
   scheduledFor: string | null

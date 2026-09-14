@@ -17,6 +17,7 @@ import re
 import time
 from html import escape
 
+import requests
 from flask import Blueprint, Response, redirect
 
 from . import store
@@ -26,23 +27,54 @@ bp = Blueprint("blog_page", __name__)
 
 SITE = "https://rodrigomatheus.com.br"
 SHELL_BLOB = "spa-shell.html"
-SHELL_TTL = 300  # o shell só muda em deploy
+# Curto de propósito: é o atraso máximo entre um deploy e a página do post passar a
+# apontar para o bundle novo. Com 5 minutos, uma requisição que chegasse no meio do
+# deploy congelava o shell ANTIGO por todo esse tempo.
+SHELL_TTL = 60
+SHELL_TIMEOUT = 5
+#: marca que prova que veio o shell do app, e não uma página de erro de CDN
+SHELL_MARKER = 'id="root"'
 
-_cache: dict[str, object] = {"html": None, "at": 0.0}
+_shell_cache: dict[str, object] = {}
 
 
-def _shell() -> str | None:
-    """`index.html` do build, guardado no GCS. Memoizado por alguns minutos."""
-    if _cache["html"] and time.time() - float(_cache["at"]) < SHELL_TTL:
-        return str(_cache["html"])
+def _shell_from_gcs() -> str | None:
+    """Cópia gravada pelo deploy. Rede de segurança para quando o site não responde."""
     try:
         blob = get_bucket().blob(SHELL_BLOB)
         if not blob.exists():
             return None
-        html = blob.download_as_bytes().decode("utf-8")
+        return blob.download_as_bytes().decode("utf-8")
     except Exception:
         return None
-    _cache["html"], _cache["at"] = html, time.time()
+
+
+def _shell_from_site() -> str | None:
+    """O index.html que o Hosting está servindo AGORA.
+
+    Buscar do próprio site, e não de uma cópia, é o que garante que o shell e os
+    assets nunca discordem: é literalmente o mesmo documento que o visitante da home
+    recebe. Não há laço — `/` casa com um arquivo estático no Hosting e não volta
+    para o Cloud Run.
+    """
+    try:
+        res = requests.get(f"{SITE}/index.html", timeout=SHELL_TIMEOUT,
+                           headers={"User-Agent": "rodrigomatheus-blog-shell"})
+        if res.ok and SHELL_MARKER in res.text:
+            return res.text
+    except Exception:
+        pass
+    return None
+
+
+def _shell() -> str | None:
+    cached = _shell_cache.get("html")
+    if cached and time.time() - float(_shell_cache.get("at", 0)) < SHELL_TTL:
+        return str(cached)
+
+    html = _shell_from_site() or _shell_from_gcs()
+    if html:
+        _shell_cache["html"], _shell_cache["at"] = html, time.time()
     return html
 
 
@@ -107,4 +139,4 @@ def blog_post_page(slug: str):
     out = out.replace("</head>", "    " + "\n    ".join(extra) + "\n  </head>", 1)
 
     return Response(out, mimetype="text/html",
-                    headers={"Cache-Control": "public, s-maxage=600, max-age=0"})
+                    headers={"Cache-Control": "public, s-maxage=120, max-age=0"})

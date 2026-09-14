@@ -88,6 +88,21 @@ describe('BlogPage — post', () => {
     expect(screen.getByText(/<b>oi<\/b>/)).toBeInTheDocument()
   })
 
+  it('as fontes da pesquisa aparecem no fim, em ABNT, com link', async () => {
+    mockApi([post({ references: [{ url: 'https://exame.com/x', title: 'Uma matéria', site: 'exame.com', accessedAt: '2026-09-14T21:00:00Z' }] })])
+    r('a')
+    expect(await screen.findByRole('heading', { level: 2, name: /Referências/ })).toBeInTheDocument()
+    expect(screen.getByText(/EXAME\.COM\. Uma matéria\. Disponível em: https:\/\/exame\.com\/x\. Acesso em: 14 set\. 2026\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '↗' })).toHaveAttribute('href', 'https://exame.com/x')
+  })
+
+  it('post sem pesquisa não mostra seção de referências vazia', async () => {
+    mockApi([post()])
+    r('a')
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('heading', { name: /Referências/ })).toBeNull()
+  })
+
   it('crédito da imagem aparece', async () => {
     mockApi([post()])
     r('a')

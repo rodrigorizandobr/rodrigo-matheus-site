@@ -26,7 +26,7 @@ CONFIG = "blog_config"
 CONFIG_DOC = "settings"
 
 # Campos que só o painel vê.
-INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic", "sources")
+INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic")
 
 _client: firestore.Client | None = None
 
@@ -117,6 +117,7 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         "imagePrompt": draft.get("imagePrompt", ""),
         "topic": draft.get("topic", ""),
         "sources": draft.get("sources") or [],
+        "references": draft.get("references") or [],
         "generation": draft.get("generation"),
         "createdAt": now,
         "updatedAt": now,
@@ -134,7 +135,7 @@ def get_post(post_id: str) -> dict[str, Any] | None:
 def update_post(post_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     """Atualiza campos editáveis. Status e datas mudam pelas funções próprias."""
     editable = {k: v for k, v in (patch or {}).items()
-                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "topic")}
+                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "topic", "references")}
     if "tags" in editable:
         editable["tags"] = model.clean_tags(editable["tags"])
     editable["updatedAt"] = _now()

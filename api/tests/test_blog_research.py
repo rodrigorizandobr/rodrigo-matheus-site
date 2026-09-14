@@ -107,3 +107,29 @@ class TestConsultasDeNoticia:
 
     def test_termo_vazio_nao_gera_consulta(self):
         assert research.news_queries("   ") == []
+
+
+class TestReferencias:
+    def test_guarda_titulo_e_site_de_cada_fonte(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
+            {"organic": [{"link": "https://exame.com/ia/texto", "title": "O futuro da IA",
+                          "snippet": "Trecho longo o suficiente para entrar no contexto da pesquisa."}]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        [ref] = research.search_web(["x"]).references
+        assert ref["url"] == "https://exame.com/ia/texto"
+        assert ref["title"] == "O futuro da IA"
+        assert ref["site"] == "exame.com"
+
+    def test_www_e_subdominio_de_numero_saem_do_nome_do_site(self):
+        assert research.site_of("https://www1.folha.uol.com.br/x") == "folha.uol.com.br"
+        assert research.site_of("https://www.cnnbrasil.com.br/y") == "cnnbrasil.com.br"
+
+    def test_url_estranha_nao_quebra(self):
+        assert research.site_of("nao é url") == ""
+
+    def test_fonte_sem_titulo_ainda_vira_referencia(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
+            {"organic": [{"link": "https://a.com/x", "snippet": "s" * 60}]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        [ref] = research.search_web(["x"]).references
+        assert ref["title"] == "" and ref["site"] == "a.com"

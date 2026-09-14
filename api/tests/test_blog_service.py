@@ -172,3 +172,18 @@ class TestGeracaoPorNoticia:
         store.save_config({"auto_source": "topics", "topics": ["meu tema"], "research_enabled": True})
         service.generate(None, now=utc(2026, 9, 14, 21))
         assert not any("notícias" in c for c in consultas[0])
+
+
+class TestReferenciasNoPost:
+    def test_grava_referencia_com_data_de_acesso(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research(
+            context="c", sources=["https://exame.com/x"],
+            references=[{"url": "https://exame.com/x", "title": "Título", "site": "exame.com"}]))
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        [ref] = post["references"]
+        assert ref["site"] == "exame.com"
+        assert ref["accessedAt"].startswith("2026-09-14")
+
+    def test_sem_pesquisa_o_post_fica_sem_referencia(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
+        assert service.generate("tema", now=utc(2026, 9, 14, 21))["references"] == []

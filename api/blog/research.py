@@ -20,6 +20,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import requests
 
@@ -50,8 +51,19 @@ _SPACES = re.compile(r"\s+")
 class Research:
     context: str = ""
     sources: list[str] = field(default_factory=list)
+    #: {url, title, site} de cada fonte — é o que permite citar em ABNT no fim do post
+    references: list[dict[str, str]] = field(default_factory=list)
     pages_read: int = 0
     snippets: int = 0
+
+
+def site_of(url: str) -> str:
+    """Nome do site a partir da URL, sem `www`/`www1` — vira o autor na citação ABNT."""
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return ""
+    return re.sub(r"^www\d*\.", "", host)
 
 
 def extract_text(raw_html: str) -> str:
@@ -117,7 +129,8 @@ def search_web(queries: list[str]) -> Research:
                 if len(f"{i['title']}. {i['snippet']}") > MIN_SNIPPET_CHARS]
 
     context = "\n\n---\n\n".join([*pages, *snippets])[:MAX_CONTEXT_CHARS]
-    return Research(context=context, sources=[i["link"] for i in items],
+    references = [{"url": i["link"], "title": i["title"], "site": site_of(i["link"])} for i in items]
+    return Research(context=context, sources=[i["link"] for i in items], references=references,
                     pages_read=len(pages), snippets=len(snippets))
 
 

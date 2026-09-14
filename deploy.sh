@@ -25,7 +25,7 @@ echo "════════════════════════�
 
 # ── 0. Frontend build (web/) — tests gate the deploy ────────────────
 echo ""
-echo "▸ [0/3] Building frontend (web/) …"
+echo "▸ [0/4] Building frontend (web/) …"
 ( cd web \
   && npm ci --legacy-peer-deps \
   && npm run typecheck \
@@ -33,9 +33,19 @@ echo "▸ [0/3] Building frontend (web/) …"
   && npm run build )
 echo "✔ web/dist ready"
 
-# ── 1. Cloud Run (Python API) ─────────────────────────────────────
+# ── 1. Shell do SPA no GCS (antes do Cloud Run) ────────────────────
+# `api/blog/page.py` serve /blog/<slug> com as metatags do post. Em condições normais
+# ele busca o shell do próprio site, sempre igual ao que o Hosting entrega; esta cópia
+# é a rede de segurança para quando o site não responde. Vai ANTES do Cloud Run para a
+# revisão nova já subir com o arquivo certo disponível.
 echo ""
-echo "▸ [1/3] Deploying backend to Cloud Run …"
+echo "▸ [1/4] Publicando o shell do SPA …"
+gcloud storage cp web/dist/index.html "gs://${GCS_BUCKET:-rodrigo-matheus-cache}/spa-shell.html" \
+  --project "$PROJECT_ID" --quiet && echo "✔ spa-shell.html atualizado"
+
+# ── 2. Cloud Run (Python API) ─────────────────────────────────────
+echo ""
+echo "▸ [2/4] Deploying backend to Cloud Run …"
 gcloud run deploy "$SERVICE_NAME" \
   --source api \
   --region "$REGION" \
@@ -71,24 +81,16 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
   --format="value(status.url)")
 echo "✔ Cloud Run deployed → $SERVICE_URL"
 
-# ── 1b. Shell do SPA no GCS ────────────────────────────────────────
-# api/blog/page.py serve /blog/<slug> com as metatags do post, mas o container da
-# API não tem o build do front. O shell vai por aqui, a cada deploy.
+# ── 3. Firebase Hosting (serves web/dist) ──────────────────────────
 echo ""
-echo "▸ [1b] Publicando o shell do SPA para as metatags do blog …"
-gcloud storage cp web/dist/index.html "gs://${GCS_BUCKET:-rodrigo-matheus-cache}/spa-shell.html" \
-  --project "$PROJECT_ID" --quiet && echo "✔ spa-shell.html atualizado"
-
-# ── 2. Firebase Hosting (serves web/dist) ──────────────────────────
-echo ""
-echo "▸ [2/3] Deploying Firebase Hosting (web/dist) …"
+echo "▸ [3/4] Deploying Firebase Hosting (web/dist) …"
 # firebase-tools is not installed globally on this machine; npx fetches a pinned major.
 FIREBASE="${FIREBASE_BIN:-npx --yes firebase-tools@14}"
 $FIREBASE deploy --only hosting --project "$PROJECT_ID"
 
-# ── 3. Warm the GitHub cache so the hero's live numbers are fresh ────
+# ── 4. Warm the GitHub cache so the hero's live numbers are fresh ────
 echo ""
-echo "▸ [3/3] Refreshing GitHub cache …"
+echo "▸ [4/4] Refreshing GitHub cache …"
 if [[ -n "${REFRESH_KEY:-}" ]]; then
   curl -fsS "https://$DOMAIN/api/refresh?key=${REFRESH_KEY}" && echo "" && echo "✔ cache refreshed" || echo "⚠ refresh failed (site is up; numbers may be stale)"
 else

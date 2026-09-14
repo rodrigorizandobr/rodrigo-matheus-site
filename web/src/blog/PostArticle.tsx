@@ -1,5 +1,6 @@
 import type { Lang, Post } from './types'
 import { bodyFor, coverUrl } from './types'
+import { abntReference, referencesOf, referencesTitle } from './abnt'
 
 /**
  * O post renderizado. Único renderizador do conteúdo: a página pública e a
@@ -11,6 +12,7 @@ import { bodyFor, coverUrl } from './types'
 export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; minutes: number }) {
   const body = bodyFor(post, lang)
   const cover = coverUrl(post.image)
+  const references = referencesOf(post)
   const date = (post.publishedAt || post.scheduledFor || post.createdAt || '').slice(0, 10)
 
   return (
@@ -54,6 +56,21 @@ export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; m
             ))}
           </section>
         ))}
+
+        {references.length > 0 && (
+          <section className="mt-9 md:mt-12 pt-6 border-t border-line">
+            <h2 className="font-display font-semibold text-heading">{referencesTitle(lang)}</h2>
+            <ol className="mt-3 grid gap-2.5 list-none pl-0">
+              {references.map((ref) => (
+                <li key={ref.url} className="text-[13px] leading-relaxed text-muted break-words">
+                  {abntReference(ref, lang)}{' '}
+                  <a href={ref.url} target="_blank" rel="noopener nofollow ugc"
+                     className="text-red hover:underline whitespace-nowrap">↗</a>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
       </div>
     </article>
   )
