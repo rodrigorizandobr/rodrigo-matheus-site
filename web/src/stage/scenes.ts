@@ -13,18 +13,18 @@ export type Scene = {
   glow: { left: string; top: string; width: string } | null
   /** false = poster only */
   video?: boolean
+  /** true when scripts/pack-transitions.mjs produced <part>-in/-out clips (bust → part, and back) */
+  transition?: boolean
 }
 
 export const SCENES: Scene[] = [
   { section: 'hero',       part: 'rest',  position: '50% 26%', zoom: { origin: '50% 30%', scale: 1 },    glow: { left: '50%', top: '30%', width: '22%' } },
-  { section: 'about',      part: 'eyes',  position: '50% 30%', zoom: { origin: '50% 31%', scale: 2.6 },  glow: { left: '50%', top: '38%', width: '60%' } },
-  { section: 'experience', part: 'neck',  position: '50% 40%', zoom: { origin: '52% 74%', scale: 2.1 },  glow: null },
-  { section: 'projects',   part: 'core',  position: '50% 45%', zoom: { origin: '50% 98%', scale: 2.3 },  glow: { left: '50%', top: '48%', width: '26%' } },
-  { section: 'education',  part: 'brain', position: '50% 22%', zoom: { origin: '50% 4%',  scale: 2.4 },  glow: { left: '50%', top: '30%', width: '30%' } },
-  // LOGS should be the FIST (scene "fist"). Generation is blocked until the Gemini spend cap is raised;
-  // until then it reuses the hand loop so the section still animates. See sprint-3-status.md.
-  { section: 'blog',       part: 'hand',  position: '50% 60%', zoom: { origin: '70% 96%', scale: 2.2 },  glow: null },
-  { section: 'contact',    part: 'hand',  position: '50% 60%', zoom: { origin: '50% 96%', scale: 2.0 },  glow: null },
+  { section: 'about',      part: 'eyes',  position: '50% 30%', zoom: { origin: '50% 31%', scale: 2.6 },  glow: { left: '50%', top: '38%', width: '60%' }, transition: true },
+  { section: 'experience', part: 'neck',  position: '50% 40%', zoom: { origin: '52% 74%', scale: 2.1 },  glow: null, transition: true },
+  { section: 'projects',   part: 'core',  position: '50% 45%', zoom: { origin: '50% 98%', scale: 2.3 },  glow: { left: '50%', top: '48%', width: '26%' }, transition: true },
+  { section: 'education',  part: 'brain', position: '50% 22%', zoom: { origin: '50% 4%',  scale: 2.4 },  glow: { left: '50%', top: '30%', width: '30%' }, transition: true },
+  { section: 'blog',       part: 'fist',  position: '40% 50%', zoom: { origin: '30% 96%', scale: 2.2 },  glow: null, transition: true },
+  { section: 'contact',    part: 'hand',  position: '50% 60%', zoom: { origin: '50% 96%', scale: 2.0 },  glow: null, transition: true },
 ]
 
 export const sceneFor = (section: string | null): Scene => SCENES.find((s) => s.section === (section ?? 'hero')) ?? SCENES[0]
@@ -40,4 +40,13 @@ export const videoSrc = (s: Scene, mobile = false) => {
   return s.part === 'rest'
     ? { webm: `/hero/idle${sfx}.webm`, mp4: `/hero/idle${sfx}.mp4` }
     : { webm: `/scenes/${s.part}${sfx}.webm`, mp4: `/scenes/${s.part}${sfx}.mp4` }
+}
+
+/**
+ * Transition clip for a scene: 'in' = camera travels from the resting bust to the part (its last
+ * frame is the close-up still, i.e. the loop's first frame); 'out' = the same clip reversed.
+ */
+export const transitionSrc = (s: Scene, dir: 'in' | 'out', mobile = false) => {
+  const sfx = mobile ? '.m' : ''
+  return { webm: `/scenes/${s.part}-${dir}${sfx}.webm`, mp4: `/scenes/${s.part}-${dir}${sfx}.mp4` }
 }

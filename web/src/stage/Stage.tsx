@@ -1,38 +1,76 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { initial, reduce, REST_ID } from './sceneMachine'
-import { sceneFor, posterSrcSet, videoSrc, type Scene } from './scenes'
+import { sceneFor, posterSrcSet, videoSrc, transitionSrc, type Scene } from './scenes'
 import { useActiveSection } from './useActiveSection'
 import { useMotionAllowed } from './media'
 
 const ZOOM_IN_MS = 900
 const ZOOM_OUT_MS = 700
 const HOLD_MS = 450
+/** after a clip lands, keep it fading over the loop for this long — hides any residual mismatch */
+const LINGER_MS = 400
+/** clips are 8 s; played faster they still read as one continuous camera move at 24 fps */
+const TRANSITION_RATE = 2.2
+/** a transition clip that has not ended by then is treated as finished (stalled network, etc.) */
+const TRANSITION_MAX_MS = 8000 / TRANSITION_RATE + 1500
 
 /**
  * The persistent stage, on every device:
  *   desktop  — fixed behind the whole page
  *   mobile   — fixed band under the header; content scrolls beneath it
- * Layers: `rest` (the bust, still + idle loop) is always mounted and is what gets ZOOMED toward the
- * active section's body part; the `scene` layer (that part's close-up loop) fades in at the end of
- * the zoom and out at the start of the zoom back. Choreography rules live in sceneMachine.ts.
+ * Layers: `rest` (the bust, still + idle loop) is always mounted. Reaching a section's body part is
+ * a TRANSITION CLIP (bust → part, generated with first+last frame so its last frame is the loop's
+ * first) played on a `trans` layer; leaving plays the same clip reversed. Scenes without clips fall
+ * back to a CSS zoom of the bust. Choreography rules live in sceneMachine.ts.
  */
 export function Stage() {
   const active = useActiveSection()
   const desktop = useIsDesktop()
   const [state, dispatch] = useReducer(reduce, REST_ID, initial)
+  const motion = useMotionAllowed()
+  // parts whose transition clip failed to load → CSS zoom for the rest of the session
+  const [broken, setBroken] = useState<Record<string, true>>({})
 
   useEffect(() => { dispatch({ type: 'focus', section: active }) }, [active])
 
-  useEffect(() => {
-    if (state.phase === 'zoomIn') { const t = window.setTimeout(() => dispatch({ type: 'zoomed' }), ZOOM_IN_MS); return () => clearTimeout(t) }
-    if (state.phase === 'zoomOut') { const t = window.setTimeout(() => dispatch({ type: 'rested' }), ZOOM_OUT_MS); return () => clearTimeout(t) }
-    if (state.phase === 'hold') { const t = window.setTimeout(() => dispatch({ type: 'held' }), HOLD_MS); return () => clearTimeout(t) }
-  }, [state.phase, state.scene, state.pending])
-
   const scene = state.scene ? sceneFor(state.scene) : null
-  const zoom = state.phase === 'zoomIn' || state.phase === 'show' ? scene?.zoom : null
+  const useClip = !!(scene?.transition && motion && !broken[scene.part])
+
+  // timers: CSS zoom has fixed durations; a clip ends itself (onEnded) with a safety cap
+  useEffect(() => {
+    const ms = state.phase === 'zoomIn' ? (useClip ? TRANSITION_MAX_MS : ZOOM_IN_MS)
+      : state.phase === 'zoomOut' ? (useClip ? TRANSITION_MAX_MS : ZOOM_OUT_MS)
+      : state.phase === 'hold' ? HOLD_MS : null
+    if (ms === null) return
+    const ev = state.phase === 'zoomIn' ? 'zoomed' : state.phase === 'zoomOut' ? 'rested' : 'held'
+    const t = window.setTimeout(() => dispatch({ type: ev }), ms)
+    return () => clearTimeout(t)
+  }, [state.phase, state.scene, state.pending, useClip])
+
+  // stable identities: TransitionLayer keys its play() effect on these; new functions each render
+  // would re-run it and restart an already-ended clip during the linger
+  const phaseRef = useRef(state.phase); phaseRef.current = state.phase
+  const onClipEnded = useCallback(() => {
+    if (phaseRef.current === 'zoomIn') dispatch({ type: 'zoomed' })
+    else if (phaseRef.current === 'zoomOut') dispatch({ type: 'rested' })
+  }, [])
+  const partRef = useRef(scene?.part); partRef.current = scene?.part
+  const onClipError = useCallback(() => { const part = partRef.current; if (part) setBroken((b) => ({ ...b, [part]: true })) }, [])
+
+  const zoom = !useClip && (state.phase === 'zoomIn' || state.phase === 'show') ? scene?.zoom : null
   const showScene = state.phase === 'show'
   const warmScene = state.phase === 'zoomIn' // mount early so the loop is ready when the zoom lands
+  const transDir = state.phase === 'zoomIn' ? 'in' : state.phase === 'zoomOut' ? 'out' : null
+  // when an 'in' clip lands, keep it mounted (fading) over the now-visible loop for LINGER_MS.
+  // Modelled as "linger is done" so the very first render of `show` still has the layer mounted —
+  // a state that starts false and flips true would unmount/remount the video (and restart it).
+  const [lingerDone, setLingerDone] = useState(false)
+  useEffect(() => {
+    if (state.phase !== 'show') { setLingerDone(false); return }
+    const t = window.setTimeout(() => setLingerDone(true), LINGER_MS)
+    return () => clearTimeout(t)
+  }, [state.phase, state.scene])
+  const linger = state.phase === 'show' && !lingerDone
 
   return (
     <div
@@ -42,11 +80,22 @@ export function Stage() {
       data-scene-active={showScene ? scene?.section : 'hero'}
     >
       <Layer
-        scene={sceneFor(REST_ID)} rest visible={!showScene} mobile={!desktop}
+        scene={sceneFor(REST_ID)} rest visible={!showScene && !(useClip && transDir)} mobile={!desktop}
         style={{ ['--zs' as string]: zoom ? zoom.scale : 1, ['--zo' as string]: zoom ? zoom.origin : '50% 30%', ['--zd' as string]: `${state.phase === 'zoomOut' ? ZOOM_OUT_MS : ZOOM_IN_MS}ms` }}
       />
       {scene && (warmScene || showScene || state.phase === 'zoomOut') && (
-        <Layer key={scene.section} scene={scene} visible={showScene} mobile={!desktop} />
+        <Layer key={scene.section} scene={scene} visible={showScene} mobile={!desktop} instant={useClip} />
+      )}
+      {scene && useClip && (transDir || linger) && (
+        <TransitionLayer
+          key={`${scene.section}-${transDir ?? 'in'}`}
+          scene={scene}
+          dir={transDir ?? 'in'}
+          mobile={!desktop}
+          fading={!transDir}
+          onEnded={onClipEnded}
+          onError={onClipError}
+        />
       )}
       <div className="portrait-scan" />
       <div className="portrait-vignette hidden lg:block" />
@@ -65,7 +114,7 @@ function useIsDesktop() {
   return d
 }
 
-function Layer({ scene, visible, rest = false, mobile, style }: { scene: Scene; visible: boolean; rest?: boolean; mobile: boolean; style?: React.CSSProperties }) {
+function Layer({ scene, visible, rest = false, mobile, style, instant = false }: { scene: Scene; visible: boolean; rest?: boolean; mobile: boolean; style?: React.CSSProperties; instant?: boolean }) {
   const wantVideo = useMotionAllowed()
   const [ready, setReady] = useState(false)
   const [vid, setVid] = useState(false)
@@ -81,7 +130,7 @@ function Layer({ scene, visible, rest = false, mobile, style }: { scene: Scene; 
   }, [visible, rest, wantVideo, vid])
 
   return (
-    <div className={`stage-layer absolute inset-0 ${rest ? 'stage-rest' : 'stage-scene'}`} data-visible={visible} data-ready={ready} data-video={vid} style={{ ['--pos' as string]: scene.position, ...style }}>
+    <div className={`stage-layer absolute inset-0 ${rest ? 'stage-rest' : 'stage-scene'}`} data-visible={visible} data-ready={ready} data-video={vid} data-instant={instant} style={{ ['--pos' as string]: scene.position, ...style }}>
       <img src={poster.src} srcSet={poster.srcSet} sizes="100vw" alt="" decoding="async"
            loading={rest ? 'eager' : 'lazy'} fetchPriority={rest ? 'high' : 'auto'} onLoad={() => setReady(true)} className="stage-img" />
       {wantVideo && scene.video !== false && (
@@ -92,6 +141,29 @@ function Layer({ scene, visible, rest = false, mobile, style }: { scene: Scene; 
         </video>
       )}
       {scene.glow && <div className="portrait-glow" style={{ left: scene.glow.left, top: scene.glow.top, width: scene.glow.width }} />}
+    </div>
+  )
+}
+
+/** Plays a bust→part clip once (or its reverse). Visible from its first decoded frame until it ends. */
+function TransitionLayer({ scene, dir, mobile, fading = false, onEnded, onError }: { scene: Scene; dir: 'in' | 'out'; mobile: boolean; fading?: boolean; onEnded: () => void; onError: () => void }) {
+  const [ready, setReady] = useState(false)
+  const src = transitionSrc(scene, dir, mobile)
+  const ref = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const v = ref.current
+    if (!v || fading || v.ended) return
+    v.playbackRate = TRANSITION_RATE
+    v.play().catch(() => onError())
+  }, [onError, fading])
+  return (
+    <div className="stage-layer stage-trans absolute inset-0" data-visible={ready && !fading} data-ready={ready} data-fading={fading}>
+      <video ref={ref} className="stage-video stage-trans-video" muted playsInline autoPlay preload="auto" disablePictureInPicture
+             style={{ ['--pos' as string]: dir === 'in' ? scene.position : sceneFor(REST_ID).position }}
+             onPlaying={() => setReady(true)} onEnded={onEnded} onError={onError} onStalled={() => { /* the safety timer covers us */ }}>
+        <source src={src.webm} type="video/webm" />
+        <source src={src.mp4} type="video/mp4" />
+      </video>
     </div>
   )
 }

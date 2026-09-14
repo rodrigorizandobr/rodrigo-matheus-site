@@ -49,3 +49,19 @@ node scripts/gen-image.mjs .gen/sc-fist.png "<prompt do punho>" --in .gen/wide-a
 node scripts/gen-video.mjs .gen/v-fist.mp4 "<prompt do loop>" --in .gen/sc-fist.png --ar 16:9 --seconds 8 --res 1080p
 node scripts/pack-scenes.mjs fist && node scripts/pack-mobile.mjs   # e trocar part:'hand'→'fist' em scenes.ts (blog)
 ```
+
+## Revisão do PO #2 (2026-09-13) — continuidade, punho, sem foto
+
+**Feedback:** "quando começa o vídeo de loop da seção começa de uma posição diferente do zoom, dá uma quebrada" · "tire a minha foto" · teto do Gemini elevado.
+
+**Feito:**
+- **Punho** gerado (still + loop Veo), empacotado (desktop + mobile), LOGS → `fist`. Nenhuma cena reutiliza parte de outra (teste).
+- **Foto removida** do About: só o androide aparece no site. `rodrigo*.png/webp` apagados; BIO virou lead + FIELD RECORD + SKILL TREE em coluna única.
+- **Continuidade real:** em vez de escalar o busto e cortar para o close-up (composições diferentes → salto), cada parte ganha um **clipe de transição** gerado pelo Veo com **primeiro e último frame** (`--last`): começa no busto e termina **exatamente** no still do close-up, que é o primeiro frame do loop. Medido nos olhos: Δ primeiro frame vs busto 3,7; Δ último frame vs still 3,1; controle busto vs olhos 34 (escala 0–255). A volta é o mesmo clipe invertido (`ffmpeg reverse`). `Stage` toca o clipe numa camada própria (`TransitionLayer`), avança a máquina no `onEnded` (com teto de 9 s) e cai para o zoom CSS se o clipe faltar/falhar (`transition: false` ou `onError`).
+- Veo só aceitou primeiro+último frame em **8 s / 720p** (4 s / 1080p → `400 use case not supported`).
+- `scripts/pack-transitions.mjs`: `<part>-in|out[.m].{mp4,webm}`.
+
+- Clipes tocam a **2,2×** (8 s → ~3,7 s por perna). Ao pousar, o clipe fica 400 ms em fade sobre o loop já visível (`LINGER_MS`), cobrindo o resíduo do pescoço/cérebro (Δ 10–11). O idle do busto pausa enquanto um clipe toca (um decode a menos).
+- Medições de continuidade (Δ 0–255, menor é melhor; controle = busto↔still): olhos 3,7/3,1 (34) · pescoço 3,6/11 (21) · núcleo 3,7/6,1 (34) · cérebro 3,6/10,1 (24) · punho 3,7/3,6 (26) · mão 3,6/6,6 (9,7).
+
+**Ressalva honesta:** na volta (loop → clipe invertido) o loop está num instante qualquer e o clipe começa no still — há um fade de 250 ms cobrindo essa junta. Na ida a junta é exata.

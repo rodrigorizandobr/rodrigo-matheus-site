@@ -10,7 +10,7 @@ import sharp from 'sharp'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 
-const ALL = ['eyes', 'neck', 'core', 'brain', 'mouth', 'hand'] // mouth: poster only (see scenes.ts)
+const ALL = ['eyes', 'neck', 'core', 'brain', 'fist', 'hand']
 const parts = process.argv.slice(2).length ? process.argv.slice(2) : ALL
 mkdirSync('public/scenes', { recursive: true })
 

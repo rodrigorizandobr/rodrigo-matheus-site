@@ -7,7 +7,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
 
-const jobs = [['.gen/idle-a.mp4', 'public/hero/idle.m'], ...['eyes', 'neck', 'core', 'brain', 'hand'].map((p) => [`.gen/v-${p}.mp4`, `public/scenes/${p}.m`])]
+const jobs = [['.gen/idle-a.mp4', 'public/hero/idle.m'], ...['eyes', 'neck', 'core', 'brain', 'hand', 'fist'].map((p) => [`.gen/v-${p}.mp4`, `public/scenes/${p}.m`])]
 const pal = '[0:v]split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1,setpts=N/FRAME_RATE/TB,scale=854:-2[v]'
 const ff = (src, args) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-filter_complex', pal, '-map', '[v]', '-an', ...args], { stdio: 'inherit' })
 

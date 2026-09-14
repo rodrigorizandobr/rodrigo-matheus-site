@@ -19,9 +19,9 @@ beforeEach(() => resetArenaCache())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('About — BIO', () => {
-  it('foto real, lead e as 10 skills do CV', () => {
+  it('lead e as 10 skills do CV — e nenhuma foto (só o androide aparece no site)', () => {
     r(<About />)
-    expect(screen.getByRole('img', { name: /Rodrigo Matheus/ })).toHaveAttribute('src', expect.stringContaining('rodrigo-800.webp'))
+    expect(screen.queryByRole('img', { name: /Rodrigo Matheus/ })).toBeNull()
     expect(screen.getByText(en.about.lead.slice(0, 40), { exact: false })).toBeInTheDocument()
     const list = screen.getByRole('list', { name: /SKILL TREE/ })
     expect(within(list).getAllByRole('listitem')).toHaveLength(10)

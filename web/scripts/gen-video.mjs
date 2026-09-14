@@ -3,8 +3,11 @@
  * Image-to-video with Veo. Keeps the exact character from a source still.
  * Key comes from web/.env.local (gitignored).
  *
- *   node scripts/gen-video.mjs <out.mp4> "<prompt>" --in still.png [--ar 16:9] [--seconds 8]
+ *   node scripts/gen-video.mjs <out.mp4> "<prompt>" --in first.png [--last last.png] [--ar 16:9] [--seconds 8]
  *        [--model veo-3.1-generate-preview] [--res 720p] [--neg "text, watermark"]
+ *
+ *   --last: Veo interpolates from the first frame to this exact last frame — used for the
+ *           bust → close-up transitions so the loop that follows starts on the same pixels.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, extname } from 'node:path'
@@ -25,6 +28,7 @@ const durationSeconds = Number(flag('seconds', '8'))
 const resolution = flag('res', '720p')
 const negativePrompt = flag('neg', 'text, watermark, subtitles, camera movement, zoom, cuts, morphing, extra limbs, color shift, dark lighting')
 const inFile = flag('in', null)
+const lastFile = flag('last', null)
 
 const H = { 'x-goog-api-key': KEY, 'content-type': 'application/json' }
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
@@ -33,6 +37,10 @@ const instance = { prompt }
 if (inFile) {
   const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[extname(inFile).toLowerCase()]
   instance.image = { bytesBase64Encoded: readFileSync(inFile).toString('base64'), mimeType: mime }
+}
+if (lastFile) {
+  const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[extname(lastFile).toLowerCase()]
+  instance.lastFrame = { bytesBase64Encoded: readFileSync(lastFile).toString('base64'), mimeType: mime }
 }
 
 const t0 = Date.now()

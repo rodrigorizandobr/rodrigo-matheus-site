@@ -6,7 +6,7 @@ import { Section, SectionHead } from '../ui/SectionHead'
 import { Reveal } from '../ui/Reveal'
 import { CLASS_ICON } from '../ui/Icons'
 
-/** BIO: the human behind the unit — real photo, lead, the ten skills, and the same three numbers as the hero. */
+/** BIO: lead, the ten skills, and the same three numbers as the hero. Only the android appears on the site (PO decision). */
 export function About() {
   const { t } = useI18n()
   const ref = useRef<HTMLElement>(null)
@@ -18,26 +18,14 @@ export function About() {
     <div ref={ref as React.RefObject<HTMLDivElement>}>
     <Section id="about">
       <SectionHead tag={s.tag} title={t.about.heading} sub={s.sub} />
-      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] items-start">
-        <Reveal className="panel hud-frame photo-frame p-4">
-          <img
-            src="/rodrigo-800.webp"
-            srcSet="/rodrigo-480.webp 480w, /rodrigo-800.webp 800w"
-            sizes="(min-width:1024px) 360px, 90vw"
-            width={800} height={1200}
-            alt={`${character.name} — ${t.hero.tag}`}
-            loading="eager" decoding="async"
-            className="w-full h-auto object-contain drop-shadow-[0_24px_40px_rgba(20,20,26,.25)]"
-          />
-          <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-muted">
-            <span>{t.hud.id_label} {character.callsign}</span>
-            <span className="inline-flex items-center gap-1"><span className="chip-dot" data-on="true" aria-hidden="true" />{t.hud.status_online}</span>
-          </div>
-        </Reveal>
-
+      <div className="grid gap-6 items-start">
         <div className="flex flex-col gap-5">
-          <Reveal className="panel p-6 md:p-7" delay={0.05}>
-            <p className="text-[15px] md:text-[16px] leading-relaxed text-text max-w-3xl">{t.about.lead}</p>
+          <Reveal className="panel hud-frame p-6 md:p-7">
+            <div className="flex items-center justify-between font-mono text-[10px] text-muted mb-4">
+              <span>{t.hud.id_label} {character.callsign} · {character.name}</span>
+              <span className="inline-flex items-center gap-1"><span className="chip-dot" data-on="true" aria-hidden="true" />{t.hud.status_online}</span>
+            </div>
+            <p className="text-[15px] md:text-[17px] leading-relaxed text-text max-w-4xl">{t.about.lead}</p>
           </Reveal>
 
           <Reveal className="panel p-6" delay={0.1}>
@@ -52,7 +40,7 @@ export function About() {
             </dl>
           </Reveal>
 
-          <Reveal className="panel p-6" delay={0.15}>
+          <Reveal className="panel p-6" delay={0.1}>
             <div className="flex items-center justify-between mb-3">
               <span className="hud-label">{s.skills}</span>
               <span className="flex gap-1.5">

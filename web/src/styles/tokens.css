@@ -355,6 +355,13 @@ body::before {
   /* the close-up fades in at the end of the zoom, out at the start of the zoom back */
   .stage-scene { opacity: 0; transition: opacity .55s ease; }
   .stage-scene[data-visible="true"][data-ready="true"] { opacity: 1; }
+  /* transition clip: quick fade over the bust on its first frame; hard cut into the loop at its last */
+  .stage-trans { opacity: 0; transition: opacity .25s ease; z-index: 2; }
+  .stage-trans[data-ready="true"] { opacity: 1; }
+  .stage-trans[data-fading="true"] { opacity: 0; transition: opacity .4s ease; }
+  /* arriving by clip: the loop's first frame is the clip's last, so it appears instantly under the fading clip */
+  .stage-scene[data-instant="true"] { transition: none; }
+  .stage-trans-video { opacity: 1; object-position: var(--pos, 50% 26%); }
   .stage-img, .stage-video {
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; object-position: var(--pos, 50% 30%);

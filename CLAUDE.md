@@ -161,8 +161,11 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   voltar a ser `.cta` puro, o LinkedIn fica branco no branco de novo.
 - **Screenshot full-page do Chrome mente nesta página** (hero `100svh` + `body::before` fixo).
   Verifique por viewport ou fatie em tiles.
-- **O palco é zoom, não troca de vídeo.** O busto em repouso escala até a parte (`--zs/--zo`), o close-up só
-  faz fade por cima. Nunca esconda um `<video>` com `display:none` — ele ainda baixa e decodifica.
+- **O palco é uma viagem contínua, não troca de vídeo.** Cada parte tem um clipe busto→parte gerado com
+  primeiro+último frame (`gen-video --in busto --last still`, só 8 s/720p), cujo último frame é o primeiro do
+  loop; a volta é o clipe invertido. Sem clipe, cai para zoom CSS do busto. Nunca esconda um `<video>` com
+  `display:none` — ele ainda baixa e decodifica.
+- **Só o androide aparece no site** — sem foto pessoal (decisão do PO).
 - **Cena nova = still + loop do MESMO personagem** (`--in` no gen-image/gen-video). Revise os frames
   antes de empacotar: o Veo mostrou dentes em dois takes da boca — por isso `blog` é `video: false`.
 - **Todo número do cromo é real.** REPOS/COMMITS/ONLINE/LAST COMMIT vêm de `/api/data`. Se a
