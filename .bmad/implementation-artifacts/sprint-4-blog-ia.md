@@ -30,11 +30,19 @@ imagens de banco ou geradas por IA, posts concisos e profundos, área logada com
 de env vars era pulado com um aviso fácil de não ver — o Cloud Run rodava com o que sobrou do deploy
 anterior. Agora o `deploy.sh` carrega o arquivo sozinho com `set -a`.
 
-## Pendências que dependem do PO
+## Pendências resolvidas depois
 
-1. **Teto de gastos do Gemini** estourado (o mesmo dos vídeos) — a geração devolve 429 até ser
-   ajustado em https://ai.studio/spend. O caminho está validado: o erro vira 502 no painel, com a
-   mensagem da cota.
-2. **Login com Google** precisa ser habilitado uma vez no console do Firebase: a API exige um
-   `client_id` OAuth que só o console cria automaticamente. Identity Platform já foi inicializado e
-   os domínios de produção já estão autorizados.
+1. **Login com Google** — habilitado pelo PO no console; confirmado via API (`google.com: enabled`).
+2. **429 de cota mesmo após o PO subir o limite para US$ 10.** Causa: a chave em uso pertencia a
+   OUTRO projeto, e o teto de gastos é por projeto — o limite ajustado em `rodrigo-matheus` não
+   valia para ela. Correção: `generativelanguage` e `apikeys` habilitadas em `rodrigo-matheus` e uma
+   chave nova (`blog-gemini`, restrita ao Gemini) criada por API; trocada no `.env`, no
+   `web/.env.local` e no Cloud Run. **Nota de gcloud:** `gcloud services api-keys create` falha com
+   `SERVICE_DISABLED` apontando um projeto de quota que não é o nosso; o caminho que funciona é o
+   REST `apikeys.googleapis.com` com o header `x-goog-user-project`.
+
+## Validação de ponta a ponta (2026-09-14)
+
+Post gerado de verdade: 582 palavras em pt, 534 em en, 4 tags, capa gerada pelo Gemini na direção
+de arte do site (laboratório branco, vermelho como único acento), agendado automaticamente para
+2 dias depois às 8h de São Paulo, conforme a configuração padrão.

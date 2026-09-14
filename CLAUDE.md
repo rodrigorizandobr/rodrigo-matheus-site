@@ -259,5 +259,10 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   `node scripts/contact-sheet.mjs /tmp/sheet.jpg .gen/<take>.mp4` e olhe os 6 quadros — se o meio repete
   as pontas, o Veo fez um dissolver, não uma viagem, e o clipe não serve. Interpolar/reempacotar com
   ffmpeg é de graça; regerar não é.
-- **A chave do Gemini vive em `web/.env.local`** (gitignored, `chmod 600`). Nunca em flag de CLI,
-  nunca no código.
+- **A chave do Gemini é do projeto `rodrigo-matheus`, criada por API e restrita ao Gemini**
+  (`gcloud`/REST em `apikeys.googleapis.com`, display name `blog-gemini`). Vive em `web/.env.local`
+  (scripts locais), em `.env` (deploy) e como env var do Cloud Run — nunca em flag de CLI, nunca no
+  código. **O teto de gastos é por PROJETO:** uma chave de outro projeto ignora o limite ajustado no
+  AI Studio de `rodrigo-matheus` e volta 429 dizendo "monthly spending cap" — foi exatamente o que
+  aconteceu, porque a chave original pertencia a outro projeto. Ao ver esse 429, confira de qual
+  projeto é a chave ANTES de mexer no limite.
