@@ -15,7 +15,9 @@ class Resp:
 
 
 def serper(links):
-    return {"organic": [{"link": l, "title": f"T {i}", "snippet": f"Trecho razoavelmente longo número {i} com conteúdo suficiente para passar do corte mínimo."} for i, l in enumerate(links)]}
+    return {"news": [{"link": l, "title": f"T {i}", "source": f"Veículo {i}", "date": "há 2 dias",
+                      "snippet": f"Trecho razoavelmente longo número {i} com conteúdo suficiente para passar do corte mínimo."}
+                     for i, l in enumerate(links)]}
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +32,23 @@ class TestBusca:
         monkeypatch.setattr(research.requests, "post", lambda *a, **k: chamou.append(1))
         out = research.search_web(["algo"])
         assert out.context == "" and out.sources == [] and chamou == []
+
+    def test_usa_o_endpoint_de_NOTICIAS_e_restringe_ao_Brasil(self, monkeypatch):
+        capturado = {}
+        def fake_post(url, **kw):
+            capturado.update({"url": url, **kw})
+            return Resp(serper(["https://a.com"]))
+        monkeypatch.setattr(research.requests, "post", fake_post)
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        research.search_web(["ia"])
+        assert capturado["url"].endswith("/news"), "busca web traz página institucional e conteúdo antigo"
+        assert capturado["json"]["gl"] == "br" and capturado["json"]["hl"] == "pt-br"
+
+    def test_tolera_resposta_no_formato_da_busca_comum(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
+            {"organic": [{"link": "https://a.com", "title": "T", "snippet": "s" * 60}]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        assert research.search_web(["x"]).sources == ["https://a.com"]
 
     def test_manda_a_chave_e_a_consulta(self, monkeypatch):
         capturado = {}
@@ -100,9 +119,9 @@ class TestLeituraDePagina:
 
 
 class TestConsultasDeNoticia:
-    def test_monta_consulta_de_noticia_recente_para_o_termo(self):
+    def test_consulta_e_o_proprio_termo_mais_o_ano(self):
         consultas = research.news_queries("inteligência artificial", year=2026)
-        assert any("notícias" in c and "inteligência artificial" in c for c in consultas)
+        assert consultas[0] == "inteligência artificial"
         assert any("2026" in c for c in consultas)
 
     def test_termo_vazio_nao_gera_consulta(self):
@@ -112,13 +131,14 @@ class TestConsultasDeNoticia:
 class TestReferencias:
     def test_guarda_titulo_e_site_de_cada_fonte(self, monkeypatch):
         monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
-            {"organic": [{"link": "https://exame.com/ia/texto", "title": "O futuro da IA",
-                          "snippet": "Trecho longo o suficiente para entrar no contexto da pesquisa."}]}))
-        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+            {"news": [{"link": "https://exame.com/ia/texto", "title": "O futuro da IA", "source": "Exame",
+                       "date": "há 3 dias",
+                       "snippet": "Trecho longo o suficiente para entrar no contexto da pesquisa."}]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text="<body>lido</body>", content_type="text/html"))
         [ref] = research.search_web(["x"]).references
         assert ref["url"] == "https://exame.com/ia/texto"
         assert ref["title"] == "O futuro da IA"
-        assert ref["site"] == "exame.com"
+        assert ref["site"] == "Exame"
 
     def test_www_e_subdominio_de_numero_saem_do_nome_do_site(self):
         assert research.site_of("https://www1.folha.uol.com.br/x") == "folha.uol.com.br"
@@ -129,7 +149,25 @@ class TestReferencias:
 
     def test_fonte_sem_titulo_ainda_vira_referencia(self, monkeypatch):
         monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
-            {"organic": [{"link": "https://a.com/x", "snippet": "s" * 60}]}))
-        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+            {"news": [{"link": "https://a.com/x", "snippet": "s" * 60}]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text="<body>lido</body>", content_type="text/html"))
         [ref] = research.search_web(["x"]).references
         assert ref["title"] == "" and ref["site"] == "a.com"
+
+
+class TestSoCitaOQueLeu:
+    def test_referencia_so_das_paginas_realmente_lidas(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(
+            serper(["https://lida.com", "https://bloqueada.com"])))
+        monkeypatch.setattr(research.requests, "get", lambda url, **kw: (
+            Resp(text="<body>conteúdo lido</body>", content_type="text/html") if "lida" in url else Resp(status=403)))
+        out = research.search_web(["x"])
+        assert [r["url"] for r in out.references] == ["https://lida.com"]
+        # as duas continuam em `sources`: foram consultadas, ainda que só uma tenha sido lida
+        assert len(out.sources) == 2
+
+    def test_nenhuma_pagina_lida_nao_gera_referencia_falsa(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp(serper(["https://a.com"])))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        out = research.search_web(["x"])
+        assert out.references == [] and out.context != ""

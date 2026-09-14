@@ -25,7 +25,7 @@ def env(monkeypatch):
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
     chamadas = {"gerou": [], "capa": []}
-    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="": (chamadas["gerou"].append(topic), dict(DRAFT))[1])
+    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
     return chamadas
 
@@ -57,17 +57,16 @@ class TestGerar:
         post = service.generate("t", now=utc(2026, 9, 14, 21))
         assert post["image"] is None and post["status"] == "scheduled"
 
-    def test_sem_tema_explicito_sorteia_da_pauta(self, env):
-        store.save_config({"auto_source": "topics", "topics": ["tema da pauta"]})
+    def test_sem_tema_explicito_usa_o_termo_vigiado_da_vez(self, env):
+        store.save_config({"news_terms": ["segurança da informação"]})
         post = service.generate(None, now=utc(2026, 9, 14, 21))
-        assert env["gerou"] == ["tema da pauta"]
-        assert post["topic"] == "tema da pauta"
+        assert env["gerou"] == ["segurança da informação"]
+        assert post["topic"] == "segurança da informação"
 
-    def test_pauta_esgotada_nao_gera_e_explica(self, env):
-        store.save_config({"auto_source": "topics", "topics": ["único"], "news_terms": []})
-        service.generate(None, now=utc(2026, 9, 14, 21))
-        with pytest.raises(service.NoTopicError, match="pauta"):
-            service.generate(None, now=utc(2026, 9, 15, 21))
+    def test_sem_termo_vigiado_nao_gera_e_explica(self, env):
+        store.save_config({"news_terms": []})
+        with pytest.raises(service.NoTopicError, match="termo vigiado"):
+            service.generate(None, now=utc(2026, 9, 14, 21))
 
 
 class TestTickDoAgendador:
@@ -79,17 +78,17 @@ class TestTickDoAgendador:
         assert store.get_post(post["id"])["status"] == "published"
 
     def test_gera_no_dia_e_hora_configurados(self, env):
-        store.save_config({"auto_source": "topics", "generate_weekdays": [0], "generate_hour": 6, "topics": ["t1"]})
+        store.save_config({"generate_weekdays": [0], "generate_hour": 6, "news_terms": ["t1"]})
         resultado = service.tick(now=utc(2026, 9, 14, 12))  # segunda, 9h SP
         assert resultado["generated"] == 1
 
     def test_nao_gera_duas_vezes_no_mesmo_dia(self, env):
-        store.save_config({"auto_source": "topics", "generate_weekdays": [0], "generate_hour": 6, "topics": ["t1", "t2"]})
+        store.save_config({"generate_weekdays": [0], "generate_hour": 6, "news_terms": ["t1", "t2"]})
         service.tick(now=utc(2026, 9, 14, 12))
         assert service.tick(now=utc(2026, 9, 14, 15))["generated"] == 0
 
     def test_erro_ao_gerar_nao_impede_a_publicacao_dos_vencidos(self, env, monkeypatch):
-        store.save_config({"delay_days": 0, "publish_hour": 8, "generate_weekdays": [0], "generate_hour": 6})
+        store.save_config({"delay_days": 0, "publish_hour": 8, "generate_weekdays": [0], "generate_hour": 6, "news_terms": ["t"]})
         service.generate("t", now=utc(2026, 9, 12, 21))
         monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: (_ for _ in ()).throw(service.gemini.GeminiError("cota")))
         resultado = service.tick(now=utc(2026, 9, 14, 12))
@@ -147,31 +146,24 @@ class TestGeracaoPorNoticia:
     def test_modo_noticia_usa_o_termo_em_rodizio_e_consulta_de_notícia(self, env, monkeypatch):
         consultas = []
         monkeypatch.setattr(service.research, "search_web", lambda q: consultas.append(q) or service.research.Research(context="c"))
-        store.save_config({"auto_source": "news", "news_terms": ["segurança da informação"], "research_enabled": True})
+        store.save_config({"news_terms": ["segurança da informação"], "research_enabled": True})
         post = service.generate(None, now=utc(2026, 9, 14, 21))
         assert post["topic"] == "segurança da informação"
         assert post["generation"]["source"] == "news"
-        assert any("notícias" in c for c in consultas[0])
+        assert consultas[0][0] == "segurança da informação"
 
     def test_termos_giram_em_vez_de_repetir(self, env, monkeypatch):
         monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research(context="c"))
-        store.save_config({"auto_source": "news", "news_terms": ["um", "dois"]})
+        store.save_config({"news_terms": ["um", "dois"]})
         a = service.generate(None, now=utc(2026, 9, 14, 21))
         b = service.generate(None, now=utc(2026, 9, 15, 21))
         assert {a["topic"], b["topic"]} == {"um", "dois"}
 
-    def test_sem_termos_cai_na_pauta(self, env, monkeypatch):
+    def test_sem_termo_vigiado_a_geracao_automatica_falha_com_recado(self, env, monkeypatch):
         monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
-        store.save_config({"auto_source": "news", "news_terms": [], "topics": ["tema da pauta"]})
-        post = service.generate(None, now=utc(2026, 9, 14, 21))
-        assert post["topic"] == "tema da pauta" and post["generation"]["source"] == "topics"
-
-    def test_modo_pauta_nao_usa_consulta_de_noticia(self, env, monkeypatch):
-        consultas = []
-        monkeypatch.setattr(service.research, "search_web", lambda q: consultas.append(q) or service.research.Research())
-        store.save_config({"auto_source": "topics", "topics": ["meu tema"], "research_enabled": True})
-        service.generate(None, now=utc(2026, 9, 14, 21))
-        assert not any("notícias" in c for c in consultas[0])
+        store.save_config({"news_terms": []})
+        with pytest.raises(service.NoTopicError, match="painel"):
+            service.generate(None, now=utc(2026, 9, 14, 21))
 
 
 class TestReferenciasNoPost:
@@ -187,3 +179,48 @@ class TestReferenciasNoPost:
     def test_sem_pesquisa_o_post_fica_sem_referencia(self, env, monkeypatch):
         monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
         assert service.generate("tema", now=utc(2026, 9, 14, 21))["references"] == []
+
+
+class TestNaoRepetirAssunto:
+    def test_manda_os_titulos_ja_publicados_para_a_ia(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
+        service.generate("primeiro", now=utc(2026, 9, 14, 21))
+        service.generate("segundo", now=utc(2026, 9, 15, 21))
+        assert "T" in (recebidos["titles"] or []), "o título do post anterior precisa chegar no prompt"
+
+    def test_primeiro_post_do_blog_manda_lista_vazia(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
+        service.generate("único", now=utc(2026, 9, 14, 21))
+        assert recebidos["titles"] == []
+
+
+class TestCurriculoComoBase:
+    def test_sem_pesquisa_usa_o_curriculo_como_material(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+        store.save_config({"research_enabled": False})
+        post = service.generate("liderança", now=utc(2026, 9, 14, 21))
+        assert "EXPERIÊNCIA" in recebidos["ctx"], "o post sem pesquisa se ancora na carreira real"
+        assert "curriculo" in post["generation"]["source"]
+
+    def test_pesquisa_vazia_tambem_cai_no_curriculo(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+        service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert "EXPERIÊNCIA" in recebidos["ctx"]
+
+    def test_com_pesquisa_o_curriculo_nao_substitui_a_noticia(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia de hoje", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+        service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert recebidos["ctx"] == "notícia de hoje"

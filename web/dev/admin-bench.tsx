@@ -60,9 +60,8 @@ const post = (over: Partial<Post> = {}): Post => ({
 const config: BlogConfig = {
   timezone: 'America/Sao_Paulo', auto_publish: false, delay_days: 2, publish_hour: 8,
   generate_hour: 6, generate_weekdays: [0, 3],
-  research_enabled: true, auto_source: 'news',
+  research_enabled: true,
   news_terms: ['inteligência artificial', 'segurança da informação', 'infraestrutura em nuvem'],
-  topics: ['um tema de exemplo', 'outro tema de exemplo bem mais comprido para esticar a caixa'],
 }
 
 function Bench() {

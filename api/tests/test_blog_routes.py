@@ -25,7 +25,7 @@ def blog(monkeypatch):
     db = FakeDb()
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
-    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="": dict(DRAFT))
+    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None: dict(DRAFT))
     monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: None)
     monkeypatch.setattr(routes, "TICK_KEY", "chave-do-agendador")
     return db
@@ -103,10 +103,10 @@ class TestPainel:
         assert res.get_json()["post"]["topic"] == "meu tema"
 
     def test_sem_assunto_nenhum_devolve_409_com_explicacao(self, client, blog, admin):
-        store.save_config({"topics": [], "news_terms": []})
+        store.save_config({"news_terms": []})
         res = client.post("/api/blog/admin/generate", json={}, headers=AUTH)
         assert res.status_code == 409
-        assert "pauta" in res.get_json()["error"]
+        assert "termo vigiado" in res.get_json()["error"]
 
     def test_falha_do_gemini_vira_502_e_nao_500(self, client, blog, admin, monkeypatch):
         monkeypatch.setattr(service.gemini, "generate_post",

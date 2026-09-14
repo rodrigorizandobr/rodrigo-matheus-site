@@ -121,25 +121,6 @@ class TestNormalizacao:
             model.assert_publishable(base)
 
 
-class TestPauta:
-    def test_sorteia_apenas_temas_ainda_nao_usados(self):
-        escolhido = model.pick_topic(["a", "b", "c"], used=["a", "c"], seed=1)
-        assert escolhido == "b"
-
-    def test_comparacao_ignora_acento_e_caixa(self):
-        assert model.pick_topic(["Liderança em IA"], used=["lideranca em ia"], seed=1) is None
-
-    def test_pauta_esgotada_devolve_None_em_vez_de_repetir(self):
-        assert model.pick_topic(["a"], used=["a"]) is None
-
-    def test_pauta_vazia_devolve_None(self):
-        assert model.pick_topic([], used=[]) is None
-
-    def test_com_a_mesma_semente_o_sorteio_e_reprodutivel(self):
-        temas = ["a", "b", "c", "d"]
-        assert model.pick_topic(temas, [], seed=7) == model.pick_topic(temas, [], seed=7)
-
-
 class TestRodizioDeTermos:
     def test_escolhe_o_termo_ha_mais_tempo_sem_uso(self):
         # history do mais recente para o mais antigo

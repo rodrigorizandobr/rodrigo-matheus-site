@@ -52,9 +52,11 @@ _LIMITS = {
 
 
 def get_config() -> dict[str, Any]:
+    """Configuração atual. Chaves que saíram do produto (a antiga "pauta") ficam de
+    fora mesmo que ainda existam no documento gravado."""
     snap = _db().collection(CONFIG).document(CONFIG_DOC).get()
-    saved = snap.to_dict() if snap.exists else {}
-    return {**model.DEFAULT_CONFIG, **(saved or {})}
+    saved = {k: v for k, v in (snap.to_dict() or {}).items() if k in model.DEFAULT_CONFIG} if snap.exists else {}
+    return {**model.DEFAULT_CONFIG, **saved}
 
 
 def save_config(patch: dict[str, Any]) -> dict[str, Any]:
@@ -73,15 +75,9 @@ def save_config(patch: dict[str, Any]) -> dict[str, Any]:
             value = sorted(set(value))
         if key in ("auto_publish", "research_enabled") and not isinstance(value, bool):
             raise ValueError(f"{key} deve ser booleano")
-        if key == "auto_source" and value not in ("topics", "news"):
-            raise ValueError("auto_source deve ser 'topics' ou 'news'")
         if key == "news_terms":
             if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
                 raise ValueError("news_terms deve ser uma lista de textos")
-            value = [t.strip() for t in value if t.strip()]
-        if key == "topics":
-            if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
-                raise ValueError("topics deve ser uma lista de textos")
             value = [t.strip() for t in value if t.strip()]
         clean[key] = value
 
@@ -220,6 +216,16 @@ def publish_due(now: datetime | None = None) -> list[dict[str, Any]]:
 def recent_topics(limit: int = 30) -> list[str]:
     """Assuntos dos últimos posts, do mais recente para o mais antigo (rodízio de termos)."""
     return [p.get("topic", "") for p in list_posts()[:limit] if p.get("topic")]
+
+
+def recent_titles(limit: int = 20) -> list[str]:
+    """Títulos dos últimos posts — vão no prompt para a IA não repetir assunto."""
+    titulos = []
+    for post in list_posts()[:limit]:
+        titulo = ((post.get("i18n") or {}).get("pt") or {}).get("title", "")
+        if titulo:
+            titulos.append(titulo)
+    return titulos
 
 
 def last_generated_at() -> datetime | None:

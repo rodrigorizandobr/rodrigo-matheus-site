@@ -25,7 +25,12 @@ from urllib.parse import urlparse
 import requests
 
 SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
-SERPER_URL = "https://google.serper.dev/search"
+#: Endpoint de NOTÍCIAS, não a busca geral: o blog fala do que é novidade, e a busca
+#: web devolveria páginas institucionais e conteúdo antigo bem posicionado em SEO.
+SERPER_URL = "https://google.serper.dev/news"
+#: Brasil, em português — o leitor é daqui e a pauta é o mercado brasileiro.
+COUNTRY = "br"
+LOCALE = "pt-br"
 
 SEARCH_TIMEOUT = 10
 PAGE_TIMEOUT = 8
@@ -79,21 +84,30 @@ def _search(query: str) -> list[dict[str, str]]:
         res = requests.post(
             SERPER_URL,
             headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
-            json={"q": query, "num": RESULTS_PER_QUERY, "gl": "br", "hl": "pt-br"},
+            json={"q": query, "num": RESULTS_PER_QUERY, "gl": COUNTRY, "hl": LOCALE},
             timeout=SEARCH_TIMEOUT,
         )
         if not res.ok:
             return []
-        organic = (res.json() or {}).get("organic") or []
+        payload = res.json() or {}
+        # `news` é o campo do endpoint de notícias; `organic` fica como tolerância
+        # caso a chave caia para a busca comum.
+        results = payload.get("news") or payload.get("organic") or []
     except Exception:
         return []
 
     out = []
-    for item in organic:
+    for item in results:
         link = (item or {}).get("link")
         if isinstance(link, str) and link:
-            out.append({"link": link, "title": str(item.get("title") or ""),
-                        "snippet": str(item.get("snippet") or "")})
+            out.append({
+                "link": link,
+                "title": str(item.get("title") or ""),
+                "snippet": str(item.get("snippet") or ""),
+                # o endpoint de notícias traz veículo e data; ambos entram na citação
+                "source": str(item.get("source") or ""),
+                "date": str(item.get("date") or ""),
+            })
     return out
 
 
@@ -122,28 +136,32 @@ def search_web(queries: list[str]) -> Research:
         return Research()
 
     items = list(found.values())
+    candidatos = items[:PAGES_TO_READ]
     with ThreadPoolExecutor(max_workers=4) as pool:
-        pages = [p for p in pool.map(_read_page, [i["link"] for i in items[:PAGES_TO_READ]]) if p]
+        lidas = list(pool.map(_read_page, [i["link"] for i in candidatos]))
+    pages = [p for p in lidas if p]
+    # só quem foi lido de fato vira referência: o texto se apoiou nesta página
+    lidos = [item for item, texto in zip(candidatos, lidas) if texto]
 
     snippets = [f"{i['title']}. {i['snippet']}" for i in items
                 if len(f"{i['title']}. {i['snippet']}") > MIN_SNIPPET_CHARS]
 
     context = "\n\n---\n\n".join([*pages, *snippets])[:MAX_CONTEXT_CHARS]
-    references = [{"url": i["link"], "title": i["title"], "site": site_of(i["link"])} for i in items]
+    references = [{"url": i["link"], "title": i["title"],
+                   "site": i.get("source") or site_of(i["link"]),
+                   "published": i.get("date", "")} for i in lidos]
     return Research(context=context, sources=[i["link"] for i in items], references=references,
                     pages_read=len(pages), snippets=len(snippets))
 
 
 def news_queries(term: str, year: int | None = None) -> list[str]:
-    """Consultas para achar o que é notícia sobre um termo agora."""
+    """Consultas de notícia para um termo.
+
+    Curtas de propósito: o endpoint já é de notícias e já está restrito ao Brasil,
+    então o termo puro traz o que saiu; acrescentar palavras só estrangula o buscador.
+    """
     term = (term or "").strip()
     if not term:
         return []
     year = year or datetime.now(timezone.utc).year
-    return [f"notícias {term}", f"{term} {year} tendências", f"{term} novidades recentes"]
-
-
-def topic_queries(topic: str) -> list[str]:
-    """Consultas para dar lastro a um tema da pauta."""
-    topic = (topic or "").strip()
-    return [topic, f"{topic} na prática"] if topic else []
+    return [term, f"{term} {year}"]

@@ -60,7 +60,8 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 | Geração | `api/blog/gemini.py` | Texto pt+en numa chamada, `responseSchema` obrigatório. |
 | Imagens | `api/blog/images.py` | Só BUSCA: Gemini (IA) e Pixabay (banco). Quem grava é a biblioteca. |
 | Biblioteca | `api/blog/media.py` | Upload, IA e banco caem todos aqui: JPEG, lado máximo, nome pelo hash. |
-| Pesquisa | `api/blog/research.py` | Serper (busca do Google) + leitura das páginas. Opcional em todo lugar. |
+| Pesquisa | `api/blog/research.py` | Serper **notícias, Brasil** + leitura das páginas. Opcional em todo lugar. |
+| Currículo | `api/blog/profile.py` | A carreira vira material de apoio quando não há notícia. |
 | Coreografia | `api/blog/service.py` | tema → texto → capa → grava; `tick()` do agendador. |
 | Portaria | `api/blog/auth.py` | ID token do Firebase + allowlist de e-mail. |
 | Rotas | `api/blog/routes.py` | Público / painel / agendador, portarias diferentes. |
@@ -90,9 +91,20 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 - **Os trechos da busca valem tanto quanto o crawler.** O Cloud Run sai de IP de datacenter e boa parte
   dos sites recusa a leitura direta; sem os `snippet` do Serper a pesquisa voltaria vazia quase sempre.
   Por isso `search_web` junta páginas lidas E trechos. Lição herdada de monster-jobs/br51.
-- **Termo de notícia REPETE de propósito; tema da pauta, não.** O que muda numa notícia é a notícia, então
-  os termos entram em rodízio (`pick_rotating`, o mais antigo primeiro). Tema da pauta usado não volta
-  (`pick_topic`), porque geraria um post quase igual ao anterior.
+- **Serper no endpoint `/news`, com `gl=br` e `hl=pt-br`** — nunca a busca web: ela devolveria página
+  institucional e conteúdo antigo bem posicionado em SEO, e o blog fala do que é novidade aqui.
+- **Só vira referência a página que foi LIDA.** Link que apareceu apenas como trecho de busca entra em
+  `sources` (consultado), não em `references` (citado) — citar o que não fundamentou o texto é exagero.
+- **Sem notícia, o lastro é o CURRÍCULO** (`profile.career_context()`, lido do mesmo `api/i18n/pt.json`
+  do site): empresas, times e números reais em vez de o modelo escrever de memória. Não existe mais
+  "pauta" de temas — o PO tirou do produto.
+- **Os títulos já publicados vão no prompt** (`store.recent_titles()`): o modelo não tem memória entre
+  chamadas, então dois posts do mesmo termo sairiam quase iguais. A memória vai no prompt.
+- **Tamanho se manda em regra concreta, não em total de palavras.** "600 a 900 palavras" produzia posts
+  de 286; "4 seções, 3 parágrafos cada, 70 a 110 palavras por parágrafo" produziu 1.149. O modelo executa
+  estrutura, não orçamento.
+- **Termo de notícia REPETE de propósito.** O que muda numa notícia é a notícia, então os termos entram
+  em rodízio (`pick_rotating`, o mais antigo primeiro).
 - **Toda imagem passa por `media.store_image`** — upload, IA ou banco. Nunca se linka o arquivo de
   terceiro: a URL pode virar 403 e o post fica com imagem quebrada para sempre. O nome é o sha256 do
   JPEG final, então a mesma imagem não duplica e a URL pode ser cacheada para sempre.

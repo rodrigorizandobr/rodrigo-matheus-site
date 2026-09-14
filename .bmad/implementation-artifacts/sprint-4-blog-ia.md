@@ -84,3 +84,24 @@ notícias de IA saiu com tese própria, 8 fontes registradas, capa gerada e agen
 
 Observação para depois: o post de notícia saiu com 469 palavras, abaixo da faixa de 600–900 pedida no
 prompt. Não é erro de código — é calibragem de prompt, e só dá para ajustar vendo mais amostras.
+
+## Terceira rodada (2026-09-14, madrugada)
+
+- **Fontes em ABNT** no fim de todo post (NBR 6023, documento on-line), com link. Posts anteriores,
+  que só tinham URLs, continuam citáveis — o site sai do domínio.
+- **Serper passou para o endpoint `/news`**, `gl=br`/`hl=pt-br`: a busca web trazia página institucional
+  e conteúdo antigo bem ranqueado; agora vêm veículos brasileiros com data ("há 6 horas").
+- **Só página lida vira referência.** Antes, todo link consultado era citado — inclusive os que o
+  crawler não conseguiu abrir.
+- **Pauta removida do produto.** Sem notícia, o material de apoio passou a ser o **currículo**
+  (`profile.py`, lido do mesmo i18n do site).
+- **Títulos recentes vão no prompt** para a IA não reescrever o mesmo post.
+- **Calibragem de tamanho:** a regra "600–900 palavras" vinha produzindo 469 e depois 286 palavras.
+  Trocada por estrutura concreta (4 seções × 3 parágrafos × 70–110 palavras) → 1.149 palavras em pt e
+  1.054 em en, medidas em post real. Lição: o modelo executa estrutura, não orçamento de palavras.
+
+### Bug de infraestrutura corrigido no caminho
+A página do post servia um shell antigo: `page.py` guardava a cópia do GCS por 5 min em memória e o
+deploy publicava essa cópia DEPOIS do Cloud Run — uma requisição no meio do deploy congelava o bundle
+anterior. Agora o shell vem do próprio site (mesmo documento que o Hosting entrega), TTL de 60 s, e o
+deploy publica a cópia de segurança antes de subir o Cloud Run.

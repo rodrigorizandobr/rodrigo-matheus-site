@@ -29,28 +29,16 @@ export function ConfigPanel({ config, busy, onSave }: {
       <section className="panel p-5 md:p-7 grid gap-5">
         <header>
           <h2 className="font-display font-semibold text-heading text-[15px]">1. Sobre o que escrever</h2>
-          <p className="text-[12px] text-muted mt-1">De onde sai o assunto quando o robô escreve sozinho.</p>
+          <p className="text-[12px] text-muted mt-1">
+            Os assuntos que o robô acompanha. Ele escolhe um por vez, em rodízio, e parte do que saiu de novo sobre ele.
+          </p>
         </header>
 
-        <div className="grid sm:grid-cols-2 gap-3">
-          {([
-            ['news', 'Notícias', 'Parte do que saiu de novo sobre os termos vigiados. Cada post nasce de algo recente.'],
-            ['topics', 'Pauta própria', 'Sorteia um tema da sua lista que ainda não virou post.'],
-          ] as const).map(([value, titulo, desc]) => (
-            <button key={value} type="button" onClick={() => set('auto_source', value)}
-                    aria-pressed={draft.auto_source === value}
-                    className={`text-left p-3 border transition-colors ${draft.auto_source === value ? 'border-red' : 'border-line hover:border-heading'}`}>
-              <span className={`font-display font-semibold text-[12px] uppercase tracking-wider ${draft.auto_source === value ? 'text-red' : 'text-heading'}`}>{titulo}</span>
-              <span className="block text-[12px] text-muted mt-1 leading-relaxed">{desc}</span>
-            </button>
-          ))}
-        </div>
-
         <div>
-          <label className="field-label" htmlFor="cfg-news">Termos vigiados — um por linha</label>
+          <label className="field-label" htmlFor="cfg-news">Assuntos — um por linha</label>
           <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
-            Assuntos que o robô acompanha para achar notícia. Ele passa por todos em rodízio antes de repetir
-            qualquer um.
+            O robô passa por todos antes de repetir qualquer um. Lista vazia significa que ele não tem sobre o que
+            escrever sozinho.
           </p>
           <textarea id="cfg-news" className="field !min-h-[9rem] font-mono !text-[12.5px]"
                     value={draft.news_terms.join('\n')}
@@ -58,35 +46,25 @@ export function ConfigPanel({ config, busy, onSave }: {
           <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.news_terms)} termos</p>
         </div>
 
-        <div>
-          <label className="field-label" htmlFor="cfg-topics">Pauta — um tema por linha</label>
-          <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
-            Sua lista de assuntos próprios, escritos por você. Serve de reserva quando não há termos vigiados, e é a
-            origem quando você escolhe "Pauta própria" acima. Tema já usado não se repete: quando a lista acaba, o
-            robô para em vez de escrever duas vezes sobre a mesma coisa.
-          </p>
-          <textarea id="cfg-topics" className="field !min-h-[12rem] font-mono !text-[12.5px]"
-                    value={draft.topics.join('\n')}
-                    onChange={(e) => set('topics', e.target.value.split('\n'))} />
-          <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.topics)} temas</p>
-        </div>
       </section>
 
       <section className="panel p-5 md:p-7 grid gap-4">
         <header>
-          <h2 className="font-display font-semibold text-heading text-[15px]">2. Pesquisa na web</h2>
+          <h2 className="font-display font-semibold text-heading text-[15px]">2. Pesquisa de notícias</h2>
           <p className="text-[12px] text-muted mt-1">
-            Antes de escrever, o robô busca no Google e lê as páginas encontradas, usando o material como base.
+            Antes de escrever, o robô busca <strong>notícias no Brasil</strong> sobre o assunto e lê as páginas
+            encontradas. As fontes saem citadas em ABNT no fim do post.
           </p>
         </header>
         <label className="flex items-start gap-3 cursor-pointer">
           <input type="checkbox" checked={draft.research_enabled} className="mt-1"
                  onChange={(e) => set('research_enabled', e.target.checked)} />
           <span>
-            <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Pesquisar antes de escrever</span>
+            <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Buscar notícias antes de escrever</span>
             <span className="block text-[12px] text-muted mt-0.5 leading-relaxed">
-              Desligado, o robô escreve só do próprio repertório — mais barato e mais rápido, porém sem nada recente.
-              Ao gerar um post na mão você pode decidir caso a caso.
+              Desligado — ou quando a busca não traz nada — o post é escrito a partir do <strong>seu currículo</strong>:
+              as empresas, os times e os números da sua carreira viram o material de apoio, em vez de o modelo escrever
+              de memória. Ao gerar um post na mão você decide caso a caso.
             </span>
           </span>
         </label>

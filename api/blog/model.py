@@ -29,9 +29,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "generate_weekdays": [0, 3],
     # Pesquisa na web (Serper + leitura das páginas) ao escrever. Opcional.
     "research_enabled": True,
-    # De onde vem o assunto na geração automática: "news" parte de notícias recentes
-    # dos termos abaixo; "topics" sorteia da pauta.
-    "auto_source": "news",
     # Termos vigiados para virar post a partir de notícia. Editáveis no painel.
     "news_terms": [
         "inteligência artificial",
@@ -40,19 +37,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "segurança da informação",
         "infraestrutura em nuvem",
         "inovação em tecnologia",
-    ],
-    # Pauta: temas próprios. O robô sorteia daqui o que ainda não virou post.
-    "topics": [
-        "o que muda na arquitetura quando o time passa de 10 para 40 pessoas",
-        "onde IA generativa realmente reduz custo em engenharia, e onde só parece",
-        "por que a maioria das métricas de produtividade de dev mede a coisa errada",
-        "migrar para Cloud Run: o que compensou e o que eu faria diferente",
-        "liderar quem sabe mais do que você sobre o assunto",
-        "o custo escondido de manter dois provedores de nuvem",
-        "code review que encontra defeito de verdade, não estilo",
-        "quando reescrever um sistema é a decisão barata",
-        "contratar sênior em mercado aquecido sem baixar a régua",
-        "observabilidade que paga a conta: o mínimo que todo time precisa",
     ],
 }
 
@@ -117,21 +101,6 @@ def should_generate(now: datetime, cfg: dict[str, Any], last_generated_at: datet
     if last_generated_at is not None and last_generated_at.astimezone(tz).date() == local.date():
         return False
     return True
-
-
-def pick_topic(topics: Iterable[str], used: Iterable[str], seed: Any = None) -> str | None:
-    """Sorteia um tema da pauta que ainda não virou post.
-
-    Quando tudo já foi usado devolve None em vez de repetir: repetir tema gera
-    post quase igual ao anterior, que é pior do que não publicar naquele dia.
-    """
-    import random
-
-    used_keys = {slugify(u) for u in used or []}
-    livres = [t for t in (topics or []) if t.strip() and slugify(t) not in used_keys]
-    if not livres:
-        return None
-    return random.Random(seed).choice(livres)
 
 
 def pick_rotating(terms: list[str], history: list[str]) -> str | None:

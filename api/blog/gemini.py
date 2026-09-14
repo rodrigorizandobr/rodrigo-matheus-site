@@ -70,26 +70,29 @@ Casas Bahia. Escreve em primeira pessoa, com autoridade de quem executou."""
 
 RULES = """REGRAS DE ESCRITA — leia com atenção, elas são o motivo deste blog existir:
 
-1. CONCISO E PROFUNDO. Entre 600 e 900 palavras por idioma. Cada parágrafo precisa
-   carregar uma afirmação que possa ser discordada. Se um parágrafo pudesse aparecer em
-   qualquer artigo sobre o tema, apague-o.
-2. NADA DE SUPERFICIALIDADE. Proibido: "em um mundo cada vez mais digital", "a IA veio
+1. TAMANHO, em regra concreta: 4 seções, cada uma com 3 parágrafos, cada parágrafo com
+   70 a 110 palavras. Isso dá cerca de 800 a 1.300 palavras por idioma. Parágrafo de duas
+   linhas não desenvolve ideia nenhuma — desenvolva o raciocínio até o fim antes de passar
+   para a próxima seção.
+2. PROFUNDO. Cada parágrafo carrega uma afirmação que possa ser discordada. Se um parágrafo
+   pudesse aparecer em qualquer artigo sobre o tema, apague-o e escreva outro.
+3. NADA DE SUPERFICIALIDADE. Proibido: "em um mundo cada vez mais digital", "a IA veio
    para ficar", listas de benefícios genéricos, conclusões que repetem a introdução.
-3. ESPECIFICIDADE. Traga números, trade-offs, nomes de tecnologias, o que deu errado.
+4. ESPECIFICIDADE. Traga números, trade-offs, nomes de tecnologias, o que deu errado.
    Prefira "reduzimos o deploy de 40 para 6 minutos movendo X" a "melhoramos a eficiência".
-4. TESE. O post defende UMA ideia. O título diz qual é. A primeira seção já entra nela,
+5. TESE. O post defende UMA ideia. O título diz qual é. A primeira seção já entra nela,
    sem aquecimento.
-5. ESTRUTURA. De 3 a 5 seções. Cada `heading` é uma frase com conteúdo, não um rótulo
+6. ESTRUTURA. Cada `heading` é uma frase com conteúdo, não um rótulo
    ("Por que medimos a coisa errada" e não "Métricas").
-6. HONESTIDADE. Se algo é opinião, diga. Se tem contra-argumento, apresente-o.
-7. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
-8. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo post, escrita como
+7. HONESTIDADE. Se algo é opinião, diga. Se tem contra-argumento, apresente-o.
+8. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
+9. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo post, escrita como
    original em inglês — não tradução literal, e jamais um conteúdo diferente.
-9. MATERIAL DE APOIO. Quando ele vier junto, o texto se apoia NELE: fatos, números e nomes
+10. MATERIAL DE APOIO. Quando ele vier junto, o texto se apoia NELE: fatos, números e nomes
    próprios têm de sair do material, não da sua memória. As fontes são listadas no fim do post,
    em ABNT, e ficam visíveis ao leitor — afirmar o que não está no material é criar uma citação
    falsa. Sem material, escreva do seu repertório e evite números específicos.
-10. IMAGEM. `imagePrompt` em INGLÊS, descrevendo uma cena para a capa na direção de arte do
+11. IMAGEM. `imagePrompt` em INGLÊS, descrevendo uma cena para a capa na direção de arte do
    site: laboratório branco extremamente esterilizado, superfícies brancas, elementos
    biomecânicos, vermelho como ÚNICO acento, fotorrealista, sem texto e sem pessoas.
    `imageAlt` em português, descrevendo a imagem para quem não a vê."""
@@ -154,11 +157,31 @@ def _normalize(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generate_post(topic: str, context: str = "") -> dict[str, Any]:
-    """Escreve um post inteiro (pt+en) sobre `topic`. `context` é material extra opcional."""
+def _avoid_block(titles: list[str]) -> str:
+    """Os títulos já publicados, para o modelo não reescrever o mesmo post.
+
+    Sem isso, dois posts gerados a partir do mesmo termo de notícia saem quase
+    iguais — o modelo não tem memória entre chamadas, então a memória vai no prompt.
+    """
+    limpos = [t.strip() for t in (titles or []) if (t or "").strip()]
+    if not limpos:
+        return ""
+    lista = "\n".join(f"- {t}" for t in limpos[:20])
+    return (
+        f"\nJÁ PUBLICADOS (NÃO repita estes assuntos nem reescreva estes textos; "
+        f"se o tema for próximo, ataque um ângulo diferente e diga algo novo):\n{lista}\n"
+    )
+
+
+def generate_post(topic: str, context: str = "", avoid_titles: list[str] | None = None) -> dict[str, Any]:
+    """Escreve um post inteiro (pt+en) sobre `topic`.
+
+    `context` é o material de apoio (pesquisa na web ou o currículo) e
+    `avoid_titles` são os títulos já no ar, para não repetir assunto.
+    """
     prompt = f"""TEMA DO POST: {topic}
 
-{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto:{chr(10)}{context}{chr(10)}' if context.strip() else ''}
+{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto:{chr(10)}{context}{chr(10)}' if context.strip() else ''}{_avoid_block(avoid_titles or [])}
 Escreva o post completo em português e em inglês, seguindo as regras."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
 

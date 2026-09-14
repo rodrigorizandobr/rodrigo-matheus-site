@@ -87,14 +87,10 @@ export type BlogConfig = {
   generate_hour: number
   /** 0 = segunda … 6 = domingo */
   generate_weekdays: number[]
-  /** pesquisa na web (Serper + leitura das páginas) ao escrever */
+  /** busca notícias (Serper, Brasil) e lê as páginas antes de escrever */
   research_enabled: boolean
-  /** de onde vem o assunto na geração automática */
-  auto_source: 'topics' | 'news'
-  /** termos vigiados para virar post a partir de notícia */
+  /** assuntos vigiados; o robô passa por todos em rodízio antes de repetir */
   news_terms: string[]
-  /** temas próprios, sorteados quando a origem é a pauta */
-  topics: string[]
 }
 
 /** URL pública da capa — servida pela nossa API, nunca pelo banco de imagens de origem. */
