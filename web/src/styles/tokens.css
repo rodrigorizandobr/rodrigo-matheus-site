@@ -364,7 +364,10 @@ body::before {
   @media (max-width: 1023px) {
     main { padding-top: var(--stage-h); }
     .stage-img, .stage-video { object-position: 50% 22%; }
-    .stage { border-bottom: 1px solid var(--line); box-shadow: 0 8px 24px -16px rgb(20 20 26 / .25); }
+    /* the band is part of the header: content scrolls UNDER it (above main's z-10, below header's z-50) */
+    .stage { z-index: 20; border-bottom: 1px solid var(--line); box-shadow: 0 10px 28px -14px rgb(20 20 26 / .28); }
+    .stage::after { content: ""; position: absolute; inset: auto 0 0 0; height: 18%; pointer-events: none;
+      background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 55%, transparent)); }
   }
   .stage-layer[data-video="true"] .stage-video { opacity: 1; }
 }
