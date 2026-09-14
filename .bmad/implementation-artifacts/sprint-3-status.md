@@ -84,3 +84,10 @@ Sintoma (PO, aba anônima no telefone): vídeos "travados, sem fluidez". Causa: 
 decodificando junto com o clipe. Correções: velocidade assada no encode (30 fps, 3,6 s), mobile só H.264,
 uma camada decodificando por vez (`playing` separado de `visible`), linger unificado ida/volta (`landed`),
 loop pausado sob o clipe de volta. `public/scenes` 45 → 33 MB. Continuidade último frame preservada (Δ ≤ 2,2).
+
+### Segunda rodada (S25 Ultra + MacBook Air M1 ainda sem fluidez)
+Duas causas medidas: (1) desktop — 86 elementos com `backdrop-filter` sobre o vídeo; A/B ao vivo: só desligar
+o blur dos painéis leva de 15/78 frames >20 ms para 0/90. Painéis sem blur (84% opacos). (2) mídia — clipes
+reamostrados 52,8 → 30 fps tinham cadência 2,7/2,7/2,7/1,5 e os loops eram 24 fps (pulldown 3:2). Agora
+transições a 2,5× = 60 fps exatos (3,2 s) e loops interpolados a 60 fps (`scripts/interp60.mjs`, mci, ~20 min
+com 7 em paralelo). Após tudo: `show`/scroll 0/121 frames longos no M1.

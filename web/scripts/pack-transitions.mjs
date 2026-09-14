@@ -5,9 +5,10 @@
  *   public/scenes/<part>-out.{mp4,webm}  reversed               public/scenes/<part>-out.m.mp4
  * The clip's last frame equals the close-up still, so the loop that follows starts on the same pixels.
  *
- * The camera move is sped up HERE (SPEED×, re-timed to 30 fps), not with `playbackRate` in the
- * browser: at 2.2× a phone would have to decode ~53 fps — VP9 in software cannot, and it stutters.
- * Keep SPEED in sync with TRANSITION_MS in src/stage/Stage.tsx (8 s / SPEED).
+ * The camera move is sped up HERE, not with `playbackRate` in the browser (at 2.2× a phone had to
+ * decode ~53 fps and stuttered). SPEED is 2.5 on purpose: 24 fps × 2.5 = exactly 60 fps, so every
+ * source frame is shown once per refresh — no dropped/duplicated frames, no judder (2.2× resampled
+ * to 30 fps produced a visible 2.7/2.7/2.7/1.5 cadence). Keep TRANSITION_MS in Stage.tsx = 8 s / SPEED.
  *
  *   node scripts/pack-transitions.mjs [eyes core ...]
  */
@@ -16,8 +17,8 @@ import { existsSync, statSync } from 'node:fs'
 
 const ALL = ['eyes', 'neck', 'core', 'brain', 'fist', 'hand']
 const parts = process.argv.slice(2).length ? process.argv.slice(2) : ALL
-const SPEED = 2.2
-const FPS = 30
+const SPEED = 2.5
+const FPS = 60
 const retime = `setpts=PTS-STARTPTS,setpts=PTS/${SPEED},fps=${FPS}`
 const enc = {
   mp4: (crf) => ['-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart'],

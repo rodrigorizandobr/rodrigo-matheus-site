@@ -10,8 +10,8 @@ const ZOOM_OUT_MS = 700
 const HOLD_MS = 450
 /** after a clip lands, keep it fading over the layer underneath for this long — hides any residual mismatch */
 const LINGER_MS = 400
-/** transition clips are 8 s Veo takes re-timed to 2.2× at encode time (scripts/pack-transitions.mjs) */
-const TRANSITION_MS = 8000 / 2.2
+/** transition clips are 8 s Veo takes re-timed to 2.5× / 60 fps at encode time (scripts/pack-transitions.mjs) */
+const TRANSITION_MS = 8000 / 2.5
 /** once a clip has STARTED, treat it as finished by then even if `ended` never fires */
 const TRANSITION_MAX_MS = TRANSITION_MS + 1500
 /** a clip that has not started by then (cold network) is abandoned → CSS zoom for that part */

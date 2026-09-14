@@ -6,9 +6,10 @@
  *   node scripts/pack-video.mjs [.gen/idle-a.mp4]
  */
 import { execFileSync } from 'node:child_process'
-import { statSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 
-const src = process.argv[2] ?? '.gen/idle-a.mp4'
+// prefer the 60 fps interpolated intermediate (scripts/interp60.mjs) over the raw 24 fps take
+const src = process.argv[2] ?? (existsSync('.gen/i60-idle.mp4') ? '.gen/i60-idle.mp4' : '.gen/idle-a.mp4')
 // scale lives inside the complex graph: ffmpeg refuses -vf on a stream fed from filter_complex
 const pal = '[0:v]split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1,setpts=N/FRAME_RATE/TB,scale=1280:-2[v]'
 const run = (args) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-filter_complex', pal, '-map', '[v]', '-an', ...args], { stdio: 'inherit' })

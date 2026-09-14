@@ -31,8 +31,8 @@ GLB gratuito chega perto da fidelidade. O personagem é uma **imagem gerada** (G
 R3F/three foram removidos em 2026-09-13 — ver `.bmad/planning-artifacts/04-architecture.md` ADR-14.
 
 **Paleta clara, branco no branco, vidro.** Laboratório estéril: `--bg #ececed` com grade de azulejos
-no `body::before`; `.panel` é **glass** (translúcido + `backdrop-filter`, cantos retos, highlight
-interno); vermelho é o único acento saturado e aparece como **glow** no que está selecionado
+no `body::before`; `.panel` é **glass** (translúcido, cantos retos, highlight interno — **sem**
+`backdrop-filter`, ver armadilhas); vermelho é o único acento saturado e aparece como **glow** no que está selecionado
 (`.glow-red`, roster ativo, módulo ativo, START pulsando). `--white-armor` é cor de superfície, nunca de texto.
 
 | Camada | Onde |
@@ -165,11 +165,20 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   primeiro+último frame (`gen-video --in busto --last still`, só 8 s/720p), cujo último frame é o primeiro do
   loop; a volta é o clipe invertido. Sem clipe, cai para zoom CSS do busto. Nunca esconda um `<video>` com
   `display:none` — ele ainda baixa e decodifica.
-- **Velocidade da viagem é assada no encode, nunca `playbackRate`.** Os clipes Veo (8 s/24 fps) saem do
-  `pack-transitions.mjs` já a 2,2× e 30 fps (3,6 s). A 2,2× no browser o celular precisava decodificar ~53 fps
-  — VP9 por software não dá conta e o filme engasga. Mudou `SPEED`? Mude `TRANSITION_MS` no `Stage.tsx`.
+- **Tudo que toca no palco é 60 fps.** O Veo entrega 24 fps — em tela de 60/120 Hz isso é pulldown 3:2 e nunca
+  parece fluido, por melhor que decodifique. `scripts/interp60.mjs` interpola cada take uma vez (minterpolate
+  mci, ~6 min por take, todos em paralelo) para `.gen/i60-*.mp4`; os `pack-*` preferem esse intermediário.
+  Take novo = rodar `interp60` antes de empacotar.
+- **Velocidade da viagem é assada no encode, nunca `playbackRate`.** `pack-transitions.mjs` acelera 2,5×:
+  24 fps × 2,5 = 60 fps exatos, cada frame do take vira um refresh (3,2 s). 2,2× reamostrado a 30 fps dava
+  cadência 2,7/2,7/2,7/1,5 — tranco visível. `playbackRate` no browser obrigava o celular a decodificar ~53 fps.
+  Mudou `SPEED`? Mude `TRANSITION_MS` no `Stage.tsx`.
 - **Mobile só recebe H.264 (`*.m.mp4`), nunca webm.** Chrome/Safari escolhem o primeiro `<source>` que *podem*
   tocar; VP9 em software num telefone = travado. `videoSrc/transitionSrc(…, mobile)` devolvem só `mp4` (testado).
+- **Nenhum `backdrop-filter` em cima do palco.** Medido no M1: ~40 painéis com blur sobre o vídeo → 20–45% dos
+  frames acima de 20 ms (o vídeo repinta todo frame e cada painel re-desfoca todo frame); sem blur → 0. Vidro é
+  translucidez (84%) + highlight + borda + sombra. Blur só em header/rodapé/menu (poucos, pequenos). Chips e
+  botões nunca tiveram motivo para ter.
 - **Um vídeo decodificando por vez.** Camada toca só enquanto `playing`; a cena é montada com `preload="auto"`
   (buffer, pausada no frame 0 = último do clipe) e só dá `play()` na entrega. Na volta o loop fica visível
   e pausado sob o clipe — senão o busto pisca antes do clipe aparecer.

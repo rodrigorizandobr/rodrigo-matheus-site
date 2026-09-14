@@ -22,7 +22,8 @@ for (const p of parts) {
   if (existsSync(still)) {
     for (const w of [1920, 1280]) await sharp(still).resize({ width: w }).webp({ quality: 80 }).toFile(`public/scenes/${p}-${w}.webp`)
   }
-  const clip = `.gen/v-${p}.mp4`
+  // prefer the 60 fps interpolated intermediate (scripts/interp60.mjs) over the raw 24 fps take
+  const clip = existsSync(`.gen/i60-${p}.mp4`) ? `.gen/i60-${p}.mp4` : `.gen/v-${p}.mp4`
   if (existsSync(clip)) {
     ff(clip, ['-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '26', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', `public/scenes/${p}.mp4`])
     ff(clip, ['-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '34', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', `public/scenes/${p}.webm`])
