@@ -67,33 +67,70 @@ describe('reduce — repouso → zoom até a parte → loop → zoom de volta �
   })
 })
 
-describe('reduce — seções vizinhas: a câmera vai direto de uma parte à outra, sem passar pelo busto', () => {
-  const direct = (a: string, b: string) => Math.abs(['about', 'experience', 'projects'].indexOf(a) - ['about', 'experience', 'projects'].indexOf(b)) === 1
+describe('reduce — a câmera anda de parte em parte até o destino', () => {
+  // ordem real: about(olhos) experience(pescoço) projects(coração) education(cérebro) blog(punho) contact(mãos)
+  const ORDEM = ['about', 'experience', 'projects', 'education', 'blog', 'contact']
+  const step = (from: string, to: string) => {
+    const a = ORDEM.indexOf(from), b = ORDEM.indexOf(to)
+    if (a < 0 || b < 0 || a === b) return null
+    return ORDEM[a + (b > a ? 1 : -1)]
+  }
 
-  it('SHOW → foco na vizinha inicia um ZOOM-IN direto, lembrando de onde veio', () => {
+  it('vizinha: vai direto, lembrando de onde veio', () => {
     const show: StageState = { phase: 'show', scene: 'about', pending: null }
-    expect(reduce(show, { type: 'focus', section: 'experience' }, direct)).toEqual({ phase: 'zoomIn', scene: 'experience', from: 'about', pending: null })
+    expect(reduce(show, { type: 'focus', section: 'experience' }, step))
+      .toEqual({ phase: 'zoomIn', scene: 'experience', from: 'about', pending: null })
   })
-  it('SHOW → foco numa seção distante continua passando pelo busto (zoom-out)', () => {
+
+  it('destino longe: anda o PRIMEIRO passo e guarda o destino final', () => {
     const show: StageState = { phase: 'show', scene: 'about', pending: null }
-    expect(reduce(show, { type: 'focus', section: 'projects' }, direct)).toEqual({ phase: 'zoomOut', scene: 'about', pending: 'projects' })
+    expect(reduce(show, { type: 'focus', section: 'contact' }, step))
+      .toEqual({ phase: 'zoomIn', scene: 'experience', from: 'about', pending: 'contact' })
   })
-  it('zoom-in direto concluído → SHOW da nova parte', () => {
-    const zin: StageState = { phase: 'zoomIn', scene: 'experience', from: 'about', pending: null }
-    expect(reduce(zin, { type: 'zoomed' }, direct)).toEqual({ phase: 'show', scene: 'experience', pending: null })
+
+  it('ao pousar, emenda o próximo trecho sem voltar ao busto', () => {
+    const chegou: StageState = { phase: 'zoomIn', scene: 'experience', from: 'about', pending: 'contact' }
+    expect(reduce(chegou, { type: 'zoomed' }, step))
+      .toEqual({ phase: 'zoomIn', scene: 'projects', from: 'experience', pending: 'contact' })
   })
-  it('mudou de ideia durante o zoom-in para uma vizinha da chegada: emenda outro clipe direto ao pousar', () => {
-    const zin: StageState = { phase: 'zoomIn', scene: 'experience', from: 'about', pending: 'projects' }
-    expect(reduce(zin, { type: 'zoomed' }, direct)).toEqual({ phase: 'zoomIn', scene: 'projects', from: 'experience', pending: null })
+
+  it('o último passo limpa o destino e o palco assenta', () => {
+    const quase: StageState = { phase: 'zoomIn', scene: 'blog', from: 'education', pending: 'contact' }
+    const ultimo = reduce(quase, { type: 'zoomed' }, step)
+    expect(ultimo).toEqual({ phase: 'zoomIn', scene: 'contact', from: 'blog', pending: null })
+    expect(reduce(ultimo, { type: 'zoomed' }, step)).toEqual({ phase: 'show', scene: 'contact', pending: null })
   })
-  it('voltar para a seção de origem durante o zoom-in direto: pousa e volta pelo mesmo caminho', () => {
-    const zin: StageState = { phase: 'zoomIn', scene: 'experience', from: 'about', pending: null }
-    const s1 = reduce(zin, { type: 'focus', section: 'about' }, direct)
-    expect(s1.pending).toBe('about')
-    expect(reduce(s1, { type: 'zoomed' }, direct)).toEqual({ phase: 'zoomIn', scene: 'about', from: 'experience', pending: null })
+
+  it('a VOLTA refaz o caminho inteiro, parte por parte', () => {
+    let estado: StageState = { phase: 'show', scene: 'contact', pending: null }
+    estado = reduce(estado, { type: 'focus', section: 'about' }, step)
+    const visitadas = [estado.scene]
+    while (estado.phase === 'zoomIn') {
+      estado = reduce(estado, { type: 'zoomed' }, step)
+      if (estado.phase === 'zoomIn') visitadas.push(estado.scene)
+    }
+    expect(visitadas).toEqual(['blog', 'education', 'projects', 'experience', 'about'])
+    expect(estado).toEqual({ phase: 'show', scene: 'about', pending: null })
   })
-  it('sem predicado (padrão) nada muda: sempre pelo busto', () => {
+
+  it('mudar de ideia no meio do caminho vira o sentido da viagem', () => {
+    const indo: StageState = { phase: 'zoomIn', scene: 'projects', from: 'experience', pending: 'contact' }
+    const virou = reduce(indo, { type: 'focus', section: 'about' }, step)
+    expect(virou.pending).toBe('about')
+    // ao pousar em projects, o próximo passo já é para TRÁS; about ainda está a dois passos
+    expect(reduce(virou, { type: 'zoomed' }, step))
+      .toEqual({ phase: 'zoomIn', scene: 'experience', from: 'projects', pending: 'about' })
+  })
+
+  it('voltar ao topo continua passando pelo busto — é o clipe que existe', () => {
+    const show: StageState = { phase: 'show', scene: 'contact', pending: null }
+    expect(reduce(show, { type: 'focus', section: 'hero' }, step))
+      .toEqual({ phase: 'zoomOut', scene: 'contact', pending: null })
+  })
+
+  it('sem resolvedor de passo (padrão) tudo passa pelo busto', () => {
     const show: StageState = { phase: 'show', scene: 'about', pending: null }
-    expect(reduce(show, { type: 'focus', section: 'experience' })).toEqual({ phase: 'zoomOut', scene: 'about', pending: 'experience' })
+    expect(reduce(show, { type: 'focus', section: 'experience' }))
+      .toEqual({ phase: 'zoomOut', scene: 'about', pending: 'experience' })
   })
 })

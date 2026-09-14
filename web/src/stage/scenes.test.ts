@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sceneFor, transitionSrc, videoSrc, linkSrc, isNeighbour, SCENES } from './scenes'
+import { sceneFor, transitionSrc, videoSrc, linkSrc, isNeighbour, stepToward, SCENES } from './scenes'
 
 describe('scenes — fontes de vídeo por dispositivo', () => {
   it('loop: desktop vs mobile', () => {
@@ -33,5 +33,46 @@ describe('scenes — clipes parte → parte entre seções vizinhas', () => {
   it('linkSrc nomeia o clipe pela origem e destino (a volta é o arquivo invertido)', () => {
     expect(linkSrc(sceneFor('about'), sceneFor('experience'))).toEqual({ webm: '/scenes/eyes-neck.webm', mp4: '/scenes/eyes-neck.mp4' })
     expect(linkSrc(sceneFor('experience'), sceneFor('about'), true)).toEqual({ mp4: '/scenes/neck-eyes.m.mp4' })
+  })
+})
+
+
+describe('stepToward — a câmera anda de parte em parte, nunca teleporta', () => {
+  it('vizinha imediata é o próprio destino', () => {
+    expect(stepToward('about', 'experience')).toBe('experience')
+    expect(stepToward('experience', 'about')).toBe('about')
+  })
+
+  it('destino longe devolve só o PRÓXIMO passo, no sentido certo', () => {
+    // about(olhos) → contact(mãos): o primeiro passo é experience(pescoço)
+    expect(stepToward('about', 'contact')).toBe('experience')
+    // e na volta, o primeiro passo é blog(punho)
+    expect(stepToward('contact', 'about')).toBe('blog')
+  })
+
+  it('o caminho inteiro de volta passa por todas as partes', () => {
+    const caminho: string[] = []
+    let atual = 'contact'
+    while (atual !== 'about') {
+      atual = stepToward(atual, 'about')!
+      caminho.push(atual)
+    }
+    expect(caminho).toEqual(['blog', 'education', 'projects', 'experience', 'about'])
+  })
+
+  it('voltar ao topo (hero) não tem passo — é o clipe de volta ao busto', () => {
+    expect(stepToward('contact', 'hero')).toBeNull()
+  })
+
+  it('sair do hero também não tem passo — é o clipe busto → parte', () => {
+    expect(stepToward('hero', 'about')).toBeNull()
+  })
+
+  it('mesmo lugar não anda', () => {
+    expect(stepToward('about', 'about')).toBeNull()
+  })
+
+  it('seção desconhecida não quebra', () => {
+    expect(stepToward('about', 'inexistente')).toBeNull()
   })
 })

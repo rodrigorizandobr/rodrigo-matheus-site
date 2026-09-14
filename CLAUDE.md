@@ -270,6 +270,11 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   voltar a ser `.cta` puro, o LinkedIn fica branco no branco de novo.
 - **Screenshot full-page do Chrome mente nesta página** (hero `100svh` + `body::before` fixo).
   Verifique por viewport ou fatie em tiles.
+- **A câmera REFAZ o caminho na volta.** `stepToward(from, to)` devolve UM passo, e a máquina emenda o
+  próximo a cada pouso: da última seção para a primeira ela anda mãos → punho → cérebro → coração →
+  pescoço → olhos, em vez de cortar para o busto e pular. Verificado em produção. Só o topo da página
+  (hero) é alcançado pelo clipe parte → busto, porque é o clipe que existe. Custo: a volta inteira leva
+  ~16 s de vídeo (5 trechos), o que é o ponto — é uma viagem, não um corte.
 - **O palco é UMA câmera, não troca de vídeo.** Entre seções vizinhas a câmera vai **parte → parte**
   (`scripts/pack-links.mjs`, clipes `l-<a>-<b>` gerados com `--in still(a) --last still(b)`, 8 s/720p; a volta é
   o arquivo invertido `<b>-<a>`). Só a primeira seção usa busto → olhos, e só saltos pelo menu passam pelo

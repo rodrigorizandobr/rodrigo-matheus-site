@@ -55,11 +55,29 @@ export const transitionSrc = (s: Scene, dir: 'in' | 'out', mobile = false): Vide
   return mobile ? { mp4: `${base}.m.mp4` } : { webm: `${base}.webm`, mp4: `${base}.mp4` }
 }
 
-/** Neighbours in reading order (both non-rest): the camera travels between them directly. */
+/** Neighbours in reading order (both non-rest): there is a clip going straight between them. */
 export const isNeighbour = (a: string, b: string): boolean => {
   const ia = SCENES.findIndex((s) => s.section === a)
   const ib = SCENES.findIndex((s) => s.section === b)
   return ia > 0 && ib > 0 && Math.abs(ia - ib) === 1
+}
+
+/**
+ * Próxima parte no caminho de `from` até `to` — UM passo, não o destino.
+ *
+ * Só existem clipes entre partes vizinhas, então ir do fim da página ao começo é
+ * andar de volta por cada uma: mãos → punho → cérebro → coração → pescoço → olhos.
+ * A máquina chama isto a cada pouso e emenda o próximo trecho, o que faz a volta
+ * parecer a mesma câmera refazendo o caminho — e não um corte para o busto.
+ *
+ * `null` quando não há passo: voltar ao topo (hero) ou sair dele usa os clipes
+ * busto → parte e parte → busto.
+ */
+export const stepToward = (from: string, to: string): string | null => {
+  const ia = SCENES.findIndex((s) => s.section === from)
+  const ib = SCENES.findIndex((s) => s.section === to)
+  if (ia <= 0 || ib <= 0 || ia === ib) return null
+  return SCENES[ia + (ib > ia ? 1 : -1)].section
 }
 
 /**

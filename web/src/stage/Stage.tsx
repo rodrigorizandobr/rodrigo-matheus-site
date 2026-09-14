@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { initial, reduce, REST_ID, type StageEvent, type StageState } from './sceneMachine'
-import { sceneFor, posterSrcSet, videoSrc, transitionSrc, linkSrc, isNeighbour, type Scene, type VideoSources } from './scenes'
+import { sceneFor, posterSrcSet, videoSrc, transitionSrc, linkSrc, stepToward, type Scene, type VideoSources } from './scenes'
 import { planLayers } from './layerPlan'
 import { CLIP_FADE_MS } from './timing'
 import { useActiveSection } from './useActiveSection'
@@ -19,7 +19,7 @@ const CLIP_LOAD_CAP_MS = 12000
 
 /** one camera move: which clip, where it lands, what it looks at */
 type Move = { key: string; src: (mobile: boolean) => VideoSources; pos: string; dir: 'in' | 'out' }
-const reducer = (s: StageState, e: StageEvent) => reduce(s, e, isNeighbour)
+const reducer = (s: StageState, e: StageEvent) => reduce(s, e, stepToward)
 
 /** the clip for the current phase: bust → part, part → part (neighbours), or part → bust */
 function moveFor(state: StageState, scene: Scene | null): Move | null {
