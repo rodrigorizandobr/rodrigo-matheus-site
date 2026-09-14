@@ -1,15 +1,15 @@
-# Sprint 3 — Cutover (2026-09-13) — PRONTO PARA DEPLOY, NÃO PUBLICADO
+# Sprint 3 — Cutover (2026-09-13) — PUBLICADO
 
 ## Entregue
 
 | Story | Estado | Nota |
 |---|---|---|
 | S2.8 Blog no design novo | ✅ | `src/pages/BlogPage.tsx` + `router.ts` (sem dependência): `/blog` lista, `/blog/<slug>` post; `/blog/#slug` legado ainda resolve. Corpo HTML passa por **DOMPurify** (teste garante que `<script>`/`onerror` não chegam ao DOM). `public/blog/index.html` legado removido |
-| S3.1 Pré-render | ⚠️ **não feito** | SPA pura. Lighthouse SEO 100 mesmo assim (title/description/robots/sitemap/llms.txt); Google renderiza JS. Se quiser HTML estático para redes sociais por post, é uma story futura (SSG por rota) |
+| S3.1 Pré-render | ✅ (meta) | `scripts/prerender-meta.mjs` no `npm run build`: gera `dist/blog.html` e `dist/blog/<slug>.html` com `<title>`, description, `og:*`, canonical e `article:published_time` por post — previews em LinkedIn/WhatsApp mostram o post certo. O corpo continua renderizado no cliente (Lighthouse SEO já era 100) |
 | S3.2 `firebase.json` | ✅ | `public: web/dist`, `cleanUrls`, cache immutable p/ `assets/**`, 30 d p/ `hero|scenes`, 5 min p/ `posts.json`; **CSP**, nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy. Backup do anterior em `firebase.json.v2.bak` |
 | S3.3 `deploy.sh` | ✅ | Passo 0: `npm ci` → `typecheck` → `vitest run` → `vite build` (aborta em falha). Passo 3: `GET /api/refresh` com a chave do `.env`. `firebase` via `npx firebase-tools@14` (não há CLI global nesta máquina) |
 | S3.4 Lighthouse | ✅ | Build de produção, mobile: **A11y 100 · Best Practices 100 · SEO 100 · Agentic 100**, 0 auditorias falhando (após: `--muted` → `#5c5c69`, CTAs sem `aria-label` divergente, `llms.txt` real) |
-| S3.5 Cutover | ⏸ **aguardando aprovação** | Produção é ação externa — não executo sem o PO dizer "deploy" |
+| S3.5 Cutover | ✅ **publicado 2026-09-13** | `./deploy.sh` completo (Cloud Run rev. 24, Hosting, refresh). Smoke 15/15. Segundo deploy com vídeo no mobile + meta por post |
 | S3.6 Limpeza | ⏸ | `site/` removido só após produção validada |
 
 **95 testes verdes**, `tsc` app+test limpo. Transferência inicial (desktop, prod): JS 154 KB · CSS 10 KB · imagens 174 KB · vídeo do hero 1,36 MB (lazy, só desktop).
