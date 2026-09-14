@@ -1,0 +1,375 @@
+/* Design tokens — 03-ux-design §2. Red = energy/action (hero). Cyan = data (sections). */
+@import "tailwindcss";
+
+:root {
+  /* Sterile clean-room palette: white on white, red is the only saturated accent. */
+  --bg: #ececed;              /* the lab's seamless cyclorama */
+  --surface: #ffffff;         /* HUD cards */
+  --surface-2: #f6f6f8;
+  --line: #d9d9e0;
+  --text: #43434d;
+  --heading: #14141a;
+  --muted: #5c5c69;           /* 6.3:1 on --surface; keeps AA on glass over the portrait */
+  --cyan: #0086a8;            /* data accent, darkened for contrast on white */
+  --red: #d81f1f;             /* energy/action; the eyes */
+  --red-glow: #ff2d2d;        /* emissive-only, never used for text */
+  --magenta: #c4187f;
+  --amber: #b5761a;
+  --white-armor: #f7f7f9;   /* surface only — never text (it is white-on-white in this theme) */
+
+  --font-display: "Chakra Petch", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+
+  --max: 1320px;
+  --header-h: 57px;        /* sticky header sits in flow; the hero subtracts it */
+  --chamfer: 14px;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-heading: var(--heading);
+  --color-muted: var(--muted);
+  --color-cyan: var(--cyan);
+  --color-red: var(--red);
+  --color-magenta: var(--magenta);
+  --color-amber: var(--amber);
+  --color-armor: var(--white-armor);
+  --color-red-glow: var(--red-glow);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* Element defaults live in @layer base: in Tailwind v4 an UNLAYERED `a { color }` would beat every
+   `text-*` utility on links (unlayered > layered). */
+@layer base {
+  html { scroll-behavior: auto; } /* Lenis owns scrolling */
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--red); color: var(--bg); }
+  a { color: var(--cyan); text-decoration: none; }
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+}
+
+/* Everything below is a component layer: Tailwind utilities (md:hidden, text-*, !bg-*) must always win over these. */
+@layer components {
+
+/* HUD primitives */
+.hud-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hud-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--heading);
+}
+.panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgb(20 20 26 / .04), 0 8px 24px -12px rgb(20 20 26 / .10);
+  clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+}
+.panel::before { /* chamfer edge highlight */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--red) 10%, transparent), transparent 32%);
+  opacity: 0; transition: opacity .25s;
+}
+.panel:hover::before, .panel[data-active="true"]::before { opacity: 1; }
+
+/* stat bar: width driven by --pct, animated on mount */
+.stat-track { height: 3px; background: var(--line); overflow: hidden; }
+.stat-fill {
+  height: 100%; width: calc(var(--pct, 0) * 1%);
+  background: var(--red);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--red) 30%, transparent);
+  transform-origin: left; animation: stat-in .9s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes stat-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── Hero portrait (full-bleed background) ───────────────────────── */
+.portrait-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 26%;
+  transform: translate3d(var(--px, 0), var(--py, 0), 0) scale(1.05);
+  opacity: 0; transition: opacity .8s ease;
+}
+.portrait[data-ready="true"] .portrait-img { opacity: 1; }
+
+.portrait-glow {
+  position: absolute; left: 50%; top: 30%;
+  width: 22%; aspect-ratio: 3 / 1;
+  translate: -50% -50%;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--red-glow) 30%, transparent), transparent 66%);
+  filter: blur(20px); mix-blend-mode: multiply; pointer-events: none;
+  animation: eye-pulse 4.5s ease-in-out infinite;
+}
+@keyframes eye-pulse { 0%, 100% { opacity: .45 } 50% { opacity: .8 } }
+
+.portrait-scan {
+  position: absolute; inset: 0; pointer-events: none; opacity: .028;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, #14141a 2px 3px);
+}
+
+/* Left/right wash so the floating HUD keeps contrast over the brightest plate. */
+.portrait-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bg) 72%, transparent) 0 18%, transparent 34% 66%, color-mix(in srgb, var(--bg) 72%, transparent) 82% 100%),
+    linear-gradient(0deg, color-mix(in srgb, var(--bg) 55%, transparent) 0 8%, transparent 26%);
+}
+@media (max-width: 1023px) {
+  .portrait-vignette { background: linear-gradient(0deg, color-mix(in srgb, var(--bg) 88%, transparent) 0 18%, transparent 46%); }
+  .portrait-img { object-position: 50% 16%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portrait-img { transform: scale(1.05); }
+  .portrait-glow { animation: none; opacity: .6; }
+}
+
+/* ── HUD chrome ─────────────────────────────────────────────────── */
+/* four corner ticks, one element, no pseudo-element budget spent */
+.hud-frame {
+  --tick: 12px; --tc: var(--heading);
+  background-image:
+    linear-gradient(var(--tc), var(--tc)), linear-gradient(var(--tc), var(--tc)),
+    linear-gradient(var(--tc), var(--tc)), linear-gradient(var(--tc), var(--tc)),
+    linear-gradient(var(--tc), var(--tc)), linear-gradient(var(--tc), var(--tc)),
+    linear-gradient(var(--tc), var(--tc)), linear-gradient(var(--tc), var(--tc));
+  background-repeat: no-repeat;
+  background-size: var(--tick) 1.5px, 1.5px var(--tick), var(--tick) 1.5px, 1.5px var(--tick),
+                   var(--tick) 1.5px, 1.5px var(--tick), var(--tick) 1.5px, 1.5px var(--tick);
+  background-position: 6px 6px, 6px 6px, calc(100% - 6px) 6px, calc(100% - 6px) 6px,
+                       6px calc(100% - 6px), 6px calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) calc(100% - 6px);
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 10px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgb(20 20 26 / .05);
+  color: var(--heading);
+}
+.chip-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--muted); box-shadow: 0 0 0 2px color-mix(in srgb, var(--muted) 20%, transparent); }
+.chip[data-state="online"] .chip-dot, .chip-dot[data-on="true"] { background: #16a34a; box-shadow: 0 0 0 2px rgb(22 163 74 / .2); animation: dot-pulse 2.4s ease-in-out infinite; }
+.chip[data-state="offline"] .chip-dot { background: var(--red); box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 25%, transparent); }
+.chip[data-state="syncing"] .chip-dot { background: var(--amber); animation: dot-pulse .9s ease-in-out infinite; }
+@keyframes dot-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+
+/* tick marks under each stat bar, like a gauge */
+.ruler { height: 4px; margin-top: -1px;
+  background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 10%);
+  mask-image: linear-gradient(90deg, #000 0 100%); opacity: .9; }
+
+.module-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  aspect-ratio: 1; padding: 6px 4px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+  transition: color .2s, border-color .2s, background .2s;
+}
+.module-tile[data-on="true"] { color: var(--red); border-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
+
+/* CTAs: chamfered cards with icon, label, sublabel; primary is solid ink */
+.cta {
+  display: block; padding: 11px 12px 10px;
+  background: var(--surface); color: var(--heading); border: 1px solid var(--line);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: 0 1px 2px rgb(20 20 26 / .05);
+  transition: transform .18s, border-color .18s, background .18s, color .18s;
+}
+.cta:hover { transform: translateY(-2px); border-color: var(--heading); }
+.cta-primary { background: var(--heading); color: var(--surface); border-color: var(--heading); }
+.cta-primary:hover { background: var(--red); border-color: var(--red); }
+
+/* START: heavy double frame with an offset shadow, the reference's signature button */
+.btn-start {
+  position: relative; width: 100%; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-family: var(--font-display); font-weight: 700; font-size: 14px; text-transform: uppercase;
+  color: var(--heading); background: var(--surface);
+  border: 1.5px solid var(--heading); outline: 1.5px solid var(--heading); outline-offset: 3px;
+  box-shadow: 5px 5px 0 var(--heading);
+  cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s, color .15s;
+}
+.btn-start:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--heading); }
+.btn-start:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--heading); }
+.btn-start:focus-visible { outline-color: var(--red); }
+
+.kbd {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--heading);
+  background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px;
+}
+
+/* active roster card gets a slow scan sweep — the "selected" feedback games use */
+.roster-card { position: relative; overflow: hidden; }
+.roster-card[data-active="true"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--red) 9%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%); animation: scan 3.2s ease-in-out infinite;
+}
+@keyframes scan { 0% { transform: translateX(-100%) } 60%, 100% { transform: translateX(100%) } }
+
+/* video layer sits over the still and fades in once it can play */
+.portrait-video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 26%;
+  transform: translate3d(var(--px, 0), var(--py, 0), 0) scale(1.05);
+  opacity: 0; transition: opacity 1.2s ease;
+}
+.portrait[data-video="true"] .portrait-video { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .roster-card[data-active="true"]::after, .chip-dot { animation: none; }
+  .portrait-video { transform: scale(1.05); }
+}
+
+/* ── Glass & glow (design pass 2) ────────────────────────────────── */
+/* The lab needs something behind the glass to refract: faint tile grid + two soft colour fields. */
+body { position: relative; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60% 42% at 12% 18%, color-mix(in srgb, var(--red) 7%, transparent), transparent 70%),
+    radial-gradient(50% 36% at 88% 72%, color-mix(in srgb, var(--cyan) 7%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 63px, rgb(20 20 26 / .035) 63px 64px),
+    repeating-linear-gradient(90deg, transparent 0 63px, rgb(20 20 26 / .035) 63px 64px),
+    var(--bg);
+}
+
+/* Panels become glass: square corners (as the reference), translucent fill, inner top highlight, real shadow. */
+.panel {
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid color-mix(in srgb, #fff 85%, var(--line));
+  clip-path: none;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .95),
+    inset 0 0 0 1px rgb(255 255 255 / .25),
+    0 1px 2px rgb(20 20 26 / .04),
+    0 18px 40px -22px rgb(20 20 26 / .22);
+}
+.panel::before { display: none; }
+.panel-solid { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.glass-strong { background: color-mix(in srgb, var(--surface) 82%, transparent); }
+
+/* Glow: red, tight ring + soft bloom. Used for "selected" and for hover on actions. */
+.glow-red {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .95),
+    0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--red) 8%, transparent),
+    0 0 32px -6px color-mix(in srgb, var(--red) 45%, transparent),
+    0 18px 40px -22px rgb(20 20 26 / .22);
+}
+.roster-card[data-active="true"], .module-tile[data-on="true"] { border-color: var(--red); }
+.roster-card[data-active="true"] { box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .95),
+    0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent),
+    0 0 28px -6px color-mix(in srgb, var(--red) 40%, transparent),
+    0 18px 40px -22px rgb(20 20 26 / .22); }
+.module-tile[data-on="true"] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent), 0 0 22px -6px color-mix(in srgb, var(--red) 45%, transparent); }
+.chip { background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-color: color-mix(in srgb, #fff 85%, var(--line)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), 0 1px 2px rgb(20 20 26 / .05); }
+.cta:not(.cta-primary) { background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.cta:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--heading) 60%, transparent), 0 10px 28px -12px rgb(20 20 26 / .35); }
+.cta-primary:hover { box-shadow: 0 0 0 1px var(--red), 0 0 30px -6px color-mix(in srgb, var(--red) 60%, transparent); }
+.btn-start { background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: start-glow 3.6s ease-in-out infinite; }
+@keyframes start-glow {
+  0%, 100% { box-shadow: 5px 5px 0 var(--heading), 0 0 0 0 transparent; }
+  50%      { box-shadow: 5px 5px 0 var(--heading), 0 0 26px -4px color-mix(in srgb, var(--red) 45%, transparent); }
+}
+.btn-start:hover { animation: none; }
+.hud-num.glow { text-shadow: 0 0 22px color-mix(in srgb, var(--red) 28%, transparent); }
+.stat-fill { box-shadow: 0 0 14px color-mix(in srgb, var(--red) 45%, transparent), 0 0 2px var(--red); }
+
+/* ── Sections ───────────────────────────────────────────────────── */
+.section { scroll-margin-top: calc(var(--header-h) + 8px); }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.section-title { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .1em; font-weight: 700; font-size: clamp(20px, 2.4vw, 28px); color: var(--heading); line-height: 1; }
+.section-title .slash { color: var(--red); margin-right: 8px; }
+.section-tag { font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: .24em; color: var(--surface); background: var(--heading); padding: 4px 8px; }
+
+/* skeleton shimmer for the Arena while GitHub answers */
+.skeleton { position: relative; overflow: hidden; background: color-mix(in srgb, var(--line) 60%, transparent); }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .8), transparent); animation: shimmer 1.6s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* timeline spine */
+.timeline { position: relative; }
+.timeline::before { content: ""; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, var(--red), var(--line) 30%, var(--line)); }
+@media (min-width: 1024px) { .timeline::before { left: 50%; margin-left: -1px; } }
+.timeline-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--surface); border: 2px solid var(--line); box-shadow: 0 0 0 4px var(--bg); }
+.timeline-dot[data-on="true"] { border-color: var(--red); background: var(--red); box-shadow: 0 0 0 4px var(--bg), 0 0 18px color-mix(in srgb, var(--red) 55%, transparent); }
+
+/* rarity frames for Arena cards */
+.rarity-rare { border-color: color-mix(in srgb, var(--cyan) 55%, var(--line)); }
+.rarity-legendary { border-color: color-mix(in srgb, var(--amber) 70%, var(--line)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .95), 0 0 0 1px color-mix(in srgb, var(--amber) 35%, transparent), 0 0 26px -8px color-mix(in srgb, var(--amber) 55%, transparent); }
+
+/* photo frame in BIO */
+.photo-frame { position: relative; background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, transparent), transparent 60%); }
+.photo-frame::after { content: ""; position: absolute; inset: auto 8% -6% 8%; height: 40%; border-radius: 50%;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--red) 22%, transparent), transparent 70%); filter: blur(18px); z-index: -1; }
+
+@media (prefers-reduced-motion: reduce) { .btn-start, .skeleton::after { animation: none; } }
+}
+
+/* ── Persistent stage (desktop) ─────────────────────────────────── */
+@layer components {
+  .stage-layer { opacity: 0; transition-property: opacity; transition-timing-function: ease; will-change: opacity; }
+  .stage-layer[data-visible="true"][data-ready="true"] { opacity: 1; }
+  .stage-img, .stage-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: var(--pos, 50% 30%);
+    transform: scale(1.04);
+  }
+  .stage-video { opacity: 0; transition: opacity 1.2s ease; }
+  .stage-layer[data-video="true"] .stage-video { opacity: 1; }
+}
+
+/* ── Blog prose ─────────────────────────────────────────────────── */
+@layer components {
+  .prose-log { font-size: 16px; line-height: 1.75; color: var(--text); }
+  .prose-log > * + * { margin-top: 1.1em; }
+  .prose-log h2, .prose-log h3 { font-family: var(--font-display); color: var(--heading); text-transform: uppercase; letter-spacing: .06em; line-height: 1.2; margin-top: 1.8em; }
+  .prose-log h2 { font-size: 20px; } .prose-log h3 { font-size: 16px; }
+  .prose-log h3::before { content: "// "; color: var(--red); }
+  .prose-log strong { color: var(--heading); }
+  .prose-log a { color: var(--cyan); text-decoration: underline; text-underline-offset: 3px; }
+  .prose-log code { font-family: var(--font-mono); font-size: .9em; background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; }
+  .prose-log pre { background: var(--heading); color: var(--surface); padding: 16px; overflow-x: auto; font-size: 13px; }
+  .prose-log pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  .prose-log ul, .prose-log ol { padding-left: 1.4em; } .prose-log li + li { margin-top: .35em; }
+  .prose-log blockquote { border-left: 3px solid var(--red); padding-left: 1em; color: var(--muted); }
+  .prose-log img { max-width: 100%; height: auto; }
+}

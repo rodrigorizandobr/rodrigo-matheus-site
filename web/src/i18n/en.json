@@ -1,0 +1,332 @@
+{
+  "lang": "en",
+  "html_lang": "en",
+  "meta": {
+    "title": "Rodrigo Matheus — Engineering · AI · Strategy",
+    "description": "Rodrigo Matheus da Silva — 22+ years leading engineering, AI, and high-impact financial products."
+  },
+  "nav": {
+    "about": "About",
+    "projects": "Projects",
+    "experience": "Experience",
+    "education": "Education",
+    "contact": "Contact"
+  },
+  "hero": {
+    "name": "Rodrigo Matheus",
+    "tag": "Engineering Manager · AI Strategy · Fintech",
+    "classes": [
+      {
+        "id": "eng-manager",
+        "label": "Engineering Manager",
+        "blurb": "Leads 40+ engineers across multiple squads at fintech scale — strategy, hiring, culture and delivery.",
+        "gesture": "Wave",
+        "unit": "banQi · 2024→"
+      },
+      {
+        "id": "ai-strategist",
+        "label": "AI Strategist",
+        "blurb": "Postgraduate in AI/ML Engineering (FIAP). Turns models into product: credit decisioning, collections, automation.",
+        "gesture": "ThumbsUp",
+        "unit": "FIAP · IA/ML · 2025"
+      },
+      {
+        "id": "platform-architect",
+        "label": "Platform Architect",
+        "blurb": "Microservices, AWS, event-driven credit platforms that captured 1B+ data points in a single year.",
+        "gesture": "Yes",
+        "unit": "Serasa · 2012→2017"
+      },
+      {
+        "id": "fintech",
+        "label": "Fintech Operator",
+        "blurb": "Banking as a Service, digital banks, AML, credit & collections — Itaú, Serasa, Natura Pay, Bankly, banQi.",
+        "gesture": "Punch",
+        "unit": "Itaú · Natura · Bankly"
+      }
+    ],
+    "title": "Strong engineering, clear executive direction, and measurable results.",
+    "subtitle": "22+ years building and leading teams that deliver financial platforms at scale. Modern architecture, high-performance culture, and pragmatic use of AI to accelerate business.",
+    "btn_linkedin": "LinkedIn",
+    "btn_cv": "Resume PDF",
+    "btn_github": "GitHub",
+    "stats": [
+      {
+        "value": "22+",
+        "label": "years in tech"
+      },
+      {
+        "value": "40+",
+        "label": "people managed"
+      },
+      {
+        "value": "16+",
+        "label": "years leading"
+      }
+    ]
+  },
+  "about": {
+    "heading": "about",
+    "lead": "Technology leader with over 22 years of experience in development, architecture, and management. Currently responsible for the executive leadership of high-performance teams with over 40 people, integrating technical and business vision to deliver high-impact financial products. Solid experience in digital transformation and strategic management at companies such as Natura&Co, Bankly, Itaú, Santander, Serasa, and Casas Bahia. Specialist in aligning technology with OKRs, implementing agile methodologies, and managing complex budgets (Capex/Opex) to sustain digital product growth.",
+    "pills": [
+      "Engineering Management",
+      "AI Strategy",
+      "Platform Architecture",
+      "Credit & Fintech",
+      "OKRs & Governance",
+      "Capex / Opex",
+      "Microservices",
+      "Cloud (AWS)",
+      "Culture & E-NPS",
+      "Machine Learning"
+    ]
+  },
+  "projects": {
+    "heading": "projects",
+    "lead": "All public repositories loaded in real time from the GitHub API.",
+    "loading": "Connecting to",
+    "loading_api": "GitHub API",
+    "loading_sub": "fetching repositories...",
+    "empty": "No repositories found.",
+    "sparkline_label": "commits in the last 28 days",
+    "time_ago": {
+      "now": "just now",
+      "minutes": "min ago",
+      "hours": "h ago",
+      "days": "d ago"
+    }
+  },
+  "experience": {
+    "heading": "experience",
+    "items": [
+      {
+        "company": "banQi — Casas Bahia",
+        "role": "Engineering Manager",
+        "period": "June 2024 → Present",
+        "description": "Direct and indirect leadership of over 40 professionals across multiple engineering teams, driving the evolution of credit products that represent the company's main revenue pillar. Technical and operational management of the credit product tribe, including Personal Loans, Payroll Loans, BNPL, FGTS Advance, Consortium, and Collections. Responsible for end-to-end people management, architecture, Capex & Opex, consulting contract planning, and OKR definition. Managed the E-NPS cycle, raising the index from 3.8 to 6.5 through talent development strategies and process, tools, and culture improvements. Implemented quarterly planning and platform vision for microservices, reducing technical complexity and development time."
+      },
+      {
+        "company": "Natura Pay — Natura &Co",
+        "role": "Engineering Coordinator",
+        "period": "September 2022 → May 2024",
+        "description": "Led teams responsible for critical credit decision and collections systems (FICO, Crivo, Clear Sales) in a microservices and high-availability environment. Developed an agnostic credit platform for operations across multiple Latin American countries and multiple brands, ensuring 99.9% uptime."
+      },
+      {
+        "company": "Bankly — Banking as a Service",
+        "role": "Team Leader",
+        "period": "August 2021 → September 2022",
+        "description": "Direct leadership of 3 development squads, responsible for the end-to-end vision of critical financial products (PIX, Yield Account, and Credit Card). Established and tracked OKRs, performance metrics, and agile processes that resulted in a 35% acceleration in time-to-market for new financial features. Managed budgets for people and projects, as well as coordination of external software factories. Implemented technical development tracks, workshops, individual mentoring, and PDI, consolidating a culture of continuous learning and high performance."
+      },
+      {
+        "company": "Natura Pay — Natura &Co",
+        "role": "Engineering Coordinator",
+        "period": "September 2019 → August 2021",
+        "description": "Oversaw the development of a white-label digital bank and debt renegotiation systems, leading outsourced teams in a microservices environment. Enabled strategic partnerships with players such as Super Digital, Getnet, and Dock for launching payment solutions and expanding the financial ecosystem. Optimized processes through design system implementation, resulting in a 30% increase in development productivity. Managed software factory budgets, ensuring project delivery on time and within planned costs."
+      },
+      {
+        "company": "Itaú Unibanco",
+        "role": "Tech Lead",
+        "period": "January 2019 → September 2019",
+        "description": "Led the AML (Anti-Money Laundering) squad and financial management, coordinating integration across 8+ teams, designing and developing the AML platform responsible for capturing and monitoring all bank transactions. Project delivered in 8 months, at a time when cloud didn't exist in the bank and provisioning a server had an SLA of months."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "IT Specialist",
+        "period": "January 2017 → January 2019",
+        "description": "Coordinated strategic projects in Java and .NET with bodyshop teams, managing the complete cycle from discovery to production incidents in the Digital Transformation program. Defined architecture and security requirements in partnership with corporate teams, responsible for proposal evaluation and scope definition for third-party team hiring. Led selection and hiring processes that structured high-performance technical teams, exceeding established productivity targets. Executed strategic POCs for technical concept validation, resulting in resource savings and development timeline acceleration. Established an MVP approach to balance immediate value delivery with long-term scalability, enabling fast feedback cycles. Optimized budget management for development, maintenance, and infrastructure teams, ensuring maximum efficiency in financial resource allocation."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Software Architecture & Innovation Specialist",
+        "period": "January 2015 → January 2017",
+        "description": "Defined the technical architecture for the Serasa Consumer business unit in direct collaboration with development teams and corporate departments. Established best practices and development standards for PHP and Node.js on AWS, aligning technical solutions with the organization's strategic needs. Implemented development standards and best practices that reduced onboarding time from 2 months to 2 weeks. Conducted POCs for new technologies that resulted in the adoption of innovative solutions, improving performance and scalability of critical systems. Defined technical standards and downstream processes that reduced production incidents by 40%. Created a reference architectural documentation standard to facilitate system integration and accelerate new feature development."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Data Acquisition Specialist",
+        "period": "January 2012 → January 2015",
+        "description": "Delivered a platform capable of capturing over 1 billion data points in a single year, significantly expanding the company's information assets. Pioneered the introduction of disruptive technologies and methodologies at the company, including Node.js, automated testing, microservices, and continuous integration (CI). Implemented optimized processes that reduced operational costs and increased data acquisition agility from months to days. Received a corporate award for technological innovation in the data capture platform and efficient team structuring. Pioneered cloud computing (AWS) adoption in the organization."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Mobile Specialist",
+        "period": "January 2011 → January 2012",
+        "description": "Pioneered the development of the company's first mobile application, coordinating squads in Java and Objective-C. Managed the end-to-end process, from proposal evaluation and consulting hiring to architecture and security definition. Efficiently managed development and infrastructure budgets, ensuring deliveries within planned scope. Established a secure and scalable mobile architecture that became the reference standard for the company's subsequent applications. Validated concepts via technical POCs to minimize risks before full solution implementation."
+      },
+      {
+        "company": "Serasa Experian",
+        "role": "Senior Front-end Developer",
+        "period": "January 2010 → January 2011",
+        "description": "Technical leadership in defining architecture and maintaining institutional websites and B2B/B2C e-commerce platforms. Implemented performance optimizations that increased site loading speed by 60%. Developed SEO strategies that resulted in 45% organic traffic growth for strategic keywords. Selected and trained developers, accelerating new member integration and elevating team technical quality. Structured scalable architectures that supported transaction volume growth on e-commerce platforms without service degradation."
+      },
+      {
+        "company": "GoNow",
+        "role": "Senior Front-end Developer",
+        "period": "December 2008 → December 2009",
+        "description": "Technical leadership in developing interfaces for classified and map portals, known as Páginas Amarillas across several Latin American countries. Acted as Scrum Master, coordinating agile Scrum ceremonies and ensuring project delivery efficiency. Strategic bridge between creative and technology areas for aligning requirements and technical feasibility of front-end demands. Developed information architecture, front-end (HTML, jQuery, CSS3), and implemented SEO, accessibility, and usability best practices."
+      },
+      {
+        "company": "Santander Universia",
+        "role": "Mid-level Fullstack Developer",
+        "period": "November 2007 → November 2008",
+        "description": "Developed websites, systems, and portals for Universia using Java, PHP, JavaScript, HTML, and CSS, focusing on innovation and web trend analysis to improve visitor metrics. Executed SEO strategies and maintained the Universia portal."
+      },
+      {
+        "company": "A1.Brasil",
+        "role": "Junior QA Analyst",
+        "period": "January 2006 → October 2007",
+        "description": "Ensured quality, accessibility, and usability for projects for clients such as Vivo, Credicard, Pirelli, and Porto Seguro. Monitored and optimized internal processes to ensure approval and quality gates. Code homologation according to W3C standards and client brand application guidelines."
+      },
+      {
+        "company": "Santander Universia",
+        "role": "Junior Fullstack Developer",
+        "period": "May 2006 → May 2007",
+        "description": "Requirements gathering directly with internal clients and development of prototypes, systems, and tools in Java and PHP with SQL Server, focused on content generation for the portal."
+      },
+      {
+        "company": "Lobster Media Creative Studio",
+        "role": "Junior Fullstack Developer",
+        "period": "January 2006 → April 2006",
+        "description": "PHP development with MySQL, test execution, and user and system administration."
+      },
+      {
+        "company": "Ponto ED",
+        "role": "Intern",
+        "period": "January 2005 → December 2005",
+        "description": "Development of websites and systems in ASP and ASP.NET with SQL Server."
+      }
+    ]
+  },
+  "education": {
+    "heading": "education",
+    "items": [
+      {
+        "institution": "FIAP",
+        "degree": "Postgraduate — Specialization in Artificial Intelligence, Machine Learning Engineering",
+        "period": "October 2024 → October 2025"
+      },
+      {
+        "institution": "MBA USP/Esalq",
+        "degree": "Master of Business Administration (MBA) — Business Management",
+        "period": "June 2019 → June 2021"
+      },
+      {
+        "institution": "Faculdades Metropolitanas Unidas (FMU)",
+        "degree": "Bachelor's Degree — Communication",
+        "period": "2016 → 2018"
+      },
+      {
+        "institution": "FIAP",
+        "degree": "Bachelor's Degree — Information Systems (Incomplete)",
+        "period": "January 2000 → December 2002"
+      }
+    ]
+  },
+  "contact": {
+    "heading": "contact",
+    "card_title": "Want to chat about technology and leadership?",
+    "card_text": "I enjoy talking about engineering, AI, team management, and digital products. If you want to share experiences or discuss collaborations, just reach out.",
+    "btn_email": "Send e-mail"
+  },
+  "footer": "rodrigo.matheus // engineering · ai · strategy",
+  "skip": "Skip to content",
+  "hud": {
+    "level": "LEVEL",
+    "classes": "CLASSES S — A",
+    "class_rank": "Class S",
+    "active": "ACTIVE",
+    "skills": "SKILLS",
+    "start": "START",
+    "loading": "LOADING PILOT…",
+    "robot_alt": "Bone-white biomechanical android in a sterile laboratory, red ring eyes — Rodrigo's avatar.",
+    "stat_labels": {
+      "years": "EXPERIENCE",
+      "people": "LEADERSHIP",
+      "leading": "COMMAND",
+      "ai": "AI / ML"
+    },
+    "top": {
+      "back": "CHARACTER SELECT",
+      "repos": "REPOS",
+      "commits": "COMMITS · 28D",
+      "stars": "STARS",
+      "link": "LINK",
+      "online": "ONLINE",
+      "offline": "OFFLINE",
+      "syncing": "SYNCING"
+    },
+    "unit": "UNIT",
+    "rank": "RANK",
+    "id_label": "ID",
+    "location": "SÃO PAULO · BR",
+    "status_online": "ONLINE",
+    "hints": {
+      "switch": "SWITCH CLASS",
+      "start": "START",
+      "lang": "LANGUAGE"
+    },
+    "top_skills": "CORE MODULES",
+    "cta": {
+      "linkedin_sub": "connect",
+      "cv_sub": "pt-br · pdf",
+      "github_sub": "public repos"
+    },
+    "sync": {
+      "last_commit": "LAST COMMIT",
+      "build": "BUILD"
+    }
+  },
+  "sections": {
+    "about": {
+      "tag": "BIO",
+      "sub": "who is behind the unit",
+      "skills": "SKILL TREE",
+      "facts": "FIELD RECORD"
+    },
+    "experience": {
+      "tag": "CAMPAIGNS",
+      "sub": "missions, in reverse chronological order",
+      "current": "ACTIVE",
+      "count": "campaigns"
+    },
+    "projects": {
+      "tag": "ARENA",
+      "sub": "public repositories, live from GitHub",
+      "commits28": "commits · 28d",
+      "updated": "updated",
+      "open": "open repo",
+      "expand": "recent commits",
+      "collapse": "hide commits",
+      "offline_title": "ARENA OFFLINE",
+      "offline_text": "GitHub link is down. The rest of the site works — try again in a moment.",
+      "retry": "RETRY LINK",
+      "empty": "No public repositories yet.",
+      "rarity": {
+        "common": "COMMON",
+        "rare": "RARE",
+        "legendary": "LEGENDARY"
+      },
+      "see_all": "ALL REPOS ON GITHUB"
+    },
+    "education": {
+      "tag": "TRAINING",
+      "sub": "formal upgrades"
+    },
+    "contact": {
+      "tag": "JOIN PARTY",
+      "sub": "open to conversations about engineering, AI and leadership",
+      "linkedin": "Message on LinkedIn"
+    },
+    "blog": {
+      "tag": "LOGS",
+      "sub": "notes from the field",
+      "read": "READ LOG",
+      "all": "ALL LOGS",
+      "min": "min read"
+    }
+  },
+  "nav_menu": {
+    "open": "Open menu",
+    "close": "Close menu"
+  }
+}
