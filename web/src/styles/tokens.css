@@ -347,6 +347,7 @@ body::before {
 
 /* ── Persistent stage (desktop) ─────────────────────────────────── */
 @layer components {
+  .stage { z-index: 0; } /* desktop: behind the page; the mobile media query raises it above main */
   .stage-layer { will-change: opacity, transform; }
   /* the resting bust never fades: it zooms. --zs/--zo/--zd come from the Stage per phase */
   .stage-rest { transform-origin: var(--zo, 50% 30%); transform: scale(var(--zs, 1)); transition: transform var(--zd, 900ms) cubic-bezier(.65,0,.35,1); }

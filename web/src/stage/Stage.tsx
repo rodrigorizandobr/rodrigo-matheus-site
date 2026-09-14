@@ -36,7 +36,7 @@ export function Stage() {
 
   return (
     <div
-      className="stage fixed inset-x-0 z-0 overflow-hidden top-[var(--header-h)] h-[var(--stage-h)] lg:top-0 lg:h-auto lg:inset-0"
+      className="stage fixed inset-x-0 overflow-hidden top-[var(--header-h)] h-[var(--stage-h)] lg:top-0 lg:h-auto lg:inset-0"
       aria-hidden="true"
       data-phase={state.phase}
       data-scene-active={showScene ? scene?.section : 'hero'}
