@@ -11,6 +11,16 @@ echo "════════════════════════�
 echo "  Deploy: Firebase Hosting + Cloud Run"
 echo "══════════════════════════════════════════════"
 
+# ── 0. Frontend build (web/) — tests gate the deploy ────────────────
+echo ""
+echo "▸ [0/3] Building frontend (web/) …"
+( cd web \
+  && npm ci --legacy-peer-deps \
+  && npm run typecheck \
+  && npx vitest run \
+  && npm run build )
+echo "✔ web/dist ready"
+
 # ── 1. Cloud Run (Python API) ─────────────────────────────────────
 echo ""
 echo "▸ [1/3] Deploying backend to Cloud Run …"
@@ -44,10 +54,21 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
   --format="value(status.url)")
 echo "✔ Cloud Run deployed → $SERVICE_URL"
 
-# ── 2. Firebase Hosting (serves site/) ─────────────────────────────
+# ── 2. Firebase Hosting (serves web/dist) ──────────────────────────
 echo ""
-echo "▸ [2/2] Deploying Firebase Hosting …"
-firebase deploy --only hosting --project "$PROJECT_ID"
+echo "▸ [2/3] Deploying Firebase Hosting (web/dist) …"
+# firebase-tools is not installed globally on this machine; npx fetches a pinned major.
+FIREBASE="${FIREBASE_BIN:-npx --yes firebase-tools@14}"
+$FIREBASE deploy --only hosting --project "$PROJECT_ID"
+
+# ── 3. Warm the GitHub cache so the hero's live numbers are fresh ────
+echo ""
+echo "▸ [3/3] Refreshing GitHub cache …"
+if [[ -n "${REFRESH_KEY:-}" ]]; then
+  curl -fsS "https://$DOMAIN/api/refresh?key=${REFRESH_KEY}" && echo "" && echo "✔ cache refreshed" || echo "⚠ refresh failed (site is up; numbers may be stale)"
+else
+  echo "⚠ REFRESH_KEY not loaded — skipping cache refresh"
+fi
 
 echo ""
 echo "══════════════════════════════════════════════"

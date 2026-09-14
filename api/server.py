@@ -10,6 +10,7 @@ Local usage:
 
 import json
 import os
+import secrets
 import time
 import threading
 from pathlib import Path
@@ -265,7 +266,11 @@ def api_data():
 def api_refresh():
     """Manual refresh via GET with secret key."""
     key = request.args.get("key", "")
-    if key != REFRESH_KEY:
+    # REFRESH_KEY ausente (default "") nao pode autorizar: um deploy sem
+    # `source .env` deixaria este endpoint aberto, e ele varre toda a API do GitHub.
+    if not REFRESH_KEY or not secrets.compare_digest(
+        key.encode("utf-8"), REFRESH_KEY.encode("utf-8")
+    ):
         return jsonify({"error": "unauthorized"}), 403
     print("[refresh] triggered manually …")
     try:
@@ -280,6 +285,8 @@ def api_refresh():
 
 def warmup():
     """Warm up cache by reading from GCS (non-blocking on import)."""
+    if not REFRESH_KEY:
+        print("[server] AVISO: REFRESH_KEY ausente — /api/refresh fica desabilitado")
     print("[server] loading cache …")
     cached = _read_cache()
     if cached:
