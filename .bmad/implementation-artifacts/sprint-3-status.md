@@ -10,7 +10,7 @@
 | S3.3 `deploy.sh` | ✅ | Passo 0: `npm ci` → `typecheck` → `vitest run` → `vite build` (aborta em falha). Passo 3: `GET /api/refresh` com a chave do `.env`. `firebase` via `npx firebase-tools@14` (não há CLI global nesta máquina) |
 | S3.4 Lighthouse | ✅ | Build de produção, mobile: **A11y 100 · Best Practices 100 · SEO 100 · Agentic 100**, 0 auditorias falhando (após: `--muted` → `#5c5c69`, CTAs sem `aria-label` divergente, `llms.txt` real) |
 | S3.5 Cutover | ✅ **publicado 2026-09-13** | `./deploy.sh` completo (Cloud Run rev. 24, Hosting, refresh). Smoke 15/15. Segundo deploy com vídeo no mobile + meta por post |
-| S3.6 Limpeza | ⏸ | `site/` removido só após produção validada |
+| S3.6 Limpeza | ✅ | `site/` e `firebase.json.v2.bak` removidos após smoke 15/15 em dois deploys; recuperáveis em `git show 6a18db8:site/index.html` |
 
 **95 testes verdes**, `tsc` app+test limpo. Transferência inicial (desktop, prod): JS 154 KB · CSS 10 KB · imagens 174 KB · vídeo do hero 1,36 MB (lazy, só desktop).
 

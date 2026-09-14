@@ -1,13 +1,12 @@
 # rodrigo-matheus.com.br — Guia do Projeto
 
-> **v3 pronta para cutover (set/2026).** `firebase.json` já aponta para `web/dist` e `deploy.sh`
-> faz build+testes antes de publicar. O v2 em `site/` continua no ar até alguém rodar `./deploy.sh`;
-> depois de validado, `site/` sai. Planejamento em `.bmad/planning-artifacts/`, status por sprint em
-> `.bmad/implementation-artifacts/`.
+> **v3 em produção desde 2026-09-13.** `firebase.json` serve `web/dist`; `deploy.sh` faz build+testes
+> antes de publicar. O v2 (`site/`, HTML puro) foi removido — está no histórico do git até `6a18db8`.
+> Planejamento em `.bmad/planning-artifacts/`, status por sprint em `.bmad/implementation-artifacts/`.
 
 ## O que é
 
-Portfólio pessoal + blog. O **v2 ainda em produção** é HTML puro (`site/`); a **v3** vive em `web/`.
+Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 
 | Camada | Onde | O que faz |
 |---|---|---|
@@ -104,7 +103,7 @@ cd web && npm test                                  # 61 testes, ~1s
 **`server.py` lê `REFRESH_KEY` para uma constante de módulo no import** — para variar o valor
 num teste, use `monkeypatch.setattr(server, "REFRESH_KEY", ...)`, não `monkeypatch.setenv`.
 
-**Ainda não há testes para `site/`** (v2, HTML/JS inline). Mudança em `site/` é verificada no browser.
+
 
 ## Segurança de `/api/refresh`
 

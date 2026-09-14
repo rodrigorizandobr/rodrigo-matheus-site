@@ -23,7 +23,6 @@ api/                 ← Backend Python (Cloud Run — southamerica-east1)
 │  i18n/             ← cópia legada dos textos (o front v3 não depende mais dela)
 │  tests/            ← pytest
 │
-site/                ← v2 (HTML puro). Mantido até o cutover ser validado; depois é removido.
 firebase.json        ← Hosting: serve web/dist, proxy /api/** → Cloud Run, headers de cache + CSP
 deploy.sh            ← build+testes do front → Cloud Run → Hosting → refresh do cache
 ```
