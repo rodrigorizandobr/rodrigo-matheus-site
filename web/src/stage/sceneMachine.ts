@@ -1,27 +1,50 @@
 /**
- * The persistent robot stage: which body part is under examination, and the "rest between focuses"
- * choreography the PO asked for — leave a section → back to the resting bust → then the next part.
- * Pure, so the timing/observer glue can be swapped without touching the rules.
+ * Stage choreography, pure. The resting bust is always underneath; a section's close-up loop is
+ * reached by ZOOMING the bust toward that body part, then fading the loop in; leaving zooms back.
+ *
+ *   rest ──focus──▶ zoomIn ──zoomed──▶ show ──focus(other)──▶ zoomOut ──rested──▶ rest | hold ──held──▶ zoomIn(next)
+ *   (`hold` is the beat at the resting pose the eye needs to register "back to default" before the next zoom)
  */
-export type SceneId = string // section id; 'hero' is the resting pose
-export type Phase = 'showing' | 'resting'
+export type SceneId = string
+export type Phase = 'rest' | 'zoomIn' | 'show' | 'zoomOut' | 'hold'
 export type StageState = { phase: Phase; scene: SceneId | null; pending: SceneId | null }
-export type StageEvent = { type: 'focus'; section: SceneId } | { type: 'rested' }
+export type StageEvent = { type: 'focus'; section: SceneId } | { type: 'zoomed' } | { type: 'rested' } | { type: 'held' }
 
 export const REST_ID: SceneId = 'hero'
 
-export const initial = (section: SceneId = REST_ID): StageState => ({ phase: 'showing', scene: section === REST_ID ? null : section, pending: null })
+export const initial = (section: SceneId = REST_ID): StageState =>
+  section === REST_ID ? { phase: 'rest', scene: null, pending: null } : { phase: 'zoomIn', scene: section, pending: null }
 
 export function reduce(s: StageState, e: StageEvent): StageState {
   switch (e.type) {
     case 'focus': {
       const target = e.section === REST_ID ? null : e.section
-      if (s.phase === 'showing' && s.scene === target) return s
-      if (s.phase === 'resting') return s.pending === target ? s : { ...s, pending: target }
-      return { phase: 'resting', scene: null, pending: target }
+      switch (s.phase) {
+        case 'rest':
+          return target ? { phase: 'zoomIn', scene: target, pending: null } : s
+        case 'zoomIn':
+          return s.scene === target ? { ...s, pending: null } : { ...s, pending: target }
+        case 'show':
+          return s.scene === target ? s : { phase: 'zoomOut', scene: s.scene, pending: target }
+        case 'zoomOut':
+          if (target && target === s.scene) return { phase: 'zoomIn', scene: target, pending: null } // came back: cancel the exit
+          return s.pending === target ? s : { ...s, pending: target }
+        case 'hold':
+          return target ? (s.pending === target ? s : { ...s, pending: target }) : { phase: 'rest', scene: null, pending: null }
+      }
+      return s
     }
+    case 'zoomed':
+      if (s.phase !== 'zoomIn') return s
+      return s.pending !== null && s.pending !== s.scene
+        ? { phase: 'zoomOut', scene: s.scene, pending: s.pending }
+        : { phase: 'show', scene: s.scene, pending: null }
     case 'rested':
-      return s.phase === 'resting' ? { phase: 'showing', scene: s.pending, pending: null } : s
+      if (s.phase !== 'zoomOut') return s
+      return s.pending ? { phase: 'hold', scene: null, pending: s.pending } : { phase: 'rest', scene: null, pending: null }
+    case 'held':
+      if (s.phase !== 'hold') return s
+      return s.pending ? { phase: 'zoomIn', scene: s.pending, pending: null } : { phase: 'rest', scene: null, pending: null }
   }
 }
 

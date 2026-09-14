@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { SceneBand } from '../../stage/SceneBand'
 
 export function SectionHead({ tag, title, sub, aside }: { tag: string; title: string; sub: string; aside?: ReactNode }) {
   return (
@@ -20,7 +19,6 @@ export function SectionHead({ tag, title, sub, aside }: { tag: string; title: st
 export function Section({ id, children, className = '' }: { id: string; children: ReactNode; className?: string }) {
   return (
     <section id={id} data-scene={id} className={`section relative z-10 w-[min(var(--max),94vw)] mx-auto py-16 md:py-20 ${className}`}>
-      <SceneBand section={id} />
       {children}
     </section>
   )

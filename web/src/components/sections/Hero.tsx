@@ -8,7 +8,6 @@ import { TopStrip } from '../hud/TopStrip'
 import { HintsBar } from '../hud/HintsBar'
 import { SyncStamp } from '../hud/SyncStamp'
 import { gaEvt } from '../../analytics/ga'
-import { HeroPortrait } from '../hero/HeroPortrait'
 import { scrollToId } from '../../motion/lenis'
 
 /**
@@ -49,10 +48,9 @@ export function Hero() {
 
   return (
     <section id="hero" data-scene="hero" className="relative z-10 flex flex-col lg:block lg:h-[calc(100svh-var(--header-h))] lg:min-h-[600px] overflow-hidden">
-      <div className="lg:hidden"><HeroPortrait hud={t.hud} /></div>
 
-      {/* below lg the columns stack: headline sits in flow right under the portrait band */}
-      <div className="lg:hidden relative z-10 -mt-12 px-5 pb-1 pt-14 text-center bg-gradient-to-t from-bg via-bg/92 to-transparent">
+      {/* below lg the columns stack: headline sits right under the fixed stage band */}
+      <div className="lg:hidden relative z-10 px-5 pb-2 pt-6 text-center">
         <h1 className="font-display text-heading text-[21px] leading-[1.14] font-semibold text-balance">{t.hero.title}</h1>
         <p className="text-muted text-[12px] leading-snug mt-2">{t.hero.subtitle}</p>
       </div>

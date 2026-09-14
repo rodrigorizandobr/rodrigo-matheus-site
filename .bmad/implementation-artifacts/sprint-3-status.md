@@ -33,3 +33,19 @@ Rollback: `npx firebase-tools@14 hosting:rollback --project rodrigo-matheus`, ou
 3. GA4 em tempo real: `page_view`, `section_view`, `class_select`.
 4. `LAST COMMIT` no hero deve refletir o `/api/refresh` do passo 3.
 5. Depois de 1 semana sem regressão: remover `site/`, `firebase.json.v2.bak`, `api/i18n/` (só se o Flask deixar de servir i18n) — commit separado.
+
+## Revisão do PO (2026-09-13, após o cutover)
+
+**Feedback:** "cada seção está com um vídeo, não era isto" — o pedido era **zoom**: rosto em repouso → zoom até a parte → loop → zoom de volta → próxima parte; e no mobile o palco fixo no topo, trocando por scroll ou pelo menu.
+
+**Feito:**
+- `sceneMachine.ts` reescrita: `rest → zoomIn → show → zoomOut → hold(450 ms) → zoomIn(próxima)`. 13 testes. O busto em repouso nunca some: ele é **escalado** (`transform-origin` na parte, 2.0–2.6×) e o close-up faz fade no fim do zoom.
+- `Stage` universal: desktop atrás da página; **mobile = banda fixa de 38svh sob o header**, `main` com padding equivalente. `SceneBand` e `HeroPortrait` removidos.
+- Vídeo por dispositivo: encodes 1280 px no desktop, 854 px (`*.m.*`) no mobile; `<video key>` troca a fonte se a classe de viewport mudar.
+
+**Bloqueado:** o **punho** para LOGS. Gemini devolveu `429 — monthly spending cap exceeded` (https://ai.studio/spend). LOGS reutiliza o loop da **mão** até o teto ser elevado; então:
+```bash
+node scripts/gen-image.mjs .gen/sc-fist.png "<prompt do punho>" --in .gen/wide-a.png --ar 16:9
+node scripts/gen-video.mjs .gen/v-fist.mp4 "<prompt do loop>" --in .gen/sc-fist.png --ar 16:9 --seconds 8 --res 1080p
+node scripts/pack-scenes.mjs fist && node scripts/pack-mobile.mjs   # e trocar part:'hand'→'fist' em scenes.ts (blog)
+```

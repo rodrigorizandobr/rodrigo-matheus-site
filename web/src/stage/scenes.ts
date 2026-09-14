@@ -1,26 +1,30 @@
 /**
  * One scene per section: which part of the android is under examination while that section is on
- * screen. Assets are produced by scripts/pack-scenes.mjs from .gen/sc-<part>.png and .gen/v-<part>.mp4.
- * `hero` is the resting bust and reuses the hero assets.
+ * screen, and WHERE on the resting bust the camera zooms to get there. `hero` is the resting pose.
+ * Assets: scripts/pack-scenes.mjs (desktop) + scripts/pack-mobile.mjs (854px encodes).
  */
 export type Scene = {
   section: string
   part: string
-  /** where the subject sits, so object-fit: cover keeps it when the viewport ratio differs */
+  /** object-position of the close-up itself */
   position: string
+  /** zoom on the resting bust that "arrives" at this part: transform-origin + scale */
+  zoom: { origin: string; scale: number }
   glow: { left: string; top: string; width: string } | null
-  /** false = poster only. The mouth loop kept baring teeth across two Veo takes; a still is calmer. */
+  /** false = poster only */
   video?: boolean
 }
 
 export const SCENES: Scene[] = [
-  { section: 'hero',       part: 'rest',  position: '50% 26%', glow: { left: '50%', top: '30%', width: '22%' } },
-  { section: 'about',      part: 'eyes',  position: '50% 30%', glow: { left: '50%', top: '38%', width: '60%' } },
-  { section: 'experience', part: 'neck',  position: '50% 40%', glow: null },
-  { section: 'projects',   part: 'core',  position: '50% 45%', glow: { left: '50%', top: '48%', width: '26%' } },
-  { section: 'education',  part: 'brain', position: '50% 22%', glow: { left: '50%', top: '30%', width: '30%' } },
-  { section: 'blog',       part: 'mouth', position: '50% 55%', glow: null, video: false },
-  { section: 'contact',    part: 'hand',  position: '50% 60%', glow: null },
+  { section: 'hero',       part: 'rest',  position: '50% 26%', zoom: { origin: '50% 30%', scale: 1 },    glow: { left: '50%', top: '30%', width: '22%' } },
+  { section: 'about',      part: 'eyes',  position: '50% 30%', zoom: { origin: '50% 31%', scale: 2.6 },  glow: { left: '50%', top: '38%', width: '60%' } },
+  { section: 'experience', part: 'neck',  position: '50% 40%', zoom: { origin: '52% 74%', scale: 2.1 },  glow: null },
+  { section: 'projects',   part: 'core',  position: '50% 45%', zoom: { origin: '50% 98%', scale: 2.3 },  glow: { left: '50%', top: '48%', width: '26%' } },
+  { section: 'education',  part: 'brain', position: '50% 22%', zoom: { origin: '50% 4%',  scale: 2.4 },  glow: { left: '50%', top: '30%', width: '30%' } },
+  // LOGS should be the FIST (scene "fist"). Generation is blocked until the Gemini spend cap is raised;
+  // until then it reuses the hand loop so the section still animates. See sprint-3-status.md.
+  { section: 'blog',       part: 'hand',  position: '50% 60%', zoom: { origin: '70% 96%', scale: 2.2 },  glow: null },
+  { section: 'contact',    part: 'hand',  position: '50% 60%', zoom: { origin: '50% 96%', scale: 2.0 },  glow: null },
 ]
 
 export const sceneFor = (section: string | null): Scene => SCENES.find((s) => s.section === (section ?? 'hero')) ?? SCENES[0]
