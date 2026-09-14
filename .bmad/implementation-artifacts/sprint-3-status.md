@@ -91,3 +91,4 @@ o blur dos painéis leva de 15/78 frames >20 ms para 0/90. Painéis sem blur (84
 reamostrados 52,8 → 30 fps tinham cadência 2,7/2,7/2,7/1,5 e os loops eram 24 fps (pulldown 3:2). Agora
 transições a 2,5× = 60 fps exatos (3,2 s) e loops interpolados a 60 fps (`scripts/interp60.mjs`, mci, ~20 min
 com 7 em paralelo). Após tudo: `show`/scroll 0/121 frames longos no M1.
+Fechamento: header e rodapé (`backdrop-blur-xl`, sobre o vídeo) eram o resto do jank em Contato (7/114 → 0/121 sem eles). Removidos.

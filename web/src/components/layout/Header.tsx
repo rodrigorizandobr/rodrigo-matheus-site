@@ -32,7 +32,7 @@ export function Header() {
   )
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/90">
       <div className="w-[min(var(--max),96vw)] mx-auto h-14 flex items-center justify-between gap-3">
         <a href="/" className="font-mono text-sm text-heading">rodrigo<span className="text-red">_</span>matheus</a>
         <nav className="hidden md:flex gap-1" aria-label="Sections">{links('hud-label px-3 py-2 hover:text-red transition-colors')}</nav>

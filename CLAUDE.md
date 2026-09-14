@@ -177,8 +177,8 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   tocar; VP9 em software num telefone = travado. `videoSrc/transitionSrc(…, mobile)` devolvem só `mp4` (testado).
 - **Nenhum `backdrop-filter` em cima do palco.** Medido no M1: ~40 painéis com blur sobre o vídeo → 20–45% dos
   frames acima de 20 ms (o vídeo repinta todo frame e cada painel re-desfoca todo frame); sem blur → 0. Vidro é
-  translucidez (84%) + highlight + borda + sombra. Blur só em header/rodapé/menu (poucos, pequenos). Chips e
-  botões nunca tiveram motivo para ter.
+  translucidez (84–90%) + highlight + borda + sombra. Header e rodapé também ficam sobre o vídeo: sem blur
+  (só o header já custava 7/114 frames longos em Contato). Único blur restante: o overlay do menu mobile.
 - **Um vídeo decodificando por vez.** Camada toca só enquanto `playing`; a cena é montada com `preload="auto"`
   (buffer, pausada no frame 0 = último do clipe) e só dá `play()` na entrega. Na volta o loop fica visível
   e pausado sob o clipe — senão o busto pisca antes do clipe aparecer.
