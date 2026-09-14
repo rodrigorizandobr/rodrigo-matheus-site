@@ -127,3 +127,9 @@ Correção: `src/stage/layerPlan.ts` (puro, 10 testes) com a invariante "o que e
 destino dele" → clipe sai por unmount (corte), sem linger. Achado extra na mesma medição: o destino era
 revelado no `onPlaying`, durante o fade de entrada do clipe — piscava antes da viagem; agora espera o
 clipe ficar opaco (`clipCovering`). Verificado nas 3 chegadas, na volta e no salto pelo menu.
+
+### Ajuste final: esmaecer suave nas duas pontas
+PO pediu passagem suave entre loop e clipe (e vice-versa). Com a invariante do layerPlan já no lugar,
+bastou devolver o fade-out do clipe: agora ele esmaece para dentro e para fora com a MESMA duração
+(400 ms, ease-in-out), e só ele varia — o que está embaixo permanece em 1.00. Medido nas 4 passagens
+do salto pelo menu: rampas únicas, monotônicas. `timing.ts` + `timing.test.ts` travam CSS e TS juntos.

@@ -154,12 +154,14 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
 - **Os atalhos da HintsBar são promessas.** `◀ ▶`, `↵` e `L` estão ligados em `Hero.tsx`; se mudar
   um, mude o outro.
-- **A entrega clipe → loop é CORTE, nunca fade.** O último frame do clipe é o frame 0 do loop, então
-  o destino fica opaco POR BAIXO do clipe enquanto ele roda e o clipe some por unmount: a troca é
-  invisível. Qualquer cross-dissolve aí aparece como "efeito de iluminação/fade" (foi o que o PO viu).
-  A regra inversa vale na entrada: o destino só é revelado quando o clipe está OPACO (`clipCovering`,
-  não `clipStarted`) — senão a cena de chegada pisca antes da viagem. Tudo em `src/stage/layerPlan.ts`,
-  puro e testado; `Stage` não decide visibilidade sozinho.
+- **Toda passagem loop ↔ clipe é UMA rampa só.** Quem varia de opacidade é sempre só o clipe: ele
+  esmaece para dentro sobre a origem e para fora sobre o destino, mesma duração nas duas pontas
+  (`CLIP_FADE_MS` em `src/stage/timing.ts`, sincronizado com o CSS por `timing.test.ts`). O que está
+  embaixo já está opaco — garantido por `src/stage/layerPlan.ts` (puro, testado; `Stage` não decide
+  visibilidade sozinho), cuja invariante é "o que está debaixo do clipe é o destino dele".
+  **Duas rampas sobrepostas com durações diferentes é o bug a evitar** — foi o que o PO reportou como
+  "efeito de iluminação". Corolário: o destino só é revelado quando o clipe está OPACO (`clipCovering`,
+  não `clipStarted`), senão a cena de chegada pisca antes da viagem.
 - **A camada do clipe de transição não tem still por baixo — se o `<video>` dela ficar transparente, a
   viagem inteira some e vira corte seco.** Foi o bug que escondeu TODAS as transições: `.stage-video
   { opacity: 0 }` vem depois de `.stage-trans-video { opacity: 1 }` com a mesma especificidade e vencia.
