@@ -12,7 +12,27 @@ import { PostList } from '../src/pages/admin/PostList'
 import { PostEditor } from '../src/pages/admin/PostEditor'
 import { ConfigPanel } from '../src/pages/admin/ConfigPanel'
 import { PostPreview } from '../src/pages/admin/PostPreview'
-import type { BlogConfig, Post } from '../src/blog/types'
+import { MediaPage } from '../src/pages/admin/MediaPage'
+import type { BlogConfig, MediaItem, Post } from '../src/blog/types'
+
+const midia = (n: number): MediaItem[] =>
+  Array.from({ length: n }, (_, i) => ({
+    hash: String(i).repeat(64).slice(0, 64),
+    provider: (['upload', 'gemini', 'pixabay'] as const)[i % 3],
+    alt: `Legenda de exemplo da imagem ${i + 1}, comprida o suficiente para truncar`,
+    credit: 'Fulano de Tal / Pixabay', sourceUrl: 'https://pixabay.com/x', width: 1600, height: 900,
+    bytes: 180_000, createdAt: '2026-09-14T12:00:00Z',
+  }))
+
+const mediaApi = {
+  list: async () => midia(5),
+  upload: async () => midia(1)[0],
+  generate: async () => midia(1)[0],
+  searchStock: async () => [],
+  importStock: async () => midia(1)[0],
+  update: async (_h: string, patch: { alt?: string }) => ({ ...midia(1)[0], ...patch }),
+  remove: async () => ({ ok: true }),
+}
 
 const secoes = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -40,6 +60,8 @@ const post = (over: Partial<Post> = {}): Post => ({
 const config: BlogConfig = {
   timezone: 'America/Sao_Paulo', auto_publish: false, delay_days: 2, publish_hour: 8,
   generate_hour: 6, generate_weekdays: [0, 3],
+  research_enabled: true, auto_source: 'news',
+  news_terms: ['inteligência artificial', 'segurança da informação', 'infraestrutura em nuvem'],
   topics: ['um tema de exemplo', 'outro tema de exemplo bem mais comprido para esticar a caixa'],
 }
 
@@ -51,11 +73,13 @@ function Bench() {
     <div className="section relative z-10 w-[min(var(--max),94vw)] mx-auto py-8 grid gap-10">
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — LISTA</h1>
       <PostList posts={[post(), post({ id: 'p2', status: 'published', image: null }), post({ id: 'p3', status: 'draft' })]}
-                onPreview={setPreview} onEdit={nada} />
+                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — EDITOR</h1>
       <PostEditor post={atual} busy={null} onChange={setAtual} onSave={nada} onRevise={nada} onCover={nada}
                   onPublish={nada} onUnpublish={nada} onSchedule={nada} onDelete={nada} onClose={nada}
-                  onPreview={() => setPreview(atual)} />
+                  onPreview={() => setPreview(atual)} onPickCover={nada} onClearCover={nada} />
+      <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — MÍDIA</h1>
+      <MediaPage api={mediaApi} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — CONFIG</h1>
       <ConfigPanel config={config} busy={false} onSave={nada} />
       {preview && <PostPreview post={preview} onClose={() => setPreview(null)} />}

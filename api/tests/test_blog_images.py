@@ -5,8 +5,8 @@ import io
 import pytest
 from PIL import Image
 
-from blog import images
-from tests.fakes import FakeBucket
+from blog import images, media
+from tests.fakes import FakeBucket, FakeDb, FakeFilter
 
 
 def _png(w=1200, h=700, cor=(240, 240, 242)) -> bytes:
@@ -27,8 +27,12 @@ class FakeResp:
 
 @pytest.fixture
 def bucket(monkeypatch):
-    b = FakeBucket()
-    monkeypatch.setattr(images, "_bucket", lambda: b)
+    from blog import store
+    b, db = FakeBucket(), FakeDb()
+    monkeypatch.setattr(media, "_bucket", lambda: b)
+    monkeypatch.setattr(media, "_db", lambda: db)
+    monkeypatch.setattr(store, "_db", lambda: db)
+    monkeypatch.setattr(store, "FieldFilter", FakeFilter)
     return b
 
 
@@ -46,7 +50,7 @@ class TestGeracaoComIA:
         capa = images.build_cover("sterile white lab", "alt")
         assert capa["provider"] == "gemini"
         assert len(capa["hash"]) == 64
-        nome = f"{images.PREFIX}/{capa['hash']}.jpg"
+        nome = f"{media.PREFIX}/{capa['hash']}.jpg"
         assert bucket.objects[nome]["content_type"] == "image/jpeg"
         assert bucket.objects[nome]["data"][:2] == b"\xff\xd8", "precisa ser JPEG de verdade"
 
@@ -57,8 +61,8 @@ class TestGeracaoComIA:
         monkeypatch.setattr(images.requests, "post", lambda *a, **k: FakeResp(payload))
         monkeypatch.setattr(images, "API_KEY", "k")
         capa = images.build_cover("x", "alt")
-        img = Image.open(io.BytesIO(bucket.objects[f"{images.PREFIX}/{capa['hash']}.jpg"]["data"]))
-        assert max(img.size) == images.MAX_SIDE
+        img = Image.open(io.BytesIO(bucket.objects[f"{media.PREFIX}/{capa['hash']}.jpg"]["data"]))
+        assert max(img.size) == media.MAX_SIDE
 
     def test_o_mesmo_conteudo_nao_e_gravado_duas_vezes(self, bucket, gemini_ok):
         a = images.build_cover("x", "alt")
@@ -106,6 +110,18 @@ class TestReservaPixabay:
                        "user": "A", "pageURL": "p"}]}))
         assert images.build_cover("x", "alt", keywords=["a"]) is None
 
+    def test_busca_do_seletor_devolve_miniatura_e_credito(self, bucket, monkeypatch):
+        monkeypatch.setattr(images, "PIXABAY_KEY", "px")
+        monkeypatch.setattr(images.requests, "get", lambda url, **kw: FakeResp(
+            {"hits": [{"id": 9, "largeImageURL": "big.jpg", "webformatURL": "small.jpg",
+                       "imageWidth": 1200, "imageHeight": 700, "user": "Beltrano", "pageURL": "https://p"}]}))
+        [c] = images.search_stock("laboratório")
+        assert c["thumb"] == "small.jpg" and c["credit"] == "Beltrano / Pixabay"
+
+    def test_busca_sem_chave_devolve_lista_vazia(self, bucket, monkeypatch):
+        monkeypatch.setattr(images, "PIXABAY_KEY", "")
+        assert images.search_stock("x") == []
+
     def test_sem_ia_e_sem_banco_o_post_sai_sem_capa_em_vez_de_falhar(self, bucket, monkeypatch):
         monkeypatch.setattr(images, "API_KEY", "")
         monkeypatch.setattr(images, "PIXABAY_KEY", "")
@@ -122,3 +138,7 @@ class TestLeitura:
 
     def test_hash_malformado_nao_vira_caminho_no_bucket(self, bucket):
         assert images.read_image("../../etc/passwd") is None
+
+    def test_toda_capa_gerada_entra_na_biblioteca(self, bucket, gemini_ok):
+        capa = images.build_cover("x", "alt")
+        assert media.get_media(capa["hash"])["provider"] == "gemini"

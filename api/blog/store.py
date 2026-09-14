@@ -26,7 +26,7 @@ CONFIG = "blog_config"
 CONFIG_DOC = "settings"
 
 # Campos que só o painel vê.
-INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic")
+INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic", "sources")
 
 _client: firestore.Client | None = None
 
@@ -71,8 +71,14 @@ def save_config(patch: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(value, list) or any(not isinstance(d, int) or not 0 <= d <= 6 for d in value):
                 raise ValueError("generate_weekdays deve ser uma lista de 0 (segunda) a 6 (domingo)")
             value = sorted(set(value))
-        if key == "auto_publish" and not isinstance(value, bool):
-            raise ValueError("auto_publish deve ser booleano")
+        if key in ("auto_publish", "research_enabled") and not isinstance(value, bool):
+            raise ValueError(f"{key} deve ser booleano")
+        if key == "auto_source" and value not in ("topics", "news"):
+            raise ValueError("auto_source deve ser 'topics' ou 'news'")
+        if key == "news_terms":
+            if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
+                raise ValueError("news_terms deve ser uma lista de textos")
+            value = [t.strip() for t in value if t.strip()]
         if key == "topics":
             if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
                 raise ValueError("topics deve ser uma lista de textos")
@@ -110,6 +116,7 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         "imageAlt": draft.get("imageAlt", ""),
         "imagePrompt": draft.get("imagePrompt", ""),
         "topic": draft.get("topic", ""),
+        "sources": draft.get("sources") or [],
         "generation": draft.get("generation"),
         "createdAt": now,
         "updatedAt": now,
@@ -207,6 +214,11 @@ def publish_due(now: datetime | None = None) -> list[dict[str, Any]]:
             # em vez de travar a fila inteira toda hora.
             unpublish_post(post["id"])
     return [p for p in published if p]
+
+
+def recent_topics(limit: int = 30) -> list[str]:
+    """Assuntos dos últimos posts, do mais recente para o mais antigo (rodízio de termos)."""
+    return [p.get("topic", "") for p in list_posts()[:limit] if p.get("topic")]
 
 
 def last_generated_at() -> datetime | None:

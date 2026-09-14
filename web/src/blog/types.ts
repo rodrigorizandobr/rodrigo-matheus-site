@@ -41,6 +41,31 @@ export type NewPost = {
   topic?: string
 }
 
+/** Item da biblioteca de mídia. O arquivo vive no GCS; isto é o catálogo. */
+export type MediaItem = {
+  hash: string
+  provider: 'upload' | 'gemini' | 'pixabay'
+  alt: string
+  credit: string
+  sourceUrl: string
+  prompt?: string
+  width: number
+  height: number
+  bytes: number
+  createdAt: string
+}
+
+/** Candidata do banco de imagens, antes de virar nossa. */
+export type StockResult = {
+  id: string
+  thumb: string
+  url: string
+  credit: string
+  sourceUrl: string
+  width: number
+  height: number
+}
+
 export type BlogConfig = {
   timezone: string
   auto_publish: boolean
@@ -49,11 +74,18 @@ export type BlogConfig = {
   generate_hour: number
   /** 0 = segunda … 6 = domingo */
   generate_weekdays: number[]
+  /** pesquisa na web (Serper + leitura das páginas) ao escrever */
+  research_enabled: boolean
+  /** de onde vem o assunto na geração automática */
+  auto_source: 'topics' | 'news'
+  /** termos vigiados para virar post a partir de notícia */
+  news_terms: string[]
+  /** temas próprios, sorteados quando a origem é a pauta */
   topics: string[]
 }
 
 /** URL pública da capa — servida pela nossa API, nunca pelo banco de imagens de origem. */
-export const coverUrl = (image: CoverImage | null): string | null =>
+export const coverUrl = (image: { hash: string } | null): string | null =>
   image ? `/api/blog/image/${image.hash}.jpg` : null
 
 /** Corpo no idioma pedido, caindo para o outro se faltar — post nunca some por idioma. */

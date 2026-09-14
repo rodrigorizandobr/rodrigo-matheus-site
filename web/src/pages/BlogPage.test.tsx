@@ -65,7 +65,7 @@ describe('BlogPage — lista', () => {
   it('blog vazio mostra aviso em vez de tela em branco', async () => {
     mockApi([])
     r(null)
-    expect(await screen.findByText(/nenhum log|no logs/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nenhum post|no posts/i)).toBeInTheDocument()
   })
 })
 
@@ -97,8 +97,8 @@ describe('BlogPage — post', () => {
   it('slug inexistente mostra 404 amigável com link para a lista', async () => {
     mockApi([post()])
     r('nope')
-    expect(await screen.findByText(/LOG NOT FOUND/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /TODOS OS LOGS/ })).toHaveAttribute('href', '/blog/')
+    expect(await screen.findByText(/POST NÃO ENCONTRADO/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /TODOS OS POSTS/ })).toHaveAttribute('href', '/blog/')
   })
 
   it('o título da aba recebe o nome do post', async () => {

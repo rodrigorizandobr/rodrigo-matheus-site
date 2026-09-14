@@ -20,36 +20,52 @@ const post = (over: Partial<Post> = {}): Post => ({
 describe('PostList — ações de cada post', () => {
   it('rascunho também tem visualizar: é o único jeito de ver antes de publicar', async () => {
     const onPreview = vi.fn()
-    render(<PostList posts={[post({ status: 'draft' })]} onPreview={onPreview} onEdit={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'draft' })]} onPreview={onPreview} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /visualizar/i }))
     expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
 
   it('post publicado ganha também um link para a página real', () => {
-    render(<PostList posts={[post({ status: 'published', slug: 'no-ar' })]} onPreview={vi.fn()} onEdit={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'published', slug: 'no-ar' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
     expect(screen.getByRole('link', { name: /no site/i })).toHaveAttribute('href', '/blog/no-ar')
   })
 
   it('rascunho NÃO oferece link para o site — a página não existe ainda', () => {
-    render(<PostList posts={[post({ status: 'draft' })]} onPreview={vi.fn()} onEdit={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'draft' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
     expect(screen.queryByRole('link', { name: /no site/i })).toBeNull()
   })
 
   it('mostra o estado e a data de cada post', () => {
-    render(<PostList posts={[post({ status: 'scheduled', scheduledFor: '2026-09-20T11:00:00Z' })]} onPreview={vi.fn()} onEdit={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'scheduled', scheduledFor: '2026-09-20T11:00:00Z' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
     expect(screen.getByText('scheduled')).toBeInTheDocument()
     expect(screen.getByText('2026-09-20')).toBeInTheDocument()
   })
 
   it('post sem título ainda aparece na lista, com aviso', () => {
     const vazio = post({ i18n: { pt: { title: '', excerpt: '', sections: [] }, en: { title: '', excerpt: '', sections: [] } } })
-    render(<PostList posts={[vazio]} onPreview={vi.fn()} onEdit={vi.fn()} />)
+    render(<PostList posts={[vazio]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
     expect(screen.getByText(/sem título/i)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['draft', 'publicar'],
+    ['scheduled', 'publicar'],
+    ['published', 'despublicar'],
+  ])('post %s mostra o botao %s direto na lista', async (status, rotulo) => {
+    const onToggle = vi.fn()
+    render(<PostList posts={[post({ status: status as never })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={onToggle} />)
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(`^${rotulo}$`, 'i') }))
+    expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+  })
+
+  it('a acao fica desabilitada enquanto outra esta em andamento', () => {
+    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} busyId="1" />)
+    expect(screen.getByRole('button', { name: /publicar/i })).toBeDisabled()
   })
 
   it('editar chama de volta com o post', async () => {
     const onEdit = vi.fn()
-    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={onEdit} />)
+    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={onEdit} onTogglePublish={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /^editar$/i }))
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })

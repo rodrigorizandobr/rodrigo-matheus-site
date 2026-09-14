@@ -27,7 +27,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "generate_hour": 6,
     # segunda e quinta; lista vazia desliga a geração automática
     "generate_weekdays": [0, 3],
-    # Pauta: o robô sorteia daqui o que ainda não virou post. Editável no painel.
+    # Pesquisa na web (Serper + leitura das páginas) ao escrever. Opcional.
+    "research_enabled": True,
+    # De onde vem o assunto na geração automática: "news" parte de notícias recentes
+    # dos termos abaixo; "topics" sorteia da pauta.
+    "auto_source": "news",
+    # Termos vigiados para virar post a partir de notícia. Editáveis no painel.
+    "news_terms": [
+        "inteligência artificial",
+        "desenvolvimento de software",
+        "arquitetura de software",
+        "segurança da informação",
+        "infraestrutura em nuvem",
+        "inovação em tecnologia",
+    ],
+    # Pauta: temas próprios. O robô sorteia daqui o que ainda não virou post.
     "topics": [
         "o que muda na arquitetura quando o time passa de 10 para 40 pessoas",
         "onde IA generativa realmente reduz custo em engenharia, e onde só parece",
@@ -118,6 +132,26 @@ def pick_topic(topics: Iterable[str], used: Iterable[str], seed: Any = None) -> 
     if not livres:
         return None
     return random.Random(seed).choice(livres)
+
+
+def pick_rotating(terms: list[str], history: list[str]) -> str | None:
+    """Termo da vez, em rodízio: o que está há mais tempo sem virar post.
+
+    Diferente da pauta, termo de notícia REPETE de propósito — o que muda é a
+    notícia. Sortear puro faria o mesmo termo sair duas vezes seguidas; o rodízio
+    garante que os seis assuntos apareçam antes de qualquer um repetir.
+    """
+    livres = [t for t in (terms or []) if t.strip()]
+    if not livres:
+        return None
+    recentes = [slugify(h) for h in (history or [])]
+
+    def ultima_vez(term: str) -> int:
+        key = slugify(term)
+        return recentes.index(key) if key in recentes else len(recentes) + 1
+
+    # `history` vem do mais recente para o mais antigo: índice maior = usado há mais tempo
+    return max(livres, key=ultima_vez)
 
 
 def clean_tags(tags: Iterable[str]) -> list[str]:

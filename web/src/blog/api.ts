@@ -1,4 +1,4 @@
-import type { BlogConfig, NewPost, Post } from './types'
+import type { BlogConfig, MediaItem, NewPost, Post, StockResult } from './types'
 
 /**
  * Cliente da API do blog. Leitura é pública; escrita passa pelo painel e vai
@@ -59,16 +59,48 @@ export const blogApi = {
       saveConfig: async (patch: Partial<BlogConfig>) =>
         (await call<{ config: BlogConfig }>('/api/blog/admin/config', 'PATCH', patch)).config,
 
-      generate: async (topic = '', context = '') =>
-        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, context })).post,
+      generate: async (topic = '', research?: boolean) =>
+        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, context: '', research })).post,
       create: async (draft: NewPost) =>
         (await call<{ post: Post }>('/api/blog/admin/posts', 'POST', draft)).post,
       update: async (id: string, patch: Partial<Post>) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}`, 'PATCH', patch)).post,
       revise: async (id: string, instruction: string) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/revise`, 'POST', { instruction })).post,
+      /** gera uma capa nova com IA a partir de um prompt */
       cover: async (id: string, prompt?: string) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { prompt })).post,
+      /** escolhe uma imagem já catalogada — `null` tira a capa */
+      setCover: async (id: string, hash: string | null) =>
+        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { hash })).post,
+
+      media: {
+        list: async () => (await call<{ items: MediaItem[] }>('/api/blog/admin/media')).items,
+        generate: async (prompt: string, alt = '') =>
+          (await call<{ item: MediaItem }>('/api/blog/admin/media/generate', 'POST', { prompt, alt })).item,
+        searchStock: async (q: string) =>
+          (await call<{ results: StockResult[] }>(`/api/blog/admin/media/stock?q=${encodeURIComponent(q)}`)).results,
+        importStock: async (r: StockResult, alt = '') =>
+          (await call<{ item: MediaItem }>('/api/blog/admin/media/stock', 'POST',
+            { url: r.url, credit: r.credit, sourceUrl: r.sourceUrl, alt })).item,
+        update: async (hash: string, patch: Partial<Pick<MediaItem, 'alt' | 'credit' | 'sourceUrl'>>) =>
+          (await call<{ item: MediaItem }>(`/api/blog/admin/media/${hash}`, 'PATCH', patch)).item,
+        remove: async (hash: string) => call<{ ok: boolean }>(`/api/blog/admin/media/${hash}`, 'DELETE'),
+        /** upload é multipart: não passa pelo helper JSON */
+        upload: async (file: File, alt = ''): Promise<MediaItem> => {
+          const form = new FormData()
+          form.append('file', file)
+          form.append('alt', alt)
+          const res = await fetch('/api/blog/admin/media/upload', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${await getToken()}` },
+            body: form,
+          })
+          const body = await res.json().catch(() => ({}))
+          if (!res.ok) throw new ApiError((body as { error?: string }).error || `HTTP ${res.status}`, res.status)
+          return (body as { item: MediaItem }).item
+        },
+      },
       publish: async (id: string) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/publish`, 'POST')).post,
       unpublish: async (id: string) =>

@@ -318,12 +318,14 @@
       "linkedin": "Mensagem no LinkedIn"
     },
     "blog": {
-      "tag": "LOGS",
+      "tag": "POSTS",
       "sub": "anotações de campo",
-      "read": "LER LOG",
-      "all": "TODOS OS LOGS",
+      "read": "LER POST",
+      "all": "TODOS OS POSTS",
       "min": "min de leitura",
-      "empty": "nenhum log publicado ainda"
+      "empty": "nenhum post publicado ainda",
+      "title": "Posts",
+      "notFound": "POST NÃO ENCONTRADO"
     }
   },
   "nav_menu": {

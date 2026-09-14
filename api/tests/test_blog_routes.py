@@ -102,8 +102,8 @@ class TestPainel:
         assert res.status_code == 201
         assert res.get_json()["post"]["topic"] == "meu tema"
 
-    def test_pauta_vazia_devolve_409_com_explicacao(self, client, blog, admin):
-        store.save_config({"topics": []})
+    def test_sem_assunto_nenhum_devolve_409_com_explicacao(self, client, blog, admin):
+        store.save_config({"topics": [], "news_terms": []})
         res = client.post("/api/blog/admin/generate", json={}, headers=AUTH)
         assert res.status_code == 409
         assert "pauta" in res.get_json()["error"]

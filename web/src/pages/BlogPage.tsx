@@ -11,7 +11,7 @@ import { bodyFor, coverUrl, type Lang, type Post } from '../blog/types'
 const dateOf = (post: Post) => (post.publishedAt || post.createdAt || '').slice(0, 10)
 
 /**
- * LOGS: lista em /blog/ e post em /blog/<slug>.
+ * Posts: lista em /blog/ e post em /blog/<slug>.
  *
  * O corpo do post são SEÇÕES (título + parágrafos), não HTML — por isso não há
  * `dangerouslySetInnerHTML` nem sanitização aqui: texto gerado por IA entra no
@@ -45,7 +45,7 @@ export function BlogPage({ slug }: { slug: string | null }) {
     <div className="section relative z-10 w-[min(var(--max),94vw)] mx-auto py-12 md:py-16 min-h-[70svh]">
       {slug && post === null && (
         <div className="panel hud-frame p-10 text-center max-w-xl mx-auto">
-          <div className="font-display font-bold tracking-[.2em] text-heading">LOG NOT FOUND</div>
+          <div className="font-display font-bold tracking-[.2em] text-heading">{s.notFound}</div>
           <a href="/blog/" className="cta inline-flex items-center gap-2 mt-6 font-display font-semibold text-[12px] uppercase tracking-wider !py-3 !px-5">
             <IconBack width={12} height={12} />{s.all}
           </a>
@@ -64,7 +64,7 @@ export function BlogPage({ slug }: { slug: string | null }) {
 
       {!slug && (
         <>
-          <SectionHead tag={s.tag} title="Blog" sub={s.sub} aside={
+          <SectionHead tag={s.tag} title={s.title} sub={s.sub} aside={
             <a href="/" className="chip !h-9 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider">
               <IconBack width={11} height={11} />HOME
             </a>} />

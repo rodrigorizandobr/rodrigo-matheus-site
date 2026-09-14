@@ -1,43 +1,29 @@
-"""Capa do post: gerada por IA, com banco de imagens como reserva.
+"""Origens de imagem para o blog: IA (Gemini) e banco de imagens (Pixabay).
 
-Ordem: Gemini (imagem na direção de arte do site) → Pixabay → nenhuma. O post
-sai SEM capa em vez de não sair — imagem é enfeite, texto é o produto.
+Este módulo só SABE BUSCAR. Quem grava e cataloga é `blog/media.py` — assim toda
+imagem, venha de onde vier, cai na mesma biblioteca com o mesmo tratamento
+(JPEG, lado máximo, nome pelo hash).
 
-Duas decisões que valem explicação:
-
-*Sempre regravar no nosso Storage.* A URL do Pixabay pode sumir ou virar 403 e
-o post ficaria com imagem quebrada para sempre. O arquivo é nosso, servido pela
-nossa rota, com cache de um ano.
-
-*Nome pelo hash do conteúdo.* `blog-images/<sha256>.jpg`: gerar duas vezes a
-mesma imagem não duplica o objeto, e a URL é imutável — pode ser cacheada para
-sempre sem risco de servir conteúdo velho.
+`build_cover` é o caminho automático da geração: tenta a IA, cai no banco de
+imagens, e devolve `None` sem reclamar se nenhum dos dois der certo — o post sai
+sem capa em vez de não sair. Imagem é enfeite, texto é o produto.
 """
 from __future__ import annotations
 
 import base64
-import hashlib
-import io
 import os
 import random
-import re
 from typing import Any
 
 import requests
-from PIL import Image
 
-from .gcs import get_bucket
+from . import media
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 PIXABAY_KEY = os.environ.get("PIXABAY_API_KEY", "")
 IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3.1-flash-image")
 BASE = "https://generativelanguage.googleapis.com/v1beta"
-
-PREFIX = "blog-images"
-MAX_SIDE = 1600
-JPEG_QUALITY = 82
 TIMEOUT = 90
-HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 # A direção de arte do site inteiro, colada em todo prompt de capa: sem isso o
 # modelo devolve stock genérico colorido, que destoa do laboratório branco.
@@ -49,35 +35,8 @@ ART_DIRECTION = (
 )
 
 
-def _bucket():
-    return get_bucket()
-
-
-def _store_jpeg(raw: bytes) -> str | None:
-    """Converte para JPEG, reduz ao lado máximo e grava pelo hash. Devolve o hash."""
-    try:
-        img = Image.open(io.BytesIO(raw))
-        img = img.convert("RGB")
-    except Exception:
-        return None
-
-    if max(img.size) > MAX_SIDE:
-        scale = MAX_SIDE / max(img.size)
-        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
-
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
-    data = buf.getvalue()
-
-    digest = hashlib.sha256(data).hexdigest()
-    blob = _bucket().blob(f"{PREFIX}/{digest}.jpg")
-    if not blob.exists():
-        blob.cache_control = "public, max-age=31536000, immutable"
-        blob.upload_from_string(data, content_type="image/jpeg")
-    return digest
-
-
-def _from_gemini(prompt: str) -> bytes | None:
+def generate_image(prompt: str, alt: str = "") -> dict[str, Any] | None:
+    """Gera uma imagem com IA na direção de arte do site e cataloga."""
     if not API_KEY:
         return None
     try:
@@ -92,68 +51,78 @@ def _from_gemini(prompt: str) -> bytes | None:
         for part in res.json().get("candidates", [{}])[0].get("content", {}).get("parts", []):
             inline = part.get("inlineData") or part.get("inline_data")
             if inline and inline.get("data"):
-                return base64.b64decode(inline["data"])
+                raw = base64.b64decode(inline["data"])
+                return media.store_image(raw, provider="gemini", alt=alt,
+                                         credit="Gerada com IA (Gemini)", prompt=prompt)
     except Exception:
         return None
     return None
 
 
-def _from_pixabay(keywords: list[str]) -> dict[str, Any] | None:
-    """Reserva. Só paisagem: vertical fica horrível esticada na largura toda do cabeçalho."""
-    if not PIXABAY_KEY:
+def search_stock(query: str, per_page: int = 24) -> list[dict[str, Any]]:
+    """Candidatas do banco de imagens, para o autor escolher no painel.
+
+    Só paisagem: vertical fica horrível esticada na largura toda do cabeçalho do post.
+    """
+    if not PIXABAY_KEY or not (query or "").strip():
+        return []
+    try:
+        res = requests.get(
+            "https://pixabay.com/api/",
+            params={"key": PIXABAY_KEY, "q": query, "image_type": "photo",
+                    "per_page": per_page, "safesearch": "true"},
+            timeout=TIMEOUT,
+        )
+        if not res.ok:
+            return []
+        hits = res.json().get("hits") or []
+    except Exception:
+        return []
+
+    return [
+        {
+            "id": str(h.get("id")),
+            "thumb": h.get("webformatURL", ""),
+            "url": h.get("largeImageURL", ""),
+            "credit": f"{h.get('user', 'Pixabay')} / Pixabay",
+            "sourceUrl": h.get("pageURL", ""),
+            "width": h.get("imageWidth", 0),
+            "height": h.get("imageHeight", 0),
+        }
+        for h in hits
+        if h.get("imageWidth", 0) > h.get("imageHeight", 0) and h.get("largeImageURL")
+    ]
+
+
+def import_stock(url: str, credit: str = "", source_url: str = "", alt: str = "") -> dict[str, Any] | None:
+    """Baixa uma candidata escolhida e cataloga como nossa."""
+    try:
+        res = requests.get(url, timeout=TIMEOUT)
+        if not res.ok or not res.content:
+            return None
+    except Exception:
         return None
-    for keyword in keywords or []:
-        try:
-            res = requests.get(
-                "https://pixabay.com/api/",
-                params={"key": PIXABAY_KEY, "q": keyword, "image_type": "photo",
-                        "per_page": 20, "safesearch": "true"},
-                timeout=TIMEOUT,
-            )
-            if not res.ok:
-                continue
-            hits = [h for h in (res.json().get("hits") or [])
-                    if h.get("imageWidth", 0) > h.get("imageHeight", 0)]
-            if not hits:
-                continue
-            hit = random.choice(hits[:5])
-            img = requests.get(hit["largeImageURL"], timeout=TIMEOUT)
-            if not img.ok or not img.content:
-                continue
-            return {"raw": img.content,
-                    "credit": f"{hit.get('user', 'Pixabay')} / Pixabay",
-                    "sourceUrl": hit.get("pageURL", "")}
-        except Exception:
-            continue
-    return None
+    return media.store_image(res.content, provider="pixabay", alt=alt,
+                             credit=credit or "Pixabay", source_url=source_url)
 
 
 def build_cover(prompt: str, alt: str, keywords: list[str] | None = None) -> dict[str, Any] | None:
-    """Capa do post. `keywords` (inglês) só são usadas se a IA falhar."""
-    raw = _from_gemini(prompt)
-    if raw:
-        digest = _store_jpeg(raw)
-        if digest:
-            return {"hash": digest, "provider": "gemini", "credit": "Gerada com IA (Gemini)",
-                    "sourceUrl": "", "alt": alt}
+    """Capa automática: IA primeiro, banco de imagens como reserva, nenhuma em último caso."""
+    item = generate_image(prompt, alt=alt)
+    if item:
+        return media.as_cover(item)
 
-    fallback = _from_pixabay(keywords or [prompt])
-    if fallback:
-        digest = _store_jpeg(fallback["raw"])
-        if digest:
-            return {"hash": digest, "provider": "pixabay", "credit": fallback["credit"],
-                    "sourceUrl": fallback["sourceUrl"], "alt": alt}
+    for keyword in (keywords or [prompt]):
+        candidatas = search_stock(keyword, per_page=20)
+        if not candidatas:
+            continue
+        escolhida = random.choice(candidatas[:5])
+        item = import_stock(escolhida["url"], escolhida["credit"], escolhida["sourceUrl"], alt=alt)
+        if item:
+            return media.as_cover(item)
     return None
 
 
 def read_image(digest: str) -> bytes | None:
-    """Bytes do JPEG. Hash malformado nunca vira caminho — evita travessia no bucket."""
-    if not HASH_RE.match(digest or ""):
-        return None
-    blob = _bucket().blob(f"{PREFIX}/{digest}.jpg")
-    if not blob.exists():
-        return None
-    try:
-        return blob.download_as_bytes()
-    except Exception:
-        return None
+    """Mantido para a rota pública de imagem — delega para a biblioteca."""
+    return media.read_image(digest)

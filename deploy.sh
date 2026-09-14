@@ -59,6 +59,7 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:-}" \
     --set-env-vars "BLOG_TICK_KEY=${BLOG_TICK_KEY:-}" \
     --set-env-vars "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
+    --set-env-vars "SERPER_API_KEY=${SERPER_API_KEY:-}" \
     --set-env-vars "BLOG_ADMIN_EMAILS=${BLOG_ADMIN_EMAILS:-rodrigorizando@gmail.com}" \
     --quiet
 else

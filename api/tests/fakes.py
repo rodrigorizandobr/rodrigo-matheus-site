@@ -131,6 +131,9 @@ class FakeBlob:
         if self.exists():
             self._bucket.objects[self.name]["cache_control"] = self.cache_control
 
+    def delete(self):
+        self._bucket.objects.pop(self.name, None)
+
 
 class FakeBucket:
     def __init__(self):

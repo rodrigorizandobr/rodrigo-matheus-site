@@ -58,7 +58,9 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 | Núcleo puro | `api/blog/model.py` | Slug, agendamento, cadência, tags, validação. **Sem rede.** |
 | Persistência | `api/blog/store.py` | Firestore `blog_posts` + `blog_config/settings`. |
 | Geração | `api/blog/gemini.py` | Texto pt+en numa chamada, `responseSchema` obrigatório. |
-| Capa | `api/blog/images.py` | Gemini → Pixabay (reserva) → JPEG no GCS pelo hash. |
+| Imagens | `api/blog/images.py` | Só BUSCA: Gemini (IA) e Pixabay (banco). Quem grava é a biblioteca. |
+| Biblioteca | `api/blog/media.py` | Upload, IA e banco caem todos aqui: JPEG, lado máximo, nome pelo hash. |
+| Pesquisa | `api/blog/research.py` | Serper (busca do Google) + leitura das páginas. Opcional em todo lugar. |
 | Coreografia | `api/blog/service.py` | tema → texto → capa → grava; `tick()` do agendador. |
 | Portaria | `api/blog/auth.py` | ID token do Firebase + allowlist de e-mail. |
 | Rotas | `api/blog/routes.py` | Público / painel / agendador, portarias diferentes. |
@@ -82,6 +84,19 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   publica no GCS a cada deploy; o cache de CDN (`s-maxage`) faz o container ser acionado raramente.
 - **As chaves do Firebase no `web/src/blog/firebase.ts` são públicas por desenho.** Quem protege é a
   allowlist no backend. Entrar com outra conta Google mostra o painel e toda ação volta 401.
+- **A pesquisa na web é OPCIONAL em três níveis**: a chave `SERPER_API_KEY` pode faltar, a configuração
+  pode desligá-la, e cada geração manual pode decidir por conta própria (`use_research`). Sem ela o
+  post sai do repertório do modelo — o que nunca pode acontecer é o post não sair.
+- **Os trechos da busca valem tanto quanto o crawler.** O Cloud Run sai de IP de datacenter e boa parte
+  dos sites recusa a leitura direta; sem os `snippet` do Serper a pesquisa voltaria vazia quase sempre.
+  Por isso `search_web` junta páginas lidas E trechos. Lição herdada de monster-jobs/br51.
+- **Termo de notícia REPETE de propósito; tema da pauta, não.** O que muda numa notícia é a notícia, então
+  os termos entram em rodízio (`pick_rotating`, o mais antigo primeiro). Tema da pauta usado não volta
+  (`pick_topic`), porque geraria um post quase igual ao anterior.
+- **Toda imagem passa por `media.store_image`** — upload, IA ou banco. Nunca se linka o arquivo de
+  terceiro: a URL pode virar 403 e o post fica com imagem quebrada para sempre. O nome é o sha256 do
+  JPEG final, então a mesma imagem não duplica e a URL pode ser cacheada para sempre.
+- **Imagem em uso por um post não é apagada** (`InUseError` → 409 dizendo em quais posts).
 - **As regras do Firestore negam tudo**: o navegador nunca fala com o banco, só com a API.
 - **`main[data-stage="true"]`**: só a home tem a banda fixa do robô. A regra mobile que empurra o
   `<main>` em 38svh vale SÓ para ela — sem esse atributo, blog e painel abriam com meia tela de vazio
@@ -151,8 +166,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 145 testes
-cd web && npm test                                  # 185 testes
+cd api && source .venv/bin/activate && pytest      # 204 testes
+cd web && npm test                                  # 195 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

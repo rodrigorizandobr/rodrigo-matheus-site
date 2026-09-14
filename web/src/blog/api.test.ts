@@ -87,3 +87,57 @@ describe('painel', () => {
     expect(f.mock.calls[0][1].method).toBe('PATCH')
   })
 })
+
+describe('biblioteca de mídia', () => {
+  const token = async () => 'jwt-123'
+
+  it('upload vai como multipart, com o token, e sem content-type na mão', async () => {
+    const f = fetchOk({ item: { hash: 'h' } }, 201)
+    vi.stubGlobal('fetch', f)
+    const file = new File(['bytes'], 'foto.png', { type: 'image/png' })
+    await blogApi.admin(token).media.upload(file, 'legenda')
+    const [url, init] = f.mock.calls[0]
+    expect(url).toBe('/api/blog/admin/media/upload')
+    expect(init.body).toBeInstanceOf(FormData)
+    expect(init.headers.Authorization).toBe('Bearer jwt-123')
+    expect(init.headers['content-type']).toBeUndefined()
+  })
+
+  it('upload grande demais (413) chega com a mensagem do servidor', async () => {
+    vi.stubGlobal('fetch', fetchOk({ error: 'arquivo acima de 12 MB' }, 413))
+    const file = new File(['x'], 'g.png', { type: 'image/png' })
+    await expect(blogApi.admin(token).media.upload(file)).rejects.toThrow(/12 MB/)
+  })
+
+  it('busca no banco de imagens escapa o termo', async () => {
+    const f = fetchOk({ results: [] })
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).media.searchStock('lab & robô')
+    expect(f.mock.calls[0][0]).toBe('/api/blog/admin/media/stock?q=lab%20%26%20rob%C3%B4')
+  })
+
+  it('importar a escolhida manda url, crédito e origem', async () => {
+    const f = fetchOk({ item: {} }, 201)
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).media.importStock(
+      { id: '1', thumb: 't', url: 'b.jpg', credit: 'A / Pixabay', sourceUrl: 'https://p', width: 1, height: 1 }, 'alt')
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual(
+      { url: 'b.jpg', credit: 'A / Pixabay', sourceUrl: 'https://p', alt: 'alt' })
+  })
+
+  it('escolher capa da biblioteca manda o hash; null tira a capa', async () => {
+    const f = fetchOk({ post: post() })
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).setCover('1', 'abc')
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ hash: 'abc' })
+    await blogApi.admin(token).setCover('1', null)
+    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ hash: null })
+  })
+
+  it('gerar post leva a escolha de pesquisar na web', async () => {
+    const f = fetchOk({ post: post() }, 201)
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).generate('tema', false)
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ topic: 'tema', context: '', research: false })
+  })
+})

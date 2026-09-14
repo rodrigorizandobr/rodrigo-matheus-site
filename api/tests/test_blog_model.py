@@ -138,3 +138,21 @@ class TestPauta:
     def test_com_a_mesma_semente_o_sorteio_e_reprodutivel(self):
         temas = ["a", "b", "c", "d"]
         assert model.pick_topic(temas, [], seed=7) == model.pick_topic(temas, [], seed=7)
+
+
+class TestRodizioDeTermos:
+    def test_escolhe_o_termo_ha_mais_tempo_sem_uso(self):
+        # history do mais recente para o mais antigo
+        assert model.pick_rotating(["a", "b", "c"], ["a", "b"]) == "c"
+
+    def test_termo_nunca_usado_vem_antes_de_qualquer_usado(self):
+        assert model.pick_rotating(["a", "novo"], ["a"]) == "novo"
+
+    def test_todos_ja_usados_volta_para_o_mais_antigo(self):
+        assert model.pick_rotating(["a", "b"], ["b", "a"]) == "a"
+
+    def test_ignora_acento_e_caixa_ao_comparar(self):
+        assert model.pick_rotating(["Inovação", "outro"], ["inovacao"]) == "outro"
+
+    def test_lista_vazia_devolve_None(self):
+        assert model.pick_rotating([], ["a"]) is None

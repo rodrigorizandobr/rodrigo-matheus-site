@@ -5,9 +5,11 @@ import { PostEditor } from './admin/PostEditor'
 import { ConfigPanel } from './admin/ConfigPanel'
 import { PostList } from './admin/PostList'
 import { PostPreview } from './admin/PostPreview'
+import { MediaPage } from './admin/MediaPage'
+import { ImagePicker } from './admin/ImagePicker'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 
-type Tab = 'posts' | 'config'
+type Tab = 'posts' | 'media' | 'config'
 type Session = { email: string } | null
 
 /**
@@ -25,6 +27,9 @@ export function AdminPage() {
   const [config, setConfig] = useState<BlogConfig | null>(null)
   const [editing, setEditing] = useState<Post | null>(null)
   const [previewing, setPreviewing] = useState<Post | null>(null)
+  const [pickingCover, setPickingCover] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [research, setResearch] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'erro'; text: string } | null>(null)
   const [topic, setTopic] = useState('')
@@ -92,10 +97,10 @@ export function AdminPage() {
     <Shell>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div className="flex gap-1">
-          {(['posts', 'config'] as Tab[]).map((t) => (
+          {(['posts', 'media', 'config'] as Tab[]).map((t) => (
             <button key={t} type="button" onClick={() => { setTab(t); setEditing(null) }} aria-pressed={tab === t}
                     className="toggle-chip !h-9 !px-4 uppercase font-display font-semibold tracking-wider">
-              {t === 'posts' ? 'posts' : 'configuração'}
+              {t === 'posts' ? 'posts' : t === 'media' ? 'mídia' : 'configuração'}
             </button>
           ))}
         </div>
@@ -110,6 +115,8 @@ export function AdminPage() {
           {message.text}
         </p>
       )}
+
+      {tab === 'media' && <MediaPage api={api.media} />}
 
       {tab === 'config' && config && (
         <ConfigPanel config={config} busy={busy === 'config'}
@@ -128,6 +135,8 @@ export function AdminPage() {
           }, 'Post salvo.')}
           onRevise={(instruction) => run('revise', async () => { update(await api.revise(editing.id, instruction)) }, 'Post reescrito pela IA.')}
           onCover={(prompt) => run('cover', async () => { update(await api.cover(editing.id, prompt)) }, 'Capa nova gerada.')}
+          onPickCover={() => setPickingCover(true)}
+          onClearCover={() => run('cover', async () => { update(await api.setCover(editing.id, null)) }, 'Capa removida.')}
           onPublish={() => run('publish', async () => { update(await api.publish(editing.id)) }, 'No ar.')}
           onUnpublish={() => run('publish', async () => { update(await api.unpublish(editing.id)) }, 'Fora do ar.')}
           onSchedule={(when) => run('schedule', async () => { update(await api.schedule(editing.id, when)) }, 'Agendado.')}
@@ -148,13 +157,17 @@ export function AdminPage() {
             <div>
               <label className="field-label" htmlFor="novo-tema">Escrever um post novo</label>
               <input id="novo-tema" className="field" value={topic} onChange={(e) => setTopic(e.target.value)}
-                     placeholder="Tema (deixe vazio para a IA sortear da pauta)" />
+                     placeholder="Tema (vazio = a IA escolhe, conforme a configuração)" />
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-[12px] text-muted">
+                <input type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} />
+                pesquisar na web antes de escrever
+              </label>
             </div>
             <div className="flex gap-2">
               <button type="button" disabled={busy !== null}
                       className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider whitespace-nowrap"
                       onClick={() => run('generate', async () => {
-                        const post = await api.generate(topic)
+                        const post = await api.generate(topic, research)
                         setPosts((all) => [post, ...all]); setEditing(post); setTopic('')
                       }, 'Post escrito pela IA.')}>
                 {busy === 'generate' ? 'escrevendo…' : 'gerar com IA'}
@@ -177,10 +190,25 @@ export function AdminPage() {
           {busy === 'load' && <p className="text-muted text-[13px]">Carregando…</p>}
           {busy !== 'load' && posts.length === 0 && <p className="panel p-8 text-center text-muted text-[14px]">Nenhum post ainda.</p>}
 
-          <PostList posts={posts} onPreview={setPreviewing} onEdit={setEditing} />
+          <PostList posts={posts} onPreview={setPreviewing} onEdit={setEditing} busyId={togglingId}
+                    onTogglePublish={(post) => {
+                      setTogglingId(post.id)
+                      void run('publish', async () => {
+                        const saved = post.status === 'published' ? await api.unpublish(post.id) : await api.publish(post.id)
+                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
+                      }, post.status === 'published' ? 'Post fora do ar.' : 'Post no ar.')
+                        .finally(() => setTogglingId(null))
+                    }} />
         </>
       )}
       {previewing && <PostPreview post={previewing} onClose={() => setPreviewing(null)} />}
+      {pickingCover && editing && (
+        <ImagePicker api={api.media} onClose={() => setPickingCover(false)}
+                     onPick={(item) => {
+                       setPickingCover(false)
+                       void run('cover', async () => { update(await api.setCover(editing.id, item.hash)) }, 'Capa escolhida.')
+                     }} />
+      )}
     </Shell>
   )
 }

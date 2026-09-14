@@ -19,12 +19,16 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from . import images, model, service, store
+from . import images, media, model, service, store
 from .auth import AuthError, verify_admin
 
 bp = Blueprint("blog", __name__)
 
 TICK_KEY = os.environ.get("BLOG_TICK_KEY", "")
+
+# 12 MB: acima disso é foto de câmera sem tratamento, e o Cloud Run tem 512 MB de RAM
+# para converter a imagem — recusar cedo é melhor do que morrer no meio.
+MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
 
 def _json(value: Any) -> Any:
@@ -82,7 +86,7 @@ def public_post(slug: str):
 
 @bp.get("/api/blog/image/<digest>.jpg")
 def public_image(digest: str):
-    data = images.read_image(digest)
+    data = media.read_image(digest)
     if not data:
         return jsonify({"error": "not found"}), 404
     # O nome do arquivo é o hash do conteúdo: nunca muda, pode cachear para sempre.
@@ -185,19 +189,114 @@ def admin_revise(post_id: str):
 @bp.post("/api/blog/admin/posts/<post_id>/cover")
 @admin_only
 def admin_cover(post_id: str):
-    prompt = (request.get_json(silent=True) or {}).get("prompt")
-    post = service.regenerate_cover(post_id, prompt)
+    """Capa do post: `hash` escolhe da biblioteca (ou tira, com null); `prompt` gera uma nova."""
+    body = request.get_json(silent=True) or {}
+
+    if "hash" in body:
+        digest = body.get("hash")
+        if digest is None:
+            post = store.update_post(post_id, {"image": None})
+            return (jsonify({"post": _json(post)}) if post else (jsonify({"error": "not found"}), 404))
+        item = media.get_media(digest)
+        if not item:
+            return jsonify({"error": "imagem não está na biblioteca"}), 404
+        post = store.update_post(post_id, {"image": media.as_cover(item)})
+        return (jsonify({"post": _json(post)}) if post else (jsonify({"error": "not found"}), 404))
+
+    post = service.regenerate_cover(post_id, body.get("prompt"))
     if not post:
         return jsonify({"error": "not found"}), 404
     return jsonify({"post": _json(post)})
+
+
+# ── biblioteca de mídia ─────────────────────────────────────────────────────
+
+@bp.get("/api/blog/admin/media")
+@admin_only
+def media_list():
+    return jsonify({"items": _json(media.list_media())})
+
+
+@bp.post("/api/blog/admin/media/upload")
+@admin_only
+def media_upload():
+    uploaded = request.files.get("file")
+    if not uploaded:
+        return jsonify({"error": "nenhum arquivo enviado"}), 400
+
+    raw = uploaded.read(MAX_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_UPLOAD_BYTES:
+        return jsonify({"error": f"arquivo acima de {MAX_UPLOAD_BYTES // (1024 * 1024)} MB"}), 413
+
+    item = media.store_image(raw, provider="upload",
+                             alt=request.form.get("alt", ""), credit=request.form.get("credit", ""))
+    if not item:
+        return jsonify({"error": "arquivo não é uma imagem que sabemos ler"}), 400
+    return jsonify({"item": _json(item)}), 201
+
+
+@bp.post("/api/blog/admin/media/generate")
+@admin_only
+def media_generate():
+    body = request.get_json(silent=True) or {}
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "descreva a cena que a IA deve criar"}), 400
+    item = images.generate_image(prompt, alt=body.get("alt", ""))
+    if not item:
+        return jsonify({"error": "a IA não devolveu imagem (cota ou recusa do modelo)"}), 502
+    return jsonify({"item": _json(item)}), 201
+
+
+@bp.get("/api/blog/admin/media/stock")
+@admin_only
+def media_stock_search():
+    query = (request.args.get("q") or "").strip()
+    if not query:
+        return jsonify({"error": "informe o que buscar"}), 400
+    return jsonify({"results": images.search_stock(query)})
+
+
+@bp.post("/api/blog/admin/media/stock")
+@admin_only
+def media_stock_import():
+    body = request.get_json(silent=True) or {}
+    url = (body.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url da imagem escolhida"}), 400
+    item = images.import_stock(url, body.get("credit", ""), body.get("sourceUrl", ""), body.get("alt", ""))
+    if not item:
+        return jsonify({"error": "não consegui baixar a imagem escolhida"}), 502
+    return jsonify({"item": _json(item)}), 201
+
+
+@bp.patch("/api/blog/admin/media/<digest>")
+@admin_only
+def media_update(digest: str):
+    item = media.update_media(digest, request.get_json(silent=True) or {})
+    if not item:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"item": _json(item)})
+
+
+@bp.delete("/api/blog/admin/media/<digest>")
+@admin_only
+def media_delete(digest: str):
+    try:
+        media.delete_media(digest)
+    except media.InUseError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"ok": True})
 
 
 @bp.post("/api/blog/admin/generate")
 @admin_only
 def admin_generate():
     body = request.get_json(silent=True) or {}
+    research_flag = body.get("research")
     try:
-        post = service.generate(body.get("topic"), context=body.get("context", ""))
+        post = service.generate(body.get("topic"), context=body.get("context", ""),
+                                use_research=research_flag if isinstance(research_flag, bool) else None)
     except service.NoTopicError as exc:
         return jsonify({"error": str(exc)}), 409
     except service.gemini.GeminiError as exc:

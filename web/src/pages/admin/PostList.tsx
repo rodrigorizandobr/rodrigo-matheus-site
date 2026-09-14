@@ -10,10 +10,13 @@ const titleOf = (post: Post) => post.i18n?.pt?.title || post.i18n?.en?.title || 
  * cima, botões embaixo ocupando a largura — botão de 11px espremido ao lado de
  * um título truncado é impossível de acertar com o dedo.
  */
-export function PostList({ posts, onPreview, onEdit }: {
+export function PostList({ posts, onPreview, onEdit, onTogglePublish, busyId = null }: {
   posts: Post[]
   onPreview: (post: Post) => void
   onEdit: (post: Post) => void
+  /** publicar (rascunho e agendado) ou tirar do ar (publicado), sem abrir o editor */
+  onTogglePublish: (post: Post) => void
+  busyId?: string | null
 }) {
   return (
     <ul className="grid gap-3">
@@ -49,7 +52,11 @@ export function PostList({ posts, onPreview, onEdit }: {
                   no site <IconArrowUpRight width={10} height={10} />
                 </a>
               )}
-              <button type="button" onClick={() => onEdit(post)}
+              <button type="button" onClick={() => onTogglePublish(post)} disabled={busyId === post.id}
+                      className={`${post.status === 'published' ? 'chip' : 'cta cta-primary'} !h-9 !py-2 !px-4 flex-1 sm:flex-none justify-center font-display font-semibold text-[11px] uppercase tracking-wider whitespace-nowrap`}>
+                {post.status === 'published' ? 'despublicar' : 'publicar'}
+              </button>
+              <button type="button" onClick={() => onEdit(post)} disabled={busyId === post.id}
                       className="cta !py-2 !px-4 flex-1 sm:flex-none justify-center font-display font-semibold text-[11px] uppercase tracking-wider whitespace-nowrap">
                 editar
               </button>

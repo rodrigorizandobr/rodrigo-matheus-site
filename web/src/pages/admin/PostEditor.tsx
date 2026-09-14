@@ -16,6 +16,8 @@ type Props = {
   onDelete: () => void
   onClose: () => void
   onPreview: () => void
+  onPickCover: () => void
+  onClearCover: () => void
 }
 
 /**
@@ -134,12 +136,25 @@ export function PostEditor(p: Props) {
           {p.post.image
             ? <img src={coverUrl(p.post.image)!} alt={p.post.image.alt} className="w-full aspect-[16/9] object-cover border border-line" />
             : <p className="text-[12px] text-muted">Sem capa.</p>}
-          <textarea className="field !min-h-[4.5rem]" placeholder="Descreva a cena (inglês)" value={coverPrompt}
-                    disabled={disabled} onChange={(e) => setCoverPrompt(e.target.value)} />
-          <button type="button" className="cta !py-2 font-display font-semibold text-[11px] uppercase tracking-wider"
-                  disabled={disabled} onClick={() => p.onCover(coverPrompt)}>
-            {p.busy === 'cover' ? 'gerando…' : 'gerar nova capa'}
-          </button>
+          <div className="flex gap-2">
+            <button type="button" disabled={disabled} onClick={p.onPickCover}
+                    className="cta cta-primary !py-2 flex-1 justify-center font-display font-semibold text-[11px] uppercase tracking-wider">
+              escolher imagem
+            </button>
+            {p.post.image && (
+              <button type="button" disabled={disabled} onClick={p.onClearCover}
+                      className="chip !h-9 justify-center font-display font-semibold text-[11px] uppercase tracking-wider">tirar</button>
+            )}
+          </div>
+          <details className="border-t border-line pt-3">
+            <summary className="field-label !mb-0 cursor-pointer">gerar uma capa direto pelo prompt</summary>
+            <textarea className="field !min-h-[4.5rem] mt-2" placeholder="Descreva a cena (inglês)" value={coverPrompt}
+                      disabled={disabled} onChange={(e) => setCoverPrompt(e.target.value)} />
+            <button type="button" className="cta !py-2 w-full justify-center mt-2 font-display font-semibold text-[11px] uppercase tracking-wider"
+                    disabled={disabled || !coverPrompt.trim()} onClick={() => p.onCover(coverPrompt)}>
+              {p.busy === 'cover' ? 'gerando…' : 'gerar e usar'}
+            </button>
+          </details>
         </div>
 
         <button type="button" onClick={p.onDelete} disabled={disabled}

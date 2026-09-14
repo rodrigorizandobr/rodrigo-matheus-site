@@ -98,12 +98,16 @@ describe('Training / Contact / Logs', () => {
     await userEvent.click(mail)
     expect(window.gtag).toHaveBeenCalledWith('event', 'contact_click', { channel: 'email', language: 'en' })
   })
-  it('Logs: lista os posts do posts.json no idioma atual', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([
-      { slug: 'a', date: '2026-04-10', tags: ['cloud'], i18n: { en: { title: 'Post A', summary: 'sum a', body: '<p>x</p>' }, pt: { title: 'Post A pt', summary: 's', body: '' } } },
-    ]), { status: 200 })))
+  it('Logs: mostra os posts vindos da API, no idioma atual, com link para o post', async () => {
+    const post = {
+      id: '1', slug: 'a', status: 'published', tags: ['cloud'], image: null, imageAlt: '',
+      i18n: { en: { title: 'Post A', excerpt: 'sum a', sections: [] }, pt: { title: 'Post A pt', excerpt: 's', sections: [] } },
+      createdAt: '2026-04-10T00:00:00Z', updatedAt: '', scheduledFor: null, publishedAt: '2026-04-10T00:00:00Z',
+      readingMinutes: { pt: 2, en: 2 },
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ posts: [post] }), { status: 200 })))
     r(<Logs />)
     expect(await screen.findByText('Post A')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /READ LOG/ })).toHaveAttribute('href', '/blog/a')
+    expect(screen.getByRole('link', { name: /READ POST/ })).toHaveAttribute('href', '/blog/a')
   })
 })

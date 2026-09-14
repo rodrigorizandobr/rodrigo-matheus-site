@@ -64,3 +64,23 @@ Capa passou para o topo do post, em largura total, como o PO pediu.
 
 Verificado a 390 px com uma bancada de layout nova (`/dev-admin.html`, só em dev): sem rolagem
 horizontal e sem elemento estourando, na lista, no editor, na configuração e na prévia.
+
+## Segunda rodada de pedidos do PO (2026-09-14, noite)
+
+1. **"LOGS" → "Posts"** no blog e na home. No caminho apareceu uma regressão minha: a seção do blog
+   na home ainda lia `posts.json`, removido na migração para o Firestore — estava vazia. Passou a ler a API.
+2. **Publicar/despublicar direto na lista**, sem abrir o editor.
+3. **Configuração refeita**: três blocos (sobre o que escrever · pesquisa · quando publicar), cada campo
+   com explicação. O PO perguntou o que era "Pauta" — sinal claro de que o rótulo sozinho não bastava.
+4. **Aba Mídia**: biblioteca com upload, criação por IA, busca no banco de imagens, edição de legenda e
+   exclusão (bloqueada quando a imagem está em uso).
+5. **Seletor de capa no post** com as mesmas quatro origens — `ImageSources` é um componente só, usado
+   pela aba Mídia e pelo seletor, para nenhuma origem existir só de um lado.
+6. **Pesquisa na web opcional** (Serper + leitura de páginas), com escolha por post e padrão na config.
+7. **Posts a partir de notícias** dos termos vigiados, editáveis no painel, em rodízio.
+
+Validado em produção: pesquisa real devolveu 13 fontes e 4 páginas lidas; post gerado a partir de
+notícias de IA saiu com tese própria, 8 fontes registradas, capa gerada e agendamento automático.
+
+Observação para depois: o post de notícia saiu com 469 palavras, abaixo da faixa de 600–900 pedida no
+prompt. Não é erro de código — é calibragem de prompt, e só dá para ajustar vendo mais amostras.
