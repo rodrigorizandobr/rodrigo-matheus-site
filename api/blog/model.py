@@ -29,14 +29,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "generate_weekdays": [0, 3],
     # Pesquisa na web (Serper + leitura das páginas) ao escrever. Opcional.
     "research_enabled": True,
-    # Termos vigiados para virar post a partir de notícia. Editáveis no painel.
+    # Assuntos vigiados. Medido contra o Serper: termo que é NOME DE PROFISSÃO
+    # ("desenvolvimento de software", "arquitetura de software") devolve anúncio de
+    # vaga e concurso; termo que nomeia um ACONTECIMENTO ou uma PERGUNTA DE NEGÓCIO
+    # devolve jornalismo. Estes foram os que mediram zero ou quase zero de ruído.
     "news_terms": [
-        "inteligência artificial",
-        "desenvolvimento de software",
-        "arquitetura de software",
-        "segurança da informação",
-        "infraestrutura em nuvem",
-        "inovação em tecnologia",
+        "inteligência artificial generativa",
+        "regulação de inteligência artificial",
+        "IA nas empresas",
+        "cibersegurança empresas Brasil",
+        "vazamento de dados",
+        "ataque ransomware empresas",
+        "computação em nuvem mercado",
+        "engenharia de plataforma",
     ],
 }
 

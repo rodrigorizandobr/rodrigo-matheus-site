@@ -171,3 +171,48 @@ class TestSoCitaOQueLeu:
         monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
         out = research.search_web(["x"])
         assert out.references == [] and out.context != ""
+
+
+class TestFiltroDeRuido:
+    """Busca de notícia por termo técnico atrai anúncio de vaga, curso e concurso.
+    Isso não é notícia, e ainda entra citado como fonte no fim do post."""
+
+    @pytest.mark.parametrize("titulo", [
+        "Concurso Dataprev: Desenvolvimento de software, segurança e dados",
+        "Zup abre vagas remotas em Desenvolvimento e Arquitetura",
+        "Arquiteto de soluções de TI — salário e carreira",
+        "Fatec abre inscrições para vestibular com 515 vagas",
+        "IPM Sistemas abre curso gratuito de programação",
+        "Empresa contrata 200 desenvolvedores até dezembro",
+        "Processo seletivo para estágio em tecnologia",
+        "Edital de bolsas para formação em IA",
+    ])
+    def test_reconhece_anuncio_de_vaga_curso_e_concurso(self, titulo):
+        assert research.is_noise(titulo) is True
+
+    @pytest.mark.parametrize("titulo", [
+        "IA redefine engenharia de confiabilidade e de plataforma",
+        "Brasil registra aumento de 25% nos ataques de ransomware",
+        "ANPD investiga ataque que vazou dados de 500 mil clientes",
+        "O percurso da computação quântica até aqui",
+        "Discurso de Nadella sobre agentes de IA divide o setor",
+        "Empresas cortam recursos de nuvem após alta do dólar",
+        "Trump ataca regulação da inteligência artificial",
+    ])
+    def test_nao_derruba_noticia_legitima(self, titulo):
+        assert research.is_noise(titulo) is False, "palavra dentro de outra não pode contar"
+
+    def test_filtra_antes_de_virar_fonte(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp({"news": [
+            {"link": "https://a.com", "title": "Empresa abre vagas para devs", "snippet": "s" * 60},
+            {"link": "https://b.com", "title": "Nuvem soberana avança no governo", "snippet": "s" * 60},
+        ]}))
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text="<body>lido</body>", content_type="text/html"))
+        out = research.search_web(["x"])
+        assert out.sources == ["https://b.com"]
+
+    def test_se_tudo_for_ruido_a_pesquisa_volta_vazia_em_vez_de_citar_vaga(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: Resp({"news": [
+            {"link": "https://a.com", "title": "Concurso abre 300 vagas em TI", "snippet": "s" * 60},
+        ]}))
+        assert research.search_web(["x"]).context == ""

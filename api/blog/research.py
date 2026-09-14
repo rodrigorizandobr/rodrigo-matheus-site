@@ -44,6 +44,26 @@ MIN_SNIPPET_CHARS = 50
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
+# Termo técnico em português é também NOME DE PROFISSÃO, então a busca de notícias
+# devolve anúncio de vaga, curso e concurso junto. Medido: "arquitetura de software"
+# trouxe 3 em 10; "vazamento de dados", 0 em 10. Filtrar pelo TÍTULO (não pelo trecho,
+# que gera falso positivo) tira o que sobra — e impede que um anúncio de emprego seja
+# citado como fonte no fim do post.
+_NOISE = re.compile(
+    r"\b("
+    r"vagas?|concursos?|editais?|edital|inscri\w+|cursos?|bolsas?|sal[áa]rios?|"
+    r"contrat(a|am|ando|a[çc][ãa]o)|est[áa]gios?|trainee|processo seletivo|"
+    r"seleç[ãa]o p[úu]blica|carreira e sal[áa]rio"
+    r")\b",
+    re.I,
+)
+
+
+def is_noise(title: str) -> bool:
+    """Anúncio de vaga, curso ou concurso — não é notícia e não serve de fonte."""
+    return bool(_NOISE.search(title or ""))
+
+
 _DROP_BLOCKS = re.compile(
     r"<(script|style|noscript|svg|iframe|form|nav|header|footer)\b[^>]*>.*?</\1>",
     re.S | re.I,
@@ -99,15 +119,18 @@ def _search(query: str) -> list[dict[str, str]]:
     out = []
     for item in results:
         link = (item or {}).get("link")
-        if isinstance(link, str) and link:
-            out.append({
-                "link": link,
-                "title": str(item.get("title") or ""),
-                "snippet": str(item.get("snippet") or ""),
-                # o endpoint de notícias traz veículo e data; ambos entram na citação
-                "source": str(item.get("source") or ""),
-                "date": str(item.get("date") or ""),
-            })
+        if not isinstance(link, str) or not link:
+            continue
+        if is_noise(str(item.get("title") or "")):
+            continue
+        out.append({
+            "link": link,
+            "title": str(item.get("title") or ""),
+            "snippet": str(item.get("snippet") or ""),
+            # o endpoint de notícias traz veículo e data; ambos entram na citação
+            "source": str(item.get("source") or ""),
+            "date": str(item.get("date") or ""),
+        })
     return out
 
 

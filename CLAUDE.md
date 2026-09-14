@@ -93,6 +93,13 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   Por isso `search_web` junta páginas lidas E trechos. Lição herdada de monster-jobs/br51.
 - **Serper no endpoint `/news`, com `gl=br` e `hl=pt-br`** — nunca a busca web: ela devolveria página
   institucional e conteúdo antigo bem posicionado em SEO, e o blog fala do que é novidade aqui.
+- **Assunto vigiado nomeia ACONTECIMENTO, não profissão.** Medido contra o Serper: "arquitetura de
+  software" trouxe 3 anúncios de vaga/concurso em 10; "vazamento de dados" e "regulação de IA", 0 em 10.
+  Em português o nome da disciplina é também o nome do cargo, então a busca de notícia cai em
+  recrutamento. Ao sugerir termos novos, prefira o que um jornalista escreveria.
+- **`research.is_noise()` filtra pelo TÍTULO** (vaga, concurso, edital, curso, bolsa, estágio…), nunca
+  pelo trecho — filtrar por trecho derruba notícia legítima. Sem isso, um anúncio de emprego acabava
+  citado como fonte em ABNT no fim do post.
 - **Só vira referência a página que foi LIDA.** Link que apareceu apenas como trecho de busca entra em
   `sources` (consultado), não em `references` (citado) — citar o que não fundamentou o texto é exagero.
 - **Sem notícia, o lastro é o CURRÍCULO** (`profile.career_context()`, lido do mesmo `api/i18n/pt.json`
