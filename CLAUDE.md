@@ -186,7 +186,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 204 testes
-cd web && npm test                                  # 249 testes
+cd web && npm test                                  # 254 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
@@ -249,6 +249,10 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
   `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
 - **`SectionHead` mostra SÓ o título com `//`.** A etiqueta em caixa alta e a linha de apoio saíram:
   três níveis de texto antes do título faziam a seção começar devagar sem informar nada.
+- **Os MÓDULOS CENTRAIS são a navegação de domínio** (`hud/StatPanel.tsx`): clicar troca cargo, resumo
+  e classe anunciada. Eles já tinham o estado ativo desenhado (`data-on`, que o CSS usa); só faltava
+  serem clicáveis. Setas andam entre eles com o foco — e não são anunciadas na HintsBar, porque só
+  valem ali dentro.
 - **Não existe mais lista de classes.** Ela repetia o que o painel da direita já diz (cargo, classe e os
   quatro domínios) e a interação não levava a lugar nenhum. A coluna da esquerda do hero passou a
   abrigar a proposta de valor, que antes flutuava sobre o peito do robô atrás de um degradê.

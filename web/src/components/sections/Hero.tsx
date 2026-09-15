@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../i18n/useI18n'
-import { buildCharacter } from '../../data/character'
+import { buildCharacter, type CharacterClass } from '../../data/character'
 import { StatPanel } from '../hud/StatPanel'
 import { ActionBar, StartButton } from '../hud/ActionBar'
 import { TopStrip } from '../hud/TopStrip'
@@ -21,7 +21,9 @@ import { scrollToId } from '../../motion/lenis'
 export function Hero() {
   const { t, lang, setLang } = useI18n()
   const character = useMemo(() => buildCharacter(t), [t])
-  const active = character.classes[0]
+  const [activeId, setActiveId] = useState(() => character.classes[0]?.id ?? '')
+  const active = character.classes.find((c) => c.id === activeId) ?? character.classes[0]
+  const onSelect = useCallback((c: CharacterClass) => setActiveId(c.id), [])
   const start = useCallback(() => scrollToId('about'), [])
 
   // A HintsBar promete estas teclas, então elas valem na página inteira.
@@ -74,7 +76,7 @@ export function Hero() {
         {/* Deliberately sparse, like the reference: identity, stats, actions. The ten skill
             pills live in the About section, where there is room for them. */}
         <div className="flex flex-col gap-2.5 min-h-0">
-          {active && <StatPanel character={character} activeClass={active} hud={t.hud} />}
+          {active && <StatPanel character={character} activeClass={active} hud={t.hud} onSelect={onSelect} />}
           <ActionBar hero={t.hero} hud={t.hud} />
           <StartButton label={t.hud.start} onStart={start} />
         </div>
