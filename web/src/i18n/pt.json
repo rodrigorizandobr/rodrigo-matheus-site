@@ -330,6 +330,7 @@
   },
   "nav_menu": {
     "open": "Abrir menu",
-    "close": "Fechar menu"
+    "close": "Fechar menu",
+    "sound": "Ligar ou desligar o som"
   }
 }

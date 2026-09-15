@@ -20,8 +20,7 @@ export function Arena() {
   return (
     <div ref={ref}>
     <Section id="projects">
-      <SectionHead tag={s.tag} title={t.projects.heading} sub={s.sub}
-        aside={arena?.status === 'online' && (
+      <SectionHead title={t.projects.heading} aside={arena?.status === 'online' && (
           <a href="https://github.com/rodrigorizandobr?tab=repositories" target="_blank" rel="noopener noreferrer"
              onClick={() => gaEvt('see_all_repos')} className="cta !py-2.5 !px-3 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider">
             <IconGitHub width={14} height={14} />{s.see_all}<IconArrowUpRight width={12} height={12} />

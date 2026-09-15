@@ -186,7 +186,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 204 testes
-cd web && npm test                                  # 247 testes
+cd web && npm test                                  # 249 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
@@ -247,7 +247,16 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
 - **Vídeo em todo lugar, mas com orçamento:** desktop usa os encodes 1280 px; mobile usa `*.m.*`
   (854 px), `preload="none"` e só carrega/toca quando a faixa está perto da viewport (`useInViewPlayback`).
   `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
-- **`SectionHead` tem `tag` opcional.** Onde a etiqueta seria sinônimo do título ("BIO" sobre "sobre",
+- **`SectionHead` mostra SÓ o título com `//`.** A etiqueta em caixa alta e a linha de apoio saíram:
+  três níveis de texto antes do título faziam a seção começar devagar sem informar nada.
+- **Não existe mais lista de classes.** Ela repetia o que o painel da direita já diz (cargo, classe e os
+  quatro domínios) e a interação não levava a lugar nenhum. A coluna da esquerda do hero passou a
+  abrigar a proposta de valor, que antes flutuava sobre o peito do robô atrás de um degradê.
+- **Som de interface é SINTETIZADO** (`motion/sound.ts`, Web Audio): um clique de 20 ms não vale uma
+  requisição. Nasce DESLIGADO, com a escolha lembrada, e há um botão no cabeçalho — navegador nenhum
+  toca antes do primeiro gesto, e som sem pedir é hostil.
+- **O reflexo dos alvos é CSS puro** (`.sheen`, e `::after` em `.cta`/`.chip`): uma faixa de luz que
+  atravessa uma vez no hover. Desligado sob `prefers-reduced-motion`. Onde a etiqueta seria sinônimo do título ("BIO" sobre "sobre",
   "POSTS" sobre "Posts") ela sai — repetir a mesma palavra duas vezes não informa nada.
 - **`.neon-red` / `.neon-red-hover` são o "ligado" do site.** O mesmo aceso do START, reaproveitado no
   roster e em qualquer destaque, em vez de cada componente inventar a própria sombra.

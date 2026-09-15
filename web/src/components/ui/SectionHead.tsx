@@ -1,21 +1,16 @@
 import type { ReactNode } from 'react'
 
 /**
- * Cabeçalho de seção. `tag` é OPCIONAL: onde ela seria sinônimo do título ("BIO" sobre
- * "sobre", "POSTS" sobre "Posts") a etiqueta não acrescenta nada e sai — a linha de
- * apoio e o título já situam a seção.
+ * Cabeçalho de seção: só o título, marcado pelas duas barras.
+ *
+ * A etiqueta em caixa alta e a linha de apoio que vinham acima saíram — três níveis de
+ * texto antes do título faziam a seção começar devagar, e nenhum deles dizia mais do que
+ * o próprio título. `aside` continua para quem precisa de uma ação à direita.
  */
-export function SectionHead({ tag, title, sub, aside }: { tag?: string; title: string; sub: string; aside?: ReactNode }) {
+export function SectionHead({ title, aside }: { title: string; aside?: ReactNode }) {
   return (
     <header className="section-head">
-      <div>
-        <div className="flex items-center gap-3 mb-3">
-          {tag && <span className="section-tag">{tag}</span>}
-          {tag && <span className="h-px w-10 bg-heading/30" aria-hidden="true" />}
-          <span className="hud-label">{sub}</span>
-        </div>
-        <h2 className="section-title"><span className="slash">//</span>{title}</h2>
-      </div>
+      <h2 className="section-title"><span className="slash">//</span>{title}</h2>
       {aside && <div className="flex items-center gap-2">{aside}</div>}
     </header>
   )

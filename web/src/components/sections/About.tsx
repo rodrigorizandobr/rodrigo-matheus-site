@@ -17,7 +17,7 @@ export function About() {
   return (
     <div ref={ref as React.RefObject<HTMLDivElement>}>
     <Section id="about">
-      <SectionHead title={t.about.heading} sub={s.sub} />
+      <SectionHead title={t.about.heading} />
       <div className="grid gap-6 items-start">
         <div className="flex flex-col gap-5">
           <Reveal className="panel hud-frame p-6 md:p-7">

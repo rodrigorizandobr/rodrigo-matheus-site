@@ -224,3 +224,31 @@ class TestCurriculoComoBase:
                             lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
         service.generate("tema", now=utc(2026, 9, 14, 21))
         assert recebidos["ctx"] == "notícia de hoje"
+
+
+class TestAPartirDeUmaNoticia:
+    def test_link_colado_vira_a_unica_fonte_e_o_titulo_vira_o_assunto(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "from_url", lambda u: service.research.Research(
+            context="corpo da matéria", sources=[u], pages_read=1,
+            references=[{"url": u, "title": "Ataque derruba sistema", "site": "veiculo.com", "published": ""}]))
+        buscou = []
+        monkeypatch.setattr(service.research, "search_web", lambda q: buscou.append(q) or service.research.Research())
+        post = service.generate("https://veiculo.com/materia", now=utc(2026, 9, 14, 21))
+        assert post["topic"] == "Ataque derruba sistema"
+        assert post["generation"]["source"] == "link"
+        assert buscou == [], "com o link em mãos não há por que buscar"
+
+    def test_link_que_nao_abre_cai_no_curriculo_em_vez_de_falhar(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "from_url", lambda u: service.research.Research())
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+        post = service.generate("https://bloqueia.com/x", now=utc(2026, 9, 14, 21))
+        assert "EXPERIÊNCIA" in recebidos["ctx"]
+        assert post["status"] == "scheduled"
+
+    def test_texto_comum_continua_indo_para_a_busca_de_noticias(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "from_url", lambda u: (_ for _ in ()).throw(AssertionError("não deveria")))
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research(context="c"))
+        post = service.generate("apagão em datacenter", now=utc(2026, 9, 14, 21))
+        assert post["topic"] == "apagão em datacenter"

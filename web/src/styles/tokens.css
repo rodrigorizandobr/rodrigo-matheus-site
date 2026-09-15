@@ -302,9 +302,37 @@ body::before {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent),
               0 0 26px -8px color-mix(in srgb, var(--red) 70%, transparent);
 }
-.neon-red-hover { transition: box-shadow .25s ease, border-color .2s ease; }
+.neon-red-hover { transition: box-shadow .25s ease, border-color .2s ease, transform .15s ease; }
 .neon-red-hover:hover { border-color: color-mix(in srgb, var(--red) 70%, var(--line));
   box-shadow: 0 0 20px -10px color-mix(in srgb, var(--red) 65%, transparent); }
+.neon-red-hover:active { transform: translateY(1px); }
+
+/* Reflexo: uma faixa de luz atravessa o alvo uma vez quando o ponteiro chega.
+   Serve a qualquer elemento com `position: relative` e recorte — chip, cta, painel. */
+.sheen { position: relative; overflow: hidden; }
+.sheen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%,
+              color-mix(in srgb, #fff 55%, transparent) 50%, transparent 62%);
+  transform: translateX(-130%);
+  transition: transform .65s cubic-bezier(.22,.61,.36,1);
+}
+.sheen:hover::after { transform: translateX(130%); }
+
+/* Alvos do site ganham o reflexo sem precisar da classe em cada uso. */
+.cta, .chip, .roster-card { position: relative; overflow: hidden; }
+.cta::after, .chip::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%,
+              color-mix(in srgb, var(--red) 14%, transparent) 50%, transparent 60%);
+  transform: translateX(-130%);
+  transition: transform .6s cubic-bezier(.22,.61,.36,1);
+}
+.cta:hover::after, .chip:hover::after { transform: translateX(130%); }
+.cta:active, .chip:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+  .sheen::after, .cta::after, .chip::after { display: none; }
+}
 
 /* Glow: red, tight ring + soft bloom. Used for "selected" and for hover on actions. */
 .glow-red {

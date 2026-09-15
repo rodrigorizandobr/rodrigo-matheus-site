@@ -19,7 +19,7 @@ export function Contact() {
   return (
     <div ref={ref}>
     <Section id="contact">
-      <SectionHead tag={s.tag} title={t.contact.heading} sub={s.sub} />
+      <SectionHead title={t.contact.heading} />
       <Reveal className="panel hud-frame glass-strong p-8 md:p-12 text-center max-w-3xl mx-auto">
         <h3 className="font-display font-semibold text-heading text-2xl md:text-[32px] leading-tight text-balance">{t.contact.card_title}</h3>
         <p className="text-[14px] leading-relaxed text-text mt-4 max-w-xl mx-auto">{t.contact.card_text}</p>

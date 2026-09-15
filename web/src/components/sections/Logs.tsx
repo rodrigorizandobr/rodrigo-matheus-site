@@ -27,8 +27,7 @@ export function Logs() {
   return (
     <div ref={ref}>
       <Section id="blog">
-        <SectionHead title={s.title} sub={s.sub}
-          aside={<a href="/blog/" onClick={() => gaEvt('nav_click', { target: '/blog' })}
+        <SectionHead title={s.title} aside={<a href="/blog/" onClick={() => gaEvt('nav_click', { target: '/blog' })}
                     className="cta !py-2.5 !px-3 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider">
                    {s.all}<IconArrowUpRight width={12} height={12} />
                  </a>} />

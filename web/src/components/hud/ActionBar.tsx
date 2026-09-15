@@ -1,4 +1,5 @@
 import { gaEvt } from '../../analytics/ga'
+import { playConfirm, playTick } from '../../motion/sound'
 import type { Dictionary } from '../../i18n/types'
 import { IconArrowUpRight, IconDoc, IconGitHub, IconLinkedIn } from '../ui/Icons'
 
@@ -39,7 +40,8 @@ export function ActionBar({ hero, hud }: { hero: Dictionary['hero']; hud: Dictio
 
 export function StartButton({ label, onStart }: { label: string; onStart: () => void }) {
   return (
-    <button type="button" onClick={() => { gaEvt('cta_start'); onStart() }} className="btn-start group">
+    <button type="button" onPointerEnter={playTick}
+            onClick={() => { gaEvt('cta_start'); playConfirm(); onStart() }} className="btn-start group">
       <span className="tracking-[.32em]">{label}</span>
       <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">▶</span>
     </button>

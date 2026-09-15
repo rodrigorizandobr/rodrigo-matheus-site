@@ -153,37 +153,61 @@ export function AdminPage() {
 
       {tab === 'posts' && !editing && (
         <>
-          <div className="panel p-5 grid gap-3 md:grid-cols-[1fr_auto] md:items-end mb-6">
-            <div>
-              <label className="field-label" htmlFor="novo-tema">Escrever um post novo</label>
-              <input id="novo-tema" className="field" value={topic} onChange={(e) => setTopic(e.target.value)}
-                     placeholder="Tema (vazio = a IA escolhe, conforme a configuração)" />
-              <label className="flex items-center gap-2 mt-2 cursor-pointer text-[12px] text-muted">
-                <input type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} />
-                pesquisar na web antes de escrever
-              </label>
-            </div>
-            <div className="flex gap-2">
+          <div className="panel p-5 grid gap-5 mb-6">
+            {/* Dois caminhos: deixar o robô escolher a notícia da vez, ou apontar uma. */}
+            <div className="grid gap-2">
+              <div>
+                <span className="field-label !mb-0">Escrever a partir das últimas notícias</span>
+                <p className="text-[11.5px] text-muted mt-1 leading-relaxed">
+                  O robô pega o próximo assunto vigiado, busca o que saiu de novo no Brasil e escreve.
+                </p>
+              </div>
               <button type="button" disabled={busy !== null}
-                      className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider whitespace-nowrap"
+                      className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider w-full sm:w-fit"
                       onClick={() => run('generate', async () => {
-                        const post = await api.generate(topic, research)
-                        setPosts((all) => [post, ...all]); setEditing(post); setTopic('')
-                      }, 'Post escrito pela IA.')}>
-                {busy === 'generate' ? 'escrevendo…' : 'gerar com IA'}
-              </button>
-              <button type="button" disabled={busy !== null}
-                      className="cta !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider whitespace-nowrap"
-                      onClick={() => run('create', async () => {
-                        const post = await api.create({
-                          slugBase: 'rascunho', tags: [],
-                          i18n: { pt: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] },
-                                  en: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] } },
-                        })
+                        const post = await api.generate('', true)
                         setPosts((all) => [post, ...all]); setEditing(post)
-                      })}>
-                em branco
+                      }, 'Post escrito a partir das notícias.')}>
+                {busy === 'generate' ? 'escrevendo…' : 'gerar das últimas notícias'}
               </button>
+            </div>
+
+            <div className="grid gap-2 pt-4 border-t border-line">
+              <div>
+                <label className="field-label !mb-0" htmlFor="novo-tema">A partir de uma notícia específica</label>
+                <p className="text-[11.5px] text-muted mt-1 leading-relaxed">
+                  Cole o <strong>link</strong> da matéria — ela vira a fonte, e só ela — ou descreva o assunto,
+                  que o robô procura na internet.
+                </p>
+              </div>
+              <input id="novo-tema" className="field" value={topic} onChange={(e) => setTopic(e.target.value)}
+                     placeholder="https://… ou “apagão em datacenter no Brasil”" />
+              <label className="flex items-center gap-2 cursor-pointer text-[12px] text-muted">
+                <input type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} />
+                pesquisar na internet (desmarcado, escreve a partir do seu currículo)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={busy !== null || !topic.trim()}
+                        className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider"
+                        onClick={() => run('generate', async () => {
+                          const post = await api.generate(topic, research)
+                          setPosts((all) => [post, ...all]); setEditing(post); setTopic('')
+                        }, 'Post escrito.')}>
+                  {busy === 'generate' ? 'escrevendo…' : 'escrever sobre isto'}
+                </button>
+                <button type="button" disabled={busy !== null}
+                        className="cta !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider"
+                        onClick={() => run('create', async () => {
+                          const post = await api.create({
+                            slugBase: 'rascunho', tags: [],
+                            i18n: { pt: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] },
+                                    en: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] } },
+                          })
+                          setPosts((all) => [post, ...all]); setEditing(post)
+                        })}>
+                  em branco
+                </button>
+              </div>
             </div>
           </div>
 

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useI18n } from '../../i18n/useI18n'
-import { buildCharacter, type CharacterClass } from '../../data/character'
-import { ClassRoster } from '../hud/ClassRoster'
+import { buildCharacter } from '../../data/character'
 import { StatPanel } from '../hud/StatPanel'
 import { ActionBar, StartButton } from '../hud/ActionBar'
 import { TopStrip } from '../hud/TopStrip'
@@ -11,31 +10,27 @@ import { gaEvt } from '../../analytics/ga'
 import { scrollToId } from '../../motion/lenis'
 
 /**
- * "Character select" screen. The robot is the full-bleed background; the HUD floats over it in
- * two columns, leaving the centre open so the face reads. HUD is DOM, never canvas.
+ * Tela de abertura. O androide é o fundo inteiro; o HUD flutua sobre ele em duas colunas,
+ * deixando o centro livre para o rosto. HUD é DOM, nunca canvas.
+ *
+ * A lista de classes saiu (decisão do PO): ela repetia o que o painel da direita já diz
+ * — cargo, classe e os quatro domínios — e a interação não acrescentava nada. No lugar,
+ * a coluna da esquerda recebeu a PROPOSTA DE VALOR, que antes flutuava sobre o peito do
+ * robô atrás de um degradê. O centro ficou só do personagem.
  */
 export function Hero() {
   const { t, lang, setLang } = useI18n()
   const character = useMemo(() => buildCharacter(t), [t])
-  const [activeId, setActiveId] = useState(() => character.classes[0]?.id ?? '')
-  const active = character.classes.find((c) => c.id === activeId) ?? character.classes[0]
-  const onSelect = useCallback((c: CharacterClass) => setActiveId(c.id), [])
+  const active = character.classes[0]
   const start = useCallback(() => scrollToId('about'), [])
 
-  // The hints bar promises these keys, so they have to work anywhere on the page —
-  // not only while a roster button has focus.
+  // A HintsBar promete estas teclas, então elas valem na página inteira.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement | null
       if (tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName))) return
       if (e.altKey || e.ctrlKey || e.metaKey) return
-      const i = character.classes.findIndex((c) => c.id === activeId)
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-        if (tgt?.closest('nav[aria-label]')) return // roster handles its own arrows (with focus)
-        e.preventDefault()
-        const next = character.classes[(i + (e.key === 'ArrowRight' ? 1 : -1) + character.classes.length) % character.classes.length]
-        if (next) { setActiveId(next.id); gaEvt('class_select', { class: next.id, via: 'key' }) }
-      } else if (e.key === 'Enter' && !tgt?.closest('button, a')) {
+      if (e.key === 'Enter' && !tgt?.closest('button, a')) {
         gaEvt('cta_start', { via: 'key' }); start()
       } else if (e.key === 'l' || e.key === 'L') {
         const next = lang === 'en' ? 'pt' : 'en'
@@ -44,7 +39,7 @@ export function Hero() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [character.classes, activeId, lang, setLang, start])
+  }, [lang, setLang, start])
 
   return (
     <section id="hero" data-scene="hero" className="relative z-10 flex flex-col lg:block lg:h-[calc(100svh-var(--header-h))] lg:min-h-[600px] overflow-hidden">
@@ -57,17 +52,24 @@ export function Hero() {
 
       <div className="relative z-10 lg:h-full w-[min(var(--max),94vw)] mx-auto grid items-start gap-3 lg:gap-4 pt-4 lg:pt-4 pb-8 lg:pb-5 lg:grid-cols-[290px_minmax(0,1fr)_380px] lg:grid-rows-[auto_1fr_auto]">
         <div className="hidden lg:block lg:col-span-3"><TopStrip hud={t.hud} /></div>
-        <ClassRoster classes={character.classes} activeId={active.id} hud={t.hud} onSelect={onSelect} />
-
-        {/* centre column: the character shows through, the value proposition sits over its chest */}
-        <div className="hidden lg:block relative self-stretch min-w-0">
-          <div className="absolute inset-x-0 bottom-0 text-center pointer-events-none px-4 pt-16 pb-1 bg-gradient-to-t from-bg via-bg/85 to-transparent rounded-t-3xl">
-            <h1 className="font-display text-heading text-[30px] xl:text-[34px] leading-[1.12] font-semibold text-balance">
+        {/* coluna da esquerda: a proposta de valor, agora com lugar próprio */}
+        <div className="hidden lg:flex flex-col justify-center min-h-0 self-stretch">
+          <div className="panel glass-strong p-6 xl:p-7">
+            <span className="hud-label block text-red">{character.callsign}</span>
+            <h1 className="font-display text-heading text-[26px] xl:text-[30px] leading-[1.12] font-semibold text-balance mt-3">
               {t.hero.title}
             </h1>
-            <p className="text-muted text-[12.5px] leading-snug mt-2.5 max-w-lg mx-auto">{t.hero.subtitle}</p>
+            <p className="text-muted text-[12.5px] leading-relaxed mt-3">{t.hero.subtitle}</p>
+            <ul className="flex flex-wrap gap-1.5 mt-5">
+              {character.classes.map((c) => (
+                <li key={c.id} className="chip !h-7 !px-2.5 font-mono !text-[10px] text-muted">{c.label}</li>
+              ))}
+            </ul>
           </div>
         </div>
+
+        {/* centro: só o personagem */}
+        <div className="hidden lg:block min-w-0" aria-hidden="true" />
 
         {/* Deliberately sparse, like the reference: identity, stats, actions. The ten skill
             pills live in the About section, where there is room for them. */}

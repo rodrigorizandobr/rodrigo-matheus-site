@@ -3,12 +3,15 @@ import { createPortal } from 'react-dom'
 import { useI18n } from '../../i18n/useI18n'
 import { gaEvt } from '../../analytics/ga'
 import { scrollToId } from '../../motion/lenis'
+import { isSoundOn, playConfirm, playTick, setSoundOn } from '../../motion/sound'
 
 const SECTIONS = ['about', 'experience', 'projects', 'education', 'contact'] as const
 
 export function Header() {
   const { t, lang, setLang } = useI18n()
   const [open, setOpen] = useState(false)
+  const [sound, setSound] = useState(false)
+  useEffect(() => setSound(isSoundOn()), [])
   const next = lang === 'en' ? 'pt' : 'en'
 
   useEffect(() => {
@@ -33,13 +36,14 @@ export function Header() {
   const onHome = typeof window === 'undefined' || window.location.pathname.replace(/\/+$/, '') === ''
   const hrefFor = (id: string) => (onHome ? `#${id}` : `/#${id}`)
 
-  const go = (id: string) => { gaEvt('nav_click', { target: `#${id}` }); setOpen(false); scrollToId(id) }
+  const go = (id: string) => { gaEvt('nav_click', { target: `#${id}` }); playConfirm(); setOpen(false); scrollToId(id) }
   const toggleLang = () => { gaEvt('language_switch', { to_language: next }); setLang(next) }
 
   const links = (cls: string) => (
     <>
       {SECTIONS.map((id) => (
         <a key={id} href={hrefFor(id)} className={cls}
+           onPointerEnter={playTick}
            onClick={onHome ? (e) => { e.preventDefault(); go(id) } : () => setOpen(false)}>{t.nav[id]}</a>
       ))}
       <a href="/blog/" onClick={() => { gaEvt('nav_click', { target: '/blog' }); setOpen(false) }} className={cls}>Blog</a>
@@ -52,7 +56,12 @@ export function Header() {
         <a href="/" className="font-mono text-sm text-heading">rodrigo<span className="text-red">_</span>matheus</a>
         <nav className="hidden md:flex gap-1" aria-label="Sections">{links('hud-label px-3 py-2 hover:text-red transition-colors')}</nav>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={toggleLang} aria-label={`Switch language to ${next.toUpperCase()}`}
+          <button type="button" aria-label={t.nav_menu.sound} aria-pressed={sound}
+            onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (on) playConfirm() }}
+            className="chip !h-8 !px-2.5 text-muted hover:text-red hover:border-red transition-colors cursor-pointer">
+            <span aria-hidden="true" className="font-mono text-[11px] leading-none">{sound ? '◉' : '◌'}</span>
+          </button>
+          <button type="button" onClick={toggleLang} onPointerEnter={playTick} aria-label={`Switch language to ${next.toUpperCase()}`}
             className="chip !h-8 font-mono text-[11px] font-bold text-muted hover:text-red hover:border-red transition-colors cursor-pointer">{next.toUpperCase()}</button>
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="mobile-menu"
             aria-label={open ? t.nav_menu.close : t.nav_menu.open}

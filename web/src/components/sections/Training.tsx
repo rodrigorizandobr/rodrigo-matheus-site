@@ -8,11 +8,10 @@ export function Training() {
   const { t } = useI18n()
   const ref = useRef<HTMLDivElement>(null)
   useSectionView(ref, 'education')
-  const s = t.sections.education
   return (
     <div ref={ref}>
     <Section id="education">
-      <SectionHead tag={s.tag} title={t.education.heading} sub={s.sub} />
+      <SectionHead title={t.education.heading} />
       <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {t.education.items.map((e, i) => (
           <Reveal as="li" key={`${e.institution}-${e.period}`} delay={i * 0.05} className="list-none">

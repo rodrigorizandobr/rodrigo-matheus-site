@@ -177,6 +177,45 @@ def search_web(queries: list[str]) -> Research:
                     pages_read=len(pages), snippets=len(snippets))
 
 
+_URL_RE = re.compile(r"^https?://\S+$", re.I)
+_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.S | re.I)
+
+
+def is_url(text: str) -> bool:
+    """O autor pode colar o LINK da notícia em vez de descrevê-la."""
+    return bool(_URL_RE.match((text or "").strip()))
+
+
+def from_url(url: str) -> Research:
+    """Lê uma notícia específica e devolve o material dela — sem passar pela busca.
+
+    É o caminho de "achei esta matéria, escreva sobre ela": a página indicada é a
+    fonte, e só ela. Nunca levanta exceção; página que recusa volta vazia.
+    """
+    url = (url or "").strip()
+    try:
+        res = requests.get(url, headers={"User-Agent": UA, "Accept": "text/html"}, timeout=PAGE_TIMEOUT)
+        if not res.ok or "html" not in (res.headers.get("content-type") or ""):
+            return Research()
+        raw = res.text
+    except Exception:
+        return Research()
+
+    title_match = _TITLE_RE.search(raw)
+    title = html_lib.unescape(_SPACES.sub(" ", title_match.group(1)).strip()) if title_match else ""
+    body = extract_text(raw)[:MAX_PAGE_CHARS]
+    if not body:
+        return Research()
+
+    context = f"{title}\n\n{body}" if title else body
+    return Research(
+        context=context[:MAX_CONTEXT_CHARS],
+        sources=[url],
+        references=[{"url": url, "title": title, "site": site_of(url), "published": ""}],
+        pages_read=1,
+    )
+
+
 def news_queries(term: str, year: int | None = None) -> list[str]:
     """Consultas de notícia para um termo.
 

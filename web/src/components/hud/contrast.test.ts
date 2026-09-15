@@ -32,7 +32,7 @@ describe('tokens de cor — contraste WCAG AA sobre --surface', () => {
   )
 
   it('nenhum componente usa --white-armor como cor de texto', () => {
-    const files = ['StatPanel', 'ClassRoster', 'ActionBar']
+    const files = ['StatPanel', 'ActionBar']
       .map((f) => read(`src/components/hud/${f}.tsx`))
       .join('\n')
     expect(files).not.toMatch(/text-armor/)

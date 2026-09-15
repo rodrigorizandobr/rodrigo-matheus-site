@@ -216,3 +216,31 @@ class TestFiltroDeRuido:
             {"link": "https://a.com", "title": "Concurso abre 300 vagas em TI", "snippet": "s" * 60},
         ]}))
         assert research.search_web(["x"]).context == ""
+
+
+class TestPartirDeUmaNoticia:
+    def test_reconhece_url(self):
+        assert research.is_url("https://exame.com/ia/x") is True
+        assert research.is_url("  http://a.com  ") is True
+        assert research.is_url("inteligência artificial") is False
+        assert research.is_url("exame.com sem esquema") is False
+
+    def test_le_a_pagina_da_noticia_e_devolve_titulo_e_texto(self, monkeypatch):
+        html = "<html><head><title>Ataque derruba sistema</title></head><body><p>O texto da matéria.</p></body></html>"
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text=html, content_type="text/html"))
+        out = research.from_url("https://veiculo.com/materia")
+        assert out.context.startswith("Ataque derruba sistema")
+        assert "O texto da matéria." in out.context
+        assert out.references[0]["url"] == "https://veiculo.com/materia"
+        assert out.references[0]["title"] == "Ataque derruba sistema"
+        assert out.pages_read == 1
+
+    def test_pagina_que_recusa_devolve_vazio_sem_estourar(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        out = research.from_url("https://bloqueia.com/x")
+        assert out.context == "" and out.references == []
+
+    def test_sem_titulo_usa_o_dominio_como_veiculo(self, monkeypatch):
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text="<body>só texto</body>", content_type="text/html"))
+        out = research.from_url("https://www1.folha.uol.com.br/x")
+        assert out.references[0]["site"] == "folha.uol.com.br"

@@ -51,7 +51,13 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
     wants_research = cfg.get("research_enabled", True) if use_research is None else use_research
     found = research.Research()
     if wants_research and not context.strip():
-        found = research.search_web(research.news_queries(topic))
+        if research.is_url(topic):
+            # o autor colou o link da matéria: ela é a fonte, e só ela
+            found = research.from_url(topic)
+            topic = (found.references[0]["title"] if found.references else topic) or topic
+            source = "link"
+        else:
+            found = research.search_web(research.news_queries(topic))
         context = found.context
 
     if not context.strip():

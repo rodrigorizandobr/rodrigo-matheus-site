@@ -60,8 +60,7 @@ export function Campaigns() {
   return (
     <div ref={ref}>
       <Section id="experience" className="lg:overflow-hidden">
-        <SectionHead tag={s.tag} title={t.experience.heading} sub={s.sub}
-          aside={<span className="chip"><b className="hud-num text-[13px]">{items.length}</b><span className="hud-label !text-[9.5px]">{s.count}</span></span>} />
+        <SectionHead title={t.experience.heading} />
 
         {/* Barra de avanço: sem ela, a página presa parece travada. */}
         <div className="hidden lg:block h-[3px] bg-line/70 mb-8" aria-hidden="true">
