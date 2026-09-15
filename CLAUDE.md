@@ -186,7 +186,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 204 testes
-cd web && npm test                                  # 195 testes
+cd web && npm test                                  # 235 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
@@ -266,6 +266,17 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
 - **Todo CSS próprio vive em `@layer`** (`base` para elementos, `components` para `.panel/.chip/.cta`…).
   Fora de layer ele vence as utilities do Tailwind v4 e quebra `md:hidden`, `text-*`, `!bg-*` em silêncio.
 - **`backdrop-filter` vira containing block de `fixed`.** Overlays (menu mobile) saem por `createPortal(document.body)`.
+- **Nunca trave a rolagem com `overflow: hidden` no `<html>` com o header `sticky`.** O header DESGRUDA
+  e volta para a posição estática: com a página rolada ele sai da tela e leva junto o X de fechar, e o
+  menu fica sem saída. Sintoma que o PO relatou como "às vezes buga" — só acontecia rolado. A folha é
+  fixa e tem `overscroll-contain`, que já era o motivo da trava. Há teste que falha se a trava voltar.
+- **Link de seção fora da home tem que ser `/#secao`.** `#about` no blog ou no painel não casa com nada
+  e o clique morre em silêncio — o menu fecha e a página não se mexe. Fora da home o link não é
+  interceptado: a navegação é do navegador.
+- **Chegar por `/#secao` precisa de nova tentativa.** O navegador processa a âncora antes de o React
+  montar a seção, e a home ainda assenta capa, vídeo e fontes depois disso. `useHashLanding` repete a
+  rolagem em 120/700/1600 ms e DESISTE ao primeiro gesto da pessoa — nunca arranca a rolagem de quem
+  já está lendo.
 - **`.cta-primary` precisa vencer o `.cta` glass.** A regra glass é `.cta:not(.cta-primary)`; se
   voltar a ser `.cta` puro, o LinkedIn fica branco no branco de novo.
 - **Screenshot full-page do Chrome mente nesta página** (hero `100svh` + `body::before` fixo).

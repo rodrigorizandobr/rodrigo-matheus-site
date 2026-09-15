@@ -12,6 +12,7 @@ import { Stage } from './stage/Stage'
 import { BlogPage } from './pages/BlogPage'
 import { currentRoute } from './pages/router'
 import { Suspense, lazy, useEffect, useState } from 'react'
+import { useHashLanding } from './hooks/useHashLanding'
 
 // O painel carrega o SDK do Firebase (~100 kB gzip). Sob demanda de propósito:
 // quem só lê o site nunca baixa isso.
@@ -20,6 +21,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 export default function App() {
   const { t } = useI18n()
   const [route, setRoute] = useState(currentRoute)
+  useHashLanding(route.page === 'home')
   useEffect(() => {
     const on = () => setRoute(currentRoute())
     window.addEventListener('popstate', on); window.addEventListener('hashchange', on)

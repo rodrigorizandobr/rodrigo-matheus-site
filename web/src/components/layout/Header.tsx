@@ -15,9 +15,23 @@ export function Header() {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', onKey)
-    document.documentElement.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', onKey); document.documentElement.style.overflow = '' }
+    return () => window.removeEventListener('keydown', onKey)
   }, [open])
+
+  // Fechar a folha ao trocar de página (o link do blog navega de verdade).
+  useEffect(() => {
+    const onNav = () => setOpen(false)
+    window.addEventListener('popstate', onNav)
+    return () => window.removeEventListener('popstate', onNav)
+  }, [])
+
+  /**
+   * Âncora de seção só existe na home. No blog e no painel o `#about` não casa com
+   * nada, e o clique morria em silêncio — o menu fechava e a página ficava parada.
+   * Fora da home o link vira `/#about` e a navegação é do NAVEGADOR, não nossa.
+   */
+  const onHome = typeof window === 'undefined' || window.location.pathname.replace(/\/+$/, '') === ''
+  const hrefFor = (id: string) => (onHome ? `#${id}` : `/#${id}`)
 
   const go = (id: string) => { gaEvt('nav_click', { target: `#${id}` }); setOpen(false); scrollToId(id) }
   const toggleLang = () => { gaEvt('language_switch', { to_language: next }); setLang(next) }
@@ -25,7 +39,8 @@ export function Header() {
   const links = (cls: string) => (
     <>
       {SECTIONS.map((id) => (
-        <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); go(id) }} className={cls}>{t.nav[id]}</a>
+        <a key={id} href={hrefFor(id)} className={cls}
+           onClick={onHome ? (e) => { e.preventDefault(); go(id) } : () => setOpen(false)}>{t.nav[id]}</a>
       ))}
       <a href="/blog/" onClick={() => { gaEvt('nav_click', { target: '/blog' }); setOpen(false) }} className={cls}>Blog</a>
     </>
@@ -47,13 +62,23 @@ export function Header() {
         </div>
       </div>
       {/* Portalled: the header's backdrop-filter would otherwise become the containing block of this
-          fixed sheet and clip it to the header's height. */}
+          fixed sheet and clip it to the header's height.
+
+          NÃO travamos a rolagem do documento aqui. `overflow: hidden` no <html> DESGRUDA este header
+          `sticky`: com a página rolada ele saltava para a sua posição estática, fora da tela, levando
+          junto o X de fechar — e o menu ficava sem saída. A folha é fixa e cobre a tela, e
+          `overscroll-contain` impede o encadeamento da rolagem, que era o motivo da trava. */}
       {open && createPortal(
         <div id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu"
              className="md:hidden fixed inset-x-0 bottom-0 z-[60] bg-bg/85 backdrop-blur-2xl overscroll-contain overflow-y-auto"
              style={{ top: 'var(--header-h)' }}>
           <nav aria-label="Sections" className="w-[min(var(--max),94vw)] mx-auto pt-4 pb-10 flex flex-col gap-2">
             {links('panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-["▶"] after:text-red after:text-[10px]')}
+            {/* Saída própria da folha: o X do cabeçalho pode sair de vista em telas curtas. */}
+            <button type="button" onClick={() => setOpen(false)}
+                    className="chip !h-11 mt-2 justify-center font-display font-semibold text-[11px] uppercase tracking-wider">
+              {t.nav_menu.close}
+            </button>
           </nav>
         </div>,
         document.body,
