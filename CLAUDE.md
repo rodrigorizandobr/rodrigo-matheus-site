@@ -186,7 +186,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 204 testes
-cd web && npm test                                  # 235 testes
+cd web && npm test                                  # 247 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
@@ -247,6 +247,19 @@ Artefatos do BMAD saem em `.bmad/` (`planning-artifacts/`, `implementation-artif
 - **Vídeo em todo lugar, mas com orçamento:** desktop usa os encodes 1280 px; mobile usa `*.m.*`
   (854 px), `preload="none"` e só carrega/toca quando a faixa está perto da viewport (`useInViewPlayback`).
   `prefers-reduced-motion` e `Save-Data` desligam vídeo. O still fica sempre por baixo — é o LCP e o fallback.
+- **`SectionHead` tem `tag` opcional.** Onde a etiqueta seria sinônimo do título ("BIO" sobre "sobre",
+  "POSTS" sobre "Posts") ela sai — repetir a mesma palavra duas vezes não informa nada.
+- **`.neon-red` / `.neon-red-hover` são o "ligado" do site.** O mesmo aceso do START, reaproveitado no
+  roster e em qualquer destaque, em vez de cada componente inventar a própria sombra.
+- **A lista de classes não usa retrato.** As quatro miniaturas eram o MESMO rosto do androide: os
+  cartões ficavam indistinguíveis. Quem diferencia é o ícone da classe.
+- **A linha do tempo prende e corre para o lado só no desktop** (`motion/horizontalPin.ts`): abaixo de
+  1024 px, ou com `prefers-reduced-motion`, ela é a mesma marcação em lista vertical. Sequestrar a
+  rolagem em tela estreita é hostil. O avanço é amarrado à rolagem (`scrub`), e é isso que faz a volta
+  desfazer o caminho sem código extra. Cartão tem altura fixa e texto aparado — sem isso a trilha
+  inteira assume a altura do cargo mais falante.
+- **O e-mail nunca aparece inteiro no HTML servido** (`ui/email.ts`): é montado no navegador. Coletor
+  de spam varre o HTML entregue; isso tira o alvo da varredura barata.
 - **Os atalhos da HintsBar são promessas.** `◀ ▶`, `↵` e `L` estão ligados em `Hero.tsx`; se mudar
   um, mude o outro.
 - **Toda passagem loop ↔ clipe é UMA rampa só.** Quem varia de opacidade é sempre só o clipe: ele

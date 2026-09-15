@@ -64,7 +64,7 @@ export function BlogPage({ slug }: { slug: string | null }) {
 
       {!slug && (
         <>
-          <SectionHead tag={s.tag} title={s.title} sub={s.sub} aside={
+          <SectionHead title={s.title} sub={s.sub} aside={
             <a href="/" className="chip !h-9 inline-flex items-center gap-2 font-display font-semibold text-[11px] uppercase tracking-wider">
               <IconBack width={11} height={11} />HOME
             </a>} />

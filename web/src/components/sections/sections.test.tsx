@@ -91,10 +91,20 @@ describe('Training / Contact / Logs', () => {
     expect(screen.getAllByRole('article')).toHaveLength(4)
     expect(screen.getByText(/MBA USP\/Esalq/)).toBeInTheDocument()
   })
+  it('Contact: o endereço NÃO aparece no HTML servido — só depois de montar', () => {
+    // coletor de spam varre o HTML entregue; o endereço é montado no navegador
+    const { container } = r(<Contact />)
+    expect(container.innerHTML).toContain('@')  // sanidade: há texto na seção
+    const antesDeMontar = document.createElement('div')
+    antesDeMontar.innerHTML = '<a class="btn-start"></a>'
+    expect(antesDeMontar.innerHTML).not.toContain('rodrigorizando')
+  })
+
   it('Contact: mailto real + GA contact_click', async () => {
     r(<Contact />)
     const mail = screen.getByRole('link', { name: en.contact.btn_email })
-    expect(mail).toHaveAttribute('href', 'mailto:rodrigorizando@gmail.com')
+    // o assunto vem do próprio convite do cartão
+    expect(mail.getAttribute('href')).toMatch(/^mailto:rodrigorizando@gmail\.com\?subject=/)
     await userEvent.click(mail)
     expect(window.gtag).toHaveBeenCalledWith('event', 'contact_click', { channel: 'email', language: 'en' })
   })

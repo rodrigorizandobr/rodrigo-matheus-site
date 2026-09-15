@@ -11,7 +11,14 @@ type Props = {
   onSelect: (c: CharacterClass) => void
 }
 
-/** Left-hand roster: portrait, class, real "unit" (where that role was played), rank. Arrow keys cycle. */
+/**
+ * Lista de classes da esquerda.
+ *
+ * Sem retrato: as quatro miniaturas eram o MESMO rosto do androide, então os cartões
+ * ficavam indistinguíveis e pesados. Quem diferencia é o ícone da classe, agora grande
+ * e em primeiro plano. O cartão ativo usa o néon vermelho padrão do site (`neon-red`),
+ * o mesmo do START — em vez de cada componente inventar o seu "ligado".
+ */
 export function ClassRoster({ classes, activeId, hud, onSelect }: Props) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -47,30 +54,17 @@ export function ClassRoster({ classes, activeId, hud, onSelect }: Props) {
             data-active={active}
             onClick={() => select(c)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className="panel roster-card group text-left p-2 pr-3 flex items-center gap-3 cursor-pointer transition-transform hover:-translate-y-0.5 data-[active=true]:border-red shrink-0 snap-start w-[64vw] sm:w-[40vw] lg:w-auto lg:shrink"
+            className={`panel roster-card neon-red-hover group text-left p-3 flex items-center gap-3 cursor-pointer transition-transform hover:-translate-y-0.5 shrink-0 snap-start w-[64vw] sm:w-[40vw] lg:w-auto lg:shrink ${active ? 'neon-red' : ''}`}
           >
-            <span className="relative shrink-0">
-              <img
-                src={`/hero/class-${c.id}.webp`}
-                alt=""
-                aria-hidden="true"
-                width={52}
-                height={52}
-                loading="lazy"
-                decoding="async"
-                className="w-[52px] h-[52px] object-cover border border-line bg-surface-2 opacity-80 transition group-hover:opacity-100 data-[on=true]:opacity-100 data-[on=true]:border-red"
-                data-on={active}
-              />
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 grid place-items-center bg-heading text-surface font-display font-bold text-[9px] leading-none" aria-hidden="true">S</span>
+            <span aria-hidden="true"
+                  className={`grid place-items-center w-11 h-11 shrink-0 border transition-colors ${active ? 'border-red text-red bg-red/5' : 'border-line text-muted group-hover:text-heading'}`}>
+              {Glyph && <Glyph width={20} height={20} />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-display font-semibold uppercase tracking-wide text-[12px] leading-tight text-heading">{c.label}</span>
-              <span className="block font-mono text-[10px] text-muted mt-0.5 truncate">{hud.unit} · {c.unit ?? c.id}</span>
+              <span className="block font-mono text-[10px] text-muted mt-0.5 truncate">{c.unit ?? c.id}</span>
             </span>
-            <span className="flex flex-col items-end gap-1 shrink-0">
-              {Glyph && <Glyph width={15} height={15} className={active ? 'text-red' : 'text-muted'} />}
-              {active && <span className="hud-label text-red !text-[9px]">{hud.active}</span>}
-            </span>
+            {active && <span className="hud-label text-red !text-[9px] shrink-0">{hud.active}</span>}
           </button>
         )
       })}

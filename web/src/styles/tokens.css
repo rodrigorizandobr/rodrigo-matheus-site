@@ -213,17 +213,28 @@
 
 /* START: heavy double frame with an offset shadow, the reference's signature button */
 .btn-start {
-  position: relative; width: 100%; padding: 14px 16px;
+  position: relative; width: 100%; padding: 15px 16px;
   display: flex; align-items: center; justify-content: center; gap: 12px;
   font-family: var(--font-display); font-weight: 700; font-size: 14px; text-transform: uppercase;
-  color: var(--heading); background: var(--surface);
-  border: 1.5px solid var(--heading); outline: 1.5px solid var(--heading); outline-offset: 3px;
-  box-shadow: 5px 5px 0 var(--heading);
-  cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s, color .15s;
+  color: var(--red);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--red) 8%, transparent), transparent 60%),
+    color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1.5px solid var(--red);
+  overflow: hidden;
+  transition: color .2s ease, box-shadow .25s ease, transform .15s ease;
 }
-.btn-start:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--heading); }
-.btn-start:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--heading); }
-.btn-start:focus-visible { outline-color: var(--red); }
+/* Varredura de luz: passa uma vez no hover, como um indicador que acende. */
+.btn-start::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--red) 22%, transparent) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform .7s cubic-bezier(.22,.61,.36,1);
+}
+.btn-start:hover::after { transform: translateX(120%); }
+.btn-start:hover { transform: translateY(-1px); color: var(--red); }
+.btn-start:active { transform: translateY(1px); }
+.btn-start:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
 
 .kbd {
   display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
@@ -284,6 +295,17 @@ body::before {
 .panel-solid { background: var(--surface); }
 .glass-strong { background: color-mix(in srgb, var(--surface) 92%, transparent); }
 
+/* Néon reaproveitável: o mesmo aceso do START, para qualquer elemento em destaque.
+   Padroniza o "ligado" do site em um lugar só, em vez de cada componente inventar o seu. */
+.neon-red {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent),
+              0 0 26px -8px color-mix(in srgb, var(--red) 70%, transparent);
+}
+.neon-red-hover { transition: box-shadow .25s ease, border-color .2s ease; }
+.neon-red-hover:hover { border-color: color-mix(in srgb, var(--red) 70%, var(--line));
+  box-shadow: 0 0 20px -10px color-mix(in srgb, var(--red) 65%, transparent); }
+
 /* Glow: red, tight ring + soft bloom. Used for "selected" and for hover on actions. */
 .glow-red {
   box-shadow:
@@ -304,11 +326,16 @@ body::before {
 .cta:not(.cta-primary) { background: color-mix(in srgb, var(--surface) 88%, transparent); }
 .cta:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--heading) 60%, transparent), 0 10px 28px -12px rgb(20 20 26 / .35); }
 .cta-primary:hover { box-shadow: 0 0 0 1px var(--red), 0 0 30px -6px color-mix(in srgb, var(--red) 60%, transparent); }
-.btn-start { background: color-mix(in srgb, var(--surface) 90%, transparent); animation: start-glow 3.6s ease-in-out infinite; }
 @keyframes start-glow {
-  0%, 100% { box-shadow: 5px 5px 0 var(--heading), 0 0 0 0 transparent; }
-  50%      { box-shadow: 5px 5px 0 var(--heading), 0 0 26px -4px color-mix(in srgb, var(--red) 45%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 30%, transparent),
+                         0 0 18px -6px color-mix(in srgb, var(--red) 55%, transparent); }
+  50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent),
+                         0 0 34px -4px color-mix(in srgb, var(--red) 80%, transparent),
+                         0 0 60px -12px color-mix(in srgb, var(--red) 45%, transparent); }
 }
+.btn-start { animation: start-glow 3.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .btn-start { animation: none; } .btn-start::after { display: none; } }
+/* No hover o néon para de respirar: quem já mirou o botão não precisa de chamariz. */
 .btn-start:hover { animation: none; }
 .hud-num.glow { text-shadow: 0 0 22px color-mix(in srgb, var(--red) 28%, transparent); }
 .stat-fill { box-shadow: 0 0 14px color-mix(in srgb, var(--red) 45%, transparent), 0 0 2px var(--red); }
@@ -344,6 +371,25 @@ body::before {
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--red) 22%, transparent), transparent 70%); filter: blur(18px); z-index: -1; }
 
 @media (prefers-reduced-motion: reduce) { .btn-start, .skeleton::after { animation: none; } }
+}
+
+/* ── Linha do tempo horizontal (desktop) ─────────────────────────── */
+@layer components {
+  /* A trilha corre para o lado sob `transform`; a linha que liga os cartões é o
+     próprio fundo, para não precisar de um elemento por conexão. */
+  @media (min-width: 1024px) {
+    .timeline-track { position: relative; padding-top: 1.75rem; }
+    .timeline-track::before {
+      content: ""; position: absolute; left: 0; right: 0; top: .75rem; height: 1px;
+      background: linear-gradient(90deg, var(--red) 0 2rem, var(--line) 2rem 100%);
+    }
+    .timeline-track > li::before {
+      content: ""; position: absolute; top: -1.15rem; left: 1.5rem;
+      width: 9px; height: 9px; border: 1px solid var(--line); background: var(--surface);
+      transform: rotate(45deg);
+    }
+    .timeline-track > li:first-child::before { border-color: var(--red); background: var(--red); }
+  }
 }
 
 /* ── Painel do blog (/admin) ─────────────────────────────────────── */
