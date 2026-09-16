@@ -19,7 +19,7 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, redirect, request
 
-from . import images, linkedin, media, model, service, store
+from . import images, linkedin, media, model, notify, service, store
 from .auth import AuthError, verify_admin
 
 bp = Blueprint("blog", __name__)
@@ -358,6 +358,19 @@ def linkedin_callback():
     except linkedin.LinkedInError as exc:
         return jsonify({"error": str(exc)}), 502
     return redirect("/admin?linkedin=ok", code=302)
+
+
+@bp.post("/api/blog/admin/linkedin/test-alert")
+@admin_only
+def linkedin_test_alert():
+    """Dispara um aviso de mentira pelo mesmo caminho do de verdade.
+
+    É o único jeito de saber que o e-mail sai ANTES de a autorização vencer — e é
+    justamente quando ela vence que ninguém está olhando.
+    """
+    assunto, corpo = notify.expiry_message(7, 7)
+    saiu = notify.send(f"[teste] {assunto}", corpo)
+    return jsonify({"sent": saiu, "configured": notify.configured()})
 
 
 @bp.post("/api/blog/admin/linkedin/disconnect")

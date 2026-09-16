@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, images, linkedin, model, profile, research, store
+from . import gemini, images, linkedin, model, notify, profile, research, store
 
 
 class NoTopicError(RuntimeError):
@@ -129,10 +129,31 @@ def share_next(now: datetime | None = None) -> dict[str, Any] | None:
     return store.mark_shared(post["id"], urn, now=now)
 
 
+def check_expiry(now: datetime | None = None) -> int | None:
+    """Régua de avisos: manda e-mail quando a autorização do LinkedIn cruza uma marca.
+
+    Devolve a marca avisada, ou None. Quem lembra o que já foi dito é o próprio
+    documento do token, então reconectar recomeça a régua do zero.
+    """
+    auth = linkedin.get_auth()
+    if not auth:
+        return None
+    # O prazo é medido com o `now` da batida, não com o relógio: é o mesmo instante
+    # que decide publicação e compartilhamento, e é o que os testes conseguem fixar.
+    dias = linkedin.days_left(auth, now)
+    marca = model.expiry_step(dias, linkedin.notices())
+    if marca is None:
+        return None
+    assunto, corpo = notify.expiry_message(marca, dias)
+    notify.send(assunto, corpo)
+    linkedin.mark_notices(model.expiry_marks(dias), now=now)
+    return marca
+
+
 def tick(now: datetime | None = None) -> dict[str, Any]:
     """Batida do agendador: publica o que venceu e, se for a hora, gera o próximo."""
     now = now or _now()
-    result: dict[str, Any] = {"published": 0, "generated": 0, "shared": 0, "error": ""}
+    result: dict[str, Any] = {"published": 0, "generated": 0, "shared": 0, "notified": None, "error": ""}
 
     # Primeiro o que tem hora marcada — não pode depender do Gemini estar de pé.
     try:
@@ -150,6 +171,12 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
             result["shared"] = 1 if compartilhado else 0
         except Exception as exc:
             result["error"] = (result["error"] + " | " if result["error"] else "") + f"linkedin: {exc}"
+
+    # A régua avisa que a autorização vai vencer. Um e-mail não pode derrubar a batida.
+    try:
+        result["notified"] = check_expiry(now=now)
+    except Exception as exc:
+        result["error"] = (result["error"] + " | " if result["error"] else "") + f"aviso: {exc}"
 
     if model.should_generate(now, cfg, store.last_generated_at()):
         try:

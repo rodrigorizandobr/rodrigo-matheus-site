@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { BlogConfig, LinkedInStatus, Post } from '../../blog/types'
 import { weekdayLabels } from '../../blog/editing'
 
@@ -8,6 +8,7 @@ type Api = {
   disconnect: () => Promise<unknown>
   saveApp: (clientId: string, clientSecret: string) => Promise<LinkedInStatus>
   shareNow: () => Promise<Post | null>
+  testAlert: () => Promise<{ sent: boolean; configured: boolean }>
 }
 
 /**
@@ -17,20 +18,21 @@ type Api = {
  * isso o painel mostra os dias restantes em destaque: perto do fim é preciso reconectar
  * com um clique, ou o compartilhamento para sem avisar.
  */
-export function LinkedInPanel({ config, api, busy, onSave, onMessage }: {
+export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect, onSave, onMessage }: {
   config: BlogConfig
   api: Api
   busy: boolean
+  /** vem do AdminPage: a mesma leitura que alimenta a faixa de aviso */
+  status: LinkedInStatus | null
+  onRefresh: () => void
+  onConnect: () => void
   onSave: (patch: Partial<BlogConfig>) => void
   onMessage: (kind: 'ok' | 'erro', text: string) => void
 }) {
-  const [status, setStatus] = useState<LinkedInStatus | null>(null)
   const [draft, setDraft] = useState(config)
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [working, setWorking] = useState(false)
-
-  useEffect(() => { api.status().then(setStatus).catch(() => setStatus(null)) }, [api])
 
   const run = async (fn: () => Promise<void>) => {
     setWorking(true)
@@ -66,8 +68,9 @@ export function LinkedInPanel({ config, api, busy, onSave, onMessage }: {
           <button type="button" disabled={working || !clientId.trim() || !clientSecret.trim()}
                   className="cta !py-2.5 font-display font-semibold text-[11px] uppercase tracking-wider w-fit"
                   onClick={() => run(async () => {
-                    setStatus(await api.saveApp(clientId, clientSecret))
+                    await api.saveApp(clientId, clientSecret)
                     setClientId(''); setClientSecret('')
+                    onRefresh()
                     onMessage('ok', 'App do LinkedIn cadastrado.')
                   })}>salvar app</button>
         </div>
@@ -85,7 +88,7 @@ export function LinkedInPanel({ config, api, busy, onSave, onMessage }: {
         {status?.hasApp && !status.connected && (
           <button type="button" disabled={working}
                   className="cta cta-primary !py-2.5 !px-5 font-display font-semibold text-[11px] uppercase tracking-wider"
-                  onClick={() => run(async () => { window.location.href = await api.connect() })}>
+                  onClick={onConnect}>
             conectar conta
           </button>
         )}
@@ -93,17 +96,34 @@ export function LinkedInPanel({ config, api, busy, onSave, onMessage }: {
           <>
             <button type="button" disabled={working}
                     className="chip !h-9 font-display font-semibold text-[11px] uppercase tracking-wider"
-                    onClick={() => run(async () => { window.location.href = await api.connect() })}>
+                    onClick={onConnect}>
               reconectar
             </button>
             <button type="button" disabled={working}
                     className="chip !h-9 font-display font-semibold text-[11px] uppercase tracking-wider !text-red"
-                    onClick={() => run(async () => { await api.disconnect(); setStatus(await api.status()) })}>
+                    onClick={() => run(async () => { await api.disconnect(); onRefresh() })}>
               desconectar
             </button>
           </>
         )}
       </div>
+
+      {status?.connected && (
+        <p className="text-[11.5px] text-muted leading-relaxed border-l-2 border-line pl-3">
+          <strong className="text-heading">Régua de avisos:</strong> mandamos e-mail quando faltarem
+          30, 15, 7, 3 e 1 dia, e de novo no dia em que vencer. {status.alertsOn
+            ? 'O envio está ativo.'
+            : 'O envio por e-mail ainda não está configurado no servidor — por ora o aviso só aparece aqui no painel.'}
+          {status.lastNoticeAt && ` Último aviso: ${status.lastNoticeAt.slice(0, 10)}.`}
+          <button type="button" disabled={working} className="underline ml-1 text-heading"
+                  onClick={() => run(async () => {
+                    const r = await api.testAlert()
+                    onMessage(r.sent ? 'ok' : 'erro', r.sent
+                      ? 'Aviso de teste enviado — confira a caixa de entrada.'
+                      : 'O aviso não saiu: falta configurar o envio de e-mail no servidor.')
+                  })}>mandar um aviso de teste</button>
+        </p>
+      )}
 
       <div className={`grid gap-5 ${status?.connected ? '' : 'opacity-40 pointer-events-none'}`}>
         <label className="flex items-start gap-3 cursor-pointer">

@@ -147,3 +147,24 @@ class TestMarcarPost:
         store.publish_post(post["id"])
         bruto = client.get("/api/blog/posts").get_data(as_text=True)
         assert "linkedinEnabled" not in bruto and "linkedinUrn" not in bruto
+
+
+class TestAvisoDeTeste:
+    """Canal de aviso que nunca foi testado é canal que não funciona."""
+
+    def test_sem_token_401(self, client, blog, anon):
+        assert client.post("/api/blog/admin/linkedin/test-alert").status_code == 401
+
+    def test_manda_um_aviso_de_teste(self, client, blog, admin, monkeypatch):
+        from blog import notify
+        enviados = []
+        monkeypatch.setattr(notify, "send", lambda a, c: enviados.append(a) or True)
+        dados = client.post("/api/blog/admin/linkedin/test-alert", headers=AUTH).get_json()
+        assert dados["sent"] is True
+        assert "teste" in enviados[0].lower()
+
+    def test_sem_smtp_diz_que_nao_saiu_em_vez_de_fingir(self, client, blog, admin, monkeypatch):
+        from blog import notify
+        monkeypatch.setattr(notify, "send", lambda a, c: False)
+        res = client.post("/api/blog/admin/linkedin/test-alert", headers=AUTH)
+        assert res.status_code == 200 and res.get_json()["sent"] is False

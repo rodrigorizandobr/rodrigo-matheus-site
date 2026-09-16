@@ -83,10 +83,13 @@ function Bench() {
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — CONFIG</h1>
       <ConfigPanel config={config} busy={false} onSave={nada} />
       <LinkedInPanel config={config} busy={false} onSave={nada} onMessage={nada}
+                     status={{ connected: true, hasApp: true, daysLeft: 7, personUrn: 'urn:li:person:bancada', alertsOn: false }}
+                     onRefresh={nada} onConnect={nada}
                      api={{
                        status: async () => ({ connected: true, hasApp: true, daysLeft: 7, personUrn: 'urn:li:person:bancada' }),
                        connect: async () => '#', disconnect: async () => ({}),
                        saveApp: async () => ({ connected: false, hasApp: true }), shareNow: async () => null,
+                       testAlert: async () => ({ sent: false, configured: false }),
                      }} />
       {preview && <PostPreview post={preview} onClose={() => setPreview(null)} />}
     </div>

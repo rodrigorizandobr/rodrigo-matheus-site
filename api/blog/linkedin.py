@@ -31,6 +31,7 @@ from typing import Any
 
 import requests
 
+from . import notify
 from .store import _db
 
 COLLECTION = "linkedin_auth"
@@ -151,6 +152,29 @@ def get_auth() -> dict[str, Any] | None:
     return snap.to_dict() if snap.exists else None
 
 
+def days_left(auth: dict[str, Any], now: datetime | None = None) -> int:
+    """Dias inteiros até a autorização vencer; negativo se já venceu."""
+    delta = auth["expiresAt"] - (now or _now())
+    return delta.days if delta.days >= 0 else -((-delta).days + 1)
+
+
+def notices() -> list[int]:
+    """Marcas da régua de avisos já disparadas para ESTA autorização.
+
+    Moram no documento do token de propósito: `save_auth` grava com `set()`, então
+    reconectar troca o token e zera a régua no mesmo gesto — sem limpeza esquecida.
+    """
+    auth = get_auth() or {}
+    return [int(m) for m in auth.get("notices", [])]
+
+
+def mark_notices(marks: list[int], now: datetime | None = None) -> None:
+    _db().collection(COLLECTION).document(DOC_TOKEN).update({
+        "notices": sorted(set(marks), reverse=True),
+        "lastNoticeAt": now or _now(),
+    })
+
+
 def disconnect() -> None:
     _db().collection(COLLECTION).document(DOC_TOKEN).delete()
 
@@ -160,13 +184,15 @@ def status() -> dict[str, Any]:
     auth = get_auth()
     if not auth:
         return {"connected": False, "hasApp": credentials() is not None}
-    days = (auth["expiresAt"] - _now()).days
+    days = days_left(auth)
     return {
         "connected": True,
         "hasApp": credentials() is not None,
         "personUrn": auth.get("personUrn", ""),
         "daysLeft": days,
         "expiresAt": auth["expiresAt"],
+        "alertsOn": notify.configured(),
+        "lastNoticeAt": auth.get("lastNoticeAt"),
     }
 
 

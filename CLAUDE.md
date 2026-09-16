@@ -187,6 +187,13 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   (`4. LinkedIn`, em configuração) mostra os dias restantes e fica vermelho a 10 dias — é o
   único aviso. Credenciais do app ficam em Firestore `linkedin_auth/app`, o token em
   `linkedin_auth/principal`, e o `state` do OAuth é documento de vida curta em `linkedin_state`.
+- **A régua de avisos mora no documento do token** (`linkedin_auth/principal`, campo `notices`).
+  `save_auth` grava com `set()`, então reconectar zera a régua no mesmo gesto — não existe
+  limpeza separada para alguém esquecer. `model.expiry_step` dispara a marca MAIS APERTADA entre
+  as cruzadas (30/15/7/3/1/0): um Cloud Run que ficou dias sem bater manda UM e-mail, não cinco.
+  O envio (`blog/notify.py`) é SMTP com senha de app e **nunca levanta** — um e-mail não pode
+  derrubar a batida do agendador. Sem `SMTP_USER`/`SMTP_PASSWORD` a régua continua viva na tela
+  (faixa no topo do painel, `LinkedInAlert`), só não sai por e-mail.
 - **A fila do LinkedIn anda do post mais ANTIGO para o mais novo**, um por dia agendado, e só
   pega `status == published` com `linkedinEnabled != false`. `linkedinEnabled`/`linkedinPostedAt`
   estão em `INTERNAL_FIELDS` — o site público nunca os vê.

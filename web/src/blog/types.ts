@@ -110,6 +110,10 @@ export type LinkedInStatus = {
   personUrn?: string
   daysLeft?: number
   expiresAt?: string
+  /** a régua consegue mandar e-mail? (SMTP configurado no servidor) */
+  alertsOn?: boolean
+  /** quando o último aviso da régua saiu */
+  lastNoticeAt?: string
 }
 
 /** URL pública da capa — servida pela nossa API, nunca pelo banco de imagens de origem. */

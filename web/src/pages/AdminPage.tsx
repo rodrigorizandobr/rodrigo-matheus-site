@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { blogApi, ApiError } from '../blog/api'
-import type { BlogConfig, Post } from '../blog/types'
+import type { BlogConfig, LinkedInStatus, Post } from '../blog/types'
 import { PostEditor } from './admin/PostEditor'
 import { ConfigPanel } from './admin/ConfigPanel'
 import { PostList } from './admin/PostList'
 import { PostPreview } from './admin/PostPreview'
 import { MediaPage } from './admin/MediaPage'
 import { LinkedInPanel } from './admin/LinkedInPanel'
+import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 
@@ -34,6 +35,7 @@ export function AdminPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'erro'; text: string } | null>(null)
   const [topic, setTopic] = useState('')
+  const [linkedin, setLinkedin] = useState<LinkedInStatus | null>(null)
 
   const api = useMemo(() => blogApi.admin(idToken), [])
 
@@ -67,6 +69,21 @@ export function AdminPage() {
     const [list, cfg] = await Promise.all([api.list(), api.config()])
     setPosts(list); setConfig(cfg)
   }, [api])
+
+  /** Uma leitura só do LinkedIn alimenta a faixa de aviso E o painel de configuração. */
+  const refreshLinkedin = useCallback(() => {
+    api.linkedin.status().then(setLinkedin).catch(() => setLinkedin(null))
+  }, [api])
+
+  const connectLinkedin = useCallback(async () => {
+    try {
+      window.location.href = await api.linkedin.connect()
+    } catch (err) {
+      setMessage({ kind: 'erro', text: (err as Error).message })
+    }
+  }, [api])
+
+  useEffect(() => { if (session) refreshLinkedin() }, [session, refreshLinkedin])
 
   useEffect(() => {
     if (session) void run('load', reload)
@@ -117,6 +134,13 @@ export function AdminPage() {
         </div>
       </div>
 
+      {config && (
+        <div className="mb-5">
+          <LinkedInAlert status={linkedin} sharingEnabled={config.linkedin_enabled}
+                         onReconnect={connectLinkedin} />
+        </div>
+      )}
+
       {message && (
         <p className={`panel p-3 mb-5 text-[13px] ${message.kind === 'erro' ? 'text-red' : 'text-heading'}`} role="status">
           {message.text}
@@ -130,6 +154,7 @@ export function AdminPage() {
           <ConfigPanel config={config} busy={busy === 'config'}
                        onSave={(patch) => run('config', async () => { setConfig(await api.saveConfig(patch)) }, 'Configuração salva.')} />
           <LinkedInPanel config={config} api={api.linkedin} busy={busy === 'config'}
+                         status={linkedin} onRefresh={refreshLinkedin} onConnect={connectLinkedin}
                          onSave={(patch) => run('config', async () => { setConfig(await api.saveConfig(patch)) }, 'Agenda do LinkedIn salva.')}
                          onMessage={(kind, text) => setMessage({ kind, text })} />
         </div>

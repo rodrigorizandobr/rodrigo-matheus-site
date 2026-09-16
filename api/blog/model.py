@@ -226,3 +226,29 @@ def assert_publishable(post: dict[str, Any]) -> None:
             raise ValueError(f"post sem título em '{lang}' — os dois idiomas são obrigatórios")
         if not clean_sections(body.get("sections") or []):
             raise ValueError(f"post sem conteúdo em '{lang}'")
+
+
+# ── régua de avisos da autorização do LinkedIn ──────────────────────────────
+
+#: marcas, do mais folgado ao mais apertado; 0 é "já venceu"
+EXPIRY_MARKS = (30, 15, 7, 3, 1, 0)
+
+
+def expiry_marks(days_left: int) -> list[int]:
+    """Marcas já cruzadas por este prazo — todas contam como gastas.
+
+    Sem isso, um Cloud Run que ficou dias sem bater acordaria disparando um e-mail
+    por marca de uma vez só.
+    """
+    return [m for m in EXPIRY_MARKS if days_left <= m]
+
+
+def expiry_step(days_left: int, sent: list[int] | None = None) -> int | None:
+    """A marca que deve virar aviso agora, ou None se não há o que dizer.
+
+    Dispara a marca MAIS APERTADA entre as cruzadas e ainda não avisadas: quem
+    chega atrasado recebe um aviso certo, não cinco atrasados.
+    """
+    gastas = set(sent or [])
+    devidas = [m for m in expiry_marks(days_left) if m not in gastas]
+    return min(devidas) if devidas else None

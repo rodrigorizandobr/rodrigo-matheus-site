@@ -81,6 +81,8 @@ export const blogApi = {
         disconnect: async () => call<{ ok: boolean }>('/api/blog/admin/linkedin/disconnect', 'POST'),
         saveApp: async (clientId: string, clientSecret: string) =>
           call<LinkedInStatus>('/api/blog/admin/linkedin/app', 'POST', { clientId, clientSecret }),
+        /** dispara um aviso de teste pela régua — confirma que o e-mail sai */
+        testAlert: async () => call<{ sent: boolean; configured: boolean }>('/api/blog/admin/linkedin/test-alert', 'POST'),
         /** manda o próximo da fila agora; `null` quando a fila está vazia */
         shareNow: async () => (await call<{ post: Post | null }>('/api/blog/admin/linkedin/share', 'POST')).post,
       },
