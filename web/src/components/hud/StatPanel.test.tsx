@@ -8,6 +8,12 @@ import en from '../../i18n/en.json'
 const character = buildCharacter(en)
 
 describe('StatPanel — a ficha à direita', () => {
+  it('sem código de identificação: RM-2004 não significa nada para quem lê', () => {
+    render(<StatPanel character={character} activeClass={character.classes[0]} hud={en.hud} />)
+    expect(screen.queryByText(/RM-\d{4}/)).toBeNull()
+    expect(screen.queryByText(/\bID\b/)).toBeNull()
+  })
+
   it('mostra LEVEL 22, nome e classe ativa', () => {
     render(<StatPanel character={character} activeClass={character.classes[0]} hud={en.hud} />)
     expect(screen.getByText('22')).toBeInTheDocument()
@@ -44,7 +50,7 @@ describe('StatPanel — módulos centrais navegáveis', () => {
     { id: 'ai-strategist', label: 'AI Strategist', blurb: 'estratégia de IA', gesture: 'Yes' },
     { id: 'platform-architect', label: 'Platform Architect', blurb: 'arquitetura', gesture: 'Punch' },
   ]
-  const character = { name: 'Rodrigo', title: '', callsign: 'RM-2004', level: 22, stats: [], classes, skills: [] }
+  const character = { name: 'Rodrigo', title: '', level: 22, stats: [], classes, skills: [] }
   const render3 = (onSelect = vi.fn()) => {
     const utils = render(<StatPanel character={character as never} activeClass={classes[0] as never} hud={en.hud} onSelect={onSelect} />)
     return { ...utils, onSelect }

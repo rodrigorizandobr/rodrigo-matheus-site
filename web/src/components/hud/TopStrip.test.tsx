@@ -28,6 +28,15 @@ describe('TopStrip — cromo de jogo com números reais do GitHub', () => {
     await waitFor(() => expect(screen.getByText('109')).toBeInTheDocument())
   })
 
+  it('não anuncia seleção de personagem: o site é um portfólio, não um jogo', () => {
+    vi.stubGlobal('fetch', ok([]))
+    const { container } = render(<TopStrip hud={en.hud} />)
+    expect(screen.queryByText(/character select/i)).toBeNull()
+    // a seta de "voltar" ia junto: sozinha ela aponta para lugar nenhum
+    expect(container.querySelectorAll('svg')).toHaveLength(3)
+    expect(screen.getByText('REPOS')).toBeInTheDocument()
+  })
+
   it('API fora → OFFLINE, sem quebrar o hero', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('x', { status: 500 })))
     render(<TopStrip hud={en.hud} />)

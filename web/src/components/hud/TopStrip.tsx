@@ -2,11 +2,15 @@ import { useArena } from '../../hooks/useArena'
 import { useCountUp } from '../../hooks/useCountUp'
 import { summarize } from '../../data/api'
 import type { Dictionary } from '../../i18n/types'
-import { IconBack, IconCommit, IconRepo, IconSignal } from '../ui/Icons'
+import { IconCommit, IconRepo, IconSignal } from '../ui/Icons'
 
 /**
- * The game-UI chrome bar, but every number is real: repos and 28-day commits come from
- * /api/data (GitHub), and the "LINK" indicator is the actual API status.
+ * A faixa de indicadores do topo do hero. Todo número é real: repos e commits de 28
+ * dias vêm de /api/data (GitHub) e o "LINK" é o estado de verdade da API.
+ *
+ * Aqui já houve um rótulo "SELEÇÃO DE PERSONAGEM" com uma seta de voltar, herdado da
+ * referência de tela de jogo. Saiu: o site é um portfólio, a seta não levava a lugar
+ * nenhum, e sem ele o cartão da esquerda sobe e encosta no topo da coluna.
  */
 export function TopStrip({ hud }: { hud: Dictionary['hud'] }) {
   const { arena } = useArena()
@@ -17,11 +21,7 @@ export function TopStrip({ hud }: { hud: Dictionary['hud'] }) {
   const label = state === 'syncing' ? hud.top.syncing : state === 'online' ? hud.top.online : hud.top.offline
 
   return (
-    <div className="flex items-center justify-between gap-3 text-heading" data-testid="top-strip">
-      <div className="flex items-center gap-2.5">
-        <span className="inline-flex items-center justify-center w-9 h-9 bg-heading text-surface" aria-hidden="true"><IconBack width={14} height={14} /></span>
-        <span className="font-display font-semibold text-[15px] tracking-[.08em]">{hud.top.back}</span>
-      </div>
+    <div className="flex items-center justify-end gap-3 text-heading" data-testid="top-strip">
       <div className="flex items-center gap-2" role="status" aria-live="polite" aria-label={`${hud.top.link}: ${label}`}>
         <span className="chip"><IconRepo width={14} height={14} /><b className="hud-num text-[13px]">{sum ? repos : '—'}</b><span className="hud-label !text-[9.5px]">{hud.top.repos}</span></span>
         <span className="chip"><IconCommit width={14} height={14} /><b className="hud-num text-[13px]">{sum ? commits : '—'}</b><span className="hud-label !text-[9.5px]">{hud.top.commits}</span></span>

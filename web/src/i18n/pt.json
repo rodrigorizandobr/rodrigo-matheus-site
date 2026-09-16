@@ -246,7 +246,6 @@
       "ai": "IA / ML"
     },
     "top": {
-      "back": "SELEÇÃO DE PERSONAGEM",
       "repos": "REPOS",
       "commits": "COMMITS · 28D",
       "stars": "STARS",
@@ -257,7 +256,6 @@
     },
     "unit": "UNIDADE",
     "rank": "RANK",
-    "id_label": "ID",
     "location": "SÃO PAULO · BR",
     "status_online": "ONLINE",
     "hints": {

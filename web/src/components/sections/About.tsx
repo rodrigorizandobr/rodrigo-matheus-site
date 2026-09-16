@@ -22,7 +22,7 @@ export function About() {
         <div className="flex flex-col gap-5">
           <Reveal className="panel hud-frame p-6 md:p-7">
             <div className="flex items-center justify-between font-mono text-[10px] text-muted mb-4">
-              <span>{t.hud.id_label} {character.callsign} · {character.name}</span>
+              <span>{character.name}</span>
               <span className="inline-flex items-center gap-1"><span className="chip-dot" data-on="true" aria-hidden="true" />{t.hud.status_online}</span>
             </div>
             <p className="text-[15px] md:text-[17px] leading-relaxed text-text max-w-4xl">{t.about.lead}</p>

@@ -44,9 +44,8 @@ describe('buildCharacter — a ficha vem 100% do i18n', () => {
     expect(fallback.classes.map((k) => k.label)).toEqual(['Engineering Manager', 'AI Strategy', 'Fintech'])
   })
 
-  it('callsign é RM-<ano de início> derivado do LEVEL (22 anos em 2026 → RM-2004)', () => {
-    expect(buildCharacter(en, 2026).callsign).toBe('RM-2004')
-    expect(buildCharacter(undefined).callsign).toBe('')
+  it('a ficha não tem código de identificação — nada no site mostra um', () => {
+    expect('callsign' in buildCharacter(en)).toBe(false)
   })
 
   it('skills são as 10 pills do about', () => {

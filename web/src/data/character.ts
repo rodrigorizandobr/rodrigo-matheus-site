@@ -11,8 +11,6 @@ export type CharacterClass = { id: string; label: string; blurb: string; gesture
 export type Character = {
   name: string
   title: string
-  /** RM-<year the career started>, derived from LEVEL so it can never drift */
-  callsign: string
   level: number
   stats: Stat[]
   classes: CharacterClass[]
@@ -28,8 +26,8 @@ const num = (s: string | undefined) => Number.parseInt((s ?? '').replace(/\D/g, 
 const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
-export function buildCharacter(t: Dictionary | undefined, year = new Date().getFullYear()): Character {
-  if (!t?.hero) return { name: '', title: '', callsign: '', level: 0, stats: [], classes: [], skills: [] }
+export function buildCharacter(t: Dictionary | undefined): Character {
+  if (!t?.hero) return { name: '', title: '', level: 0, stats: [], classes: [], skills: [] }
 
   const hero = t.hero
   const rawStats = hero.stats ?? []
@@ -60,7 +58,6 @@ export function buildCharacter(t: Dictionary | undefined, year = new Date().getF
   return {
     name: hero.name ?? '',
     title: hero.tag ?? '',
-    callsign: level ? `RM-${year - level}` : '',
     level,
     stats,
     classes,

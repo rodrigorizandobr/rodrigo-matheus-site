@@ -55,10 +55,9 @@ export function Hero() {
       <div className="relative z-10 lg:h-full w-[min(var(--max),94vw)] mx-auto grid items-start gap-3 lg:gap-4 pt-4 lg:pt-4 pb-8 lg:pb-5 lg:grid-cols-[290px_minmax(0,1fr)_380px] lg:grid-rows-[auto_1fr_auto]">
         <div className="hidden lg:block lg:col-span-3"><TopStrip hud={t.hud} /></div>
         {/* coluna da esquerda: a proposta de valor, agora com lugar próprio */}
-        <div className="hidden lg:flex flex-col justify-center min-h-0 self-stretch">
+        <div className="hidden lg:flex flex-col justify-start min-h-0 self-stretch">
           <div className="panel glass-strong p-6 xl:p-7">
-            <span className="hud-label block text-red">{character.callsign}</span>
-            <h1 className="font-display text-heading text-[26px] xl:text-[30px] leading-[1.12] font-semibold text-balance mt-3">
+            <h1 className="font-display text-heading text-[26px] xl:text-[30px] leading-[1.12] font-semibold text-balance">
               {t.hero.title}
             </h1>
             <p className="text-muted text-[12.5px] leading-relaxed mt-3">{t.hero.subtitle}</p>

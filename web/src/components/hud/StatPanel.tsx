@@ -39,8 +39,6 @@ export function StatPanel({ character, activeClass, hud, onSelect }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="font-mono text-[10px] text-muted flex items-center gap-2 mb-1.5">
-            <span>{hud.id_label} {character.callsign}</span>
-            <span aria-hidden="true">·</span>
             <span>{hud.location}</span>
             <span aria-hidden="true">·</span>
             <span className="inline-flex items-center gap-1 text-heading"><span className="chip-dot" data-on="true" aria-hidden="true" />{hud.status_online}</span>
