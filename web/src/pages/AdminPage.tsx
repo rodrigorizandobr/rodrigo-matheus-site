@@ -39,6 +39,12 @@ export function AdminPage() {
 
   useEffect(() => {
     document.title = 'Painel do blog — Rodrigo Matheus'
+    // o callback do LinkedIn devolve o navegador para cá; sem isso a volta é muda
+    if (new URLSearchParams(window.location.search).get('linkedin') === 'ok') {
+      setTab('config')
+      setMessage({ kind: 'ok', text: 'Conta do LinkedIn conectada.' })
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     return watchUser((user) => setSession(user ? { email: user.email ?? '' } : null))
   }, [])
 
