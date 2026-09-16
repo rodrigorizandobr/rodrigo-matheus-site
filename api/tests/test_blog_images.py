@@ -160,7 +160,7 @@ class TestSemAssinaturaDeIA:
         item = images.generate_image("uma cena", alt="capa")
         assert item["credit"] == ""
 
-    def test_pede_16x9_em_2k_ao_modelo(self, bucket, monkeypatch):
+    def test_pede_16x9_no_tamanho_configurado(self, bucket, monkeypatch):
         capturado = {}
 
         def fake_post(url, **kw):
@@ -172,7 +172,10 @@ class TestSemAssinaturaDeIA:
         monkeypatch.setattr(images.requests, "post", fake_post)
         images.generate_image("uma cena")
         cfg = capturado["body"]["generationConfig"]["imageConfig"]
-        assert cfg["aspectRatio"] == "16:9" and cfg["imageSize"] == "2K"
+        assert cfg["aspectRatio"] == "16:9"
+        # 1K já dá 1376 px de largura, acima dos 1200 do cartão do LinkedIn, e custa
+        # ~28% menos em tokens que 2K. Subir isto é decisão de custo, não de gosto.
+        assert cfg["imageSize"] == "1K"
         assert images.IMAGE_MODEL in capturado["url"]
 
     def test_sem_reserva_configurada_uma_falha_nao_vira_segunda_cobranca(self, bucket, monkeypatch):

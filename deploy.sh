@@ -77,6 +77,7 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}" \
     --set-env-vars "ALERT_FROM=${ALERT_FROM:-}" \
     --set-env-vars "ALERT_EMAILS=${ALERT_EMAILS:-}" \
+    --set-env-vars "BLOG_IMAGE_SIZE=${BLOG_IMAGE_SIZE:-1K}" \
     --quiet
 else
   echo "⚠ REFRESH_KEY/GITHUB_TOKEN ausentes no .env — pulando atualização de env vars."

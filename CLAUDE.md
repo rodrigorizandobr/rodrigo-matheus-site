@@ -118,14 +118,23 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   público também não diz `provider`. Capa de IA vai **sem crédito**: crédito existe para dar a
   quem é devido, e banco de imagens tem esse direito, ilustração da casa não. `PostArticle` só
   desenha a legenda quando há crédito. Migração de uso único: `api/migrate_covers.py`.
-- **A capa é `gemini-3.1-flash-image` pedindo `imageSize: 2K`** (`IMAGE_CONFIG`). **Medido**: com
-  esse parâmetro o flash devolve os mesmos 2752x1536 do `gemini-3-pro-image`, na mesma direção de
-  arte — o pro custa várias vezes mais por imagem sem diferença que apareça numa capa. O ganho de
-  resolução veio do PARÂMETRO, não do modelo: sem `imageSize` o flash entrega 1376 px por mais que
-  o prompt peça 16:9. `IMAGE_MODEL_FALLBACK` nasce **vazio** de propósito: uma falha rara não pode
-  virar uma segunda geração mais cara sem ninguém pedir. Armazenada em 1920 px, qualidade 86,
-  **4:4:4** — o acento do site é vermelho puro sobre branco, e é exatamente essa borda que a
-  subamostragem 4:2:0 borra.
+- **A capa é `gemini-3.1-flash-image` em `1K`, 16:9** (`IMAGE_CONFIG`, tamanho em `BLOG_IMAGE_SIZE`).
+  Imagem é cobrada por TOKEN DE SAÍDA, e token de saída é resolução — medido neste prompt 16:9, a
+  US$ 60 por 1M de tokens de imagem:
+
+  | pedido | resolução | tokens | por capa |
+  |---|---|---|---|
+  | sem `imageSize` | 1376x768 | 1557 | US$ 0,093 |
+  | `1K` | 1376x768 | 1561 | US$ 0,094 |
+  | `2K` | 2752x1536 | 2151 | US$ 0,129 |
+
+  1376 px já passam dos 1200 que o cartão do LinkedIn pede, então 2K é bonito e não é necessário.
+  O `aspectRatio` é de graça e é o que impede o modelo de devolver quadrado. **Não troque de modelo
+  achando que ganha resolução**: com `imageSize: 2K` o flash devolve os mesmos 2752x1536 do
+  `gemini-3-pro-image`, que custa US$ 120 por 1M de tokens — o dobro pelo mesmo pixel.
+  `IMAGE_MODEL_FALLBACK` nasce **vazio** de propósito: uma falha rara não pode virar uma segunda
+  geração mais cara sem ninguém pedir. Armazenada em até 1920 px, qualidade 86, **4:4:4** — o acento
+  do site é vermelho puro sobre branco, e é exatamente essa borda que a subamostragem 4:2:0 borra.
 - **`og:image:width/height` não é enfeite:** sem as dimensões declaradas, LinkedIn e WhatsApp
   tentam baixar a imagem para medir, desistem no tempo limite e caem no cartão pequeno.
 - **Toda imagem passa por `media.store_image`** — upload, IA ou banco. Nunca se linka o arquivo de

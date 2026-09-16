@@ -27,9 +27,13 @@ PIXABAY_KEY = os.environ.get("PIXABAY_API_KEY", "")
 IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3.1-flash-image")
 #: reserva opcional; vazia de propósito, para um erro raro não virar conta mais cara
 IMAGE_MODEL_FALLBACK = os.environ.get("BLOG_IMAGE_MODEL_FALLBACK", "")
-#: 2K e 16:9 são de graça e dobram a resolução, mas o pedido precisa ser explícito:
-#: sem isto o modelo devolve 1376 px por mais que o prompt peça 16:9
-IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": "2K"}
+#: tamanho pedido ao modelo. **Medido** no flash, em 16:9, com o preço de US$ 60 por
+#: 1M de tokens de imagem: 1K = 1557 tokens ≈ US$ 0,093 e devolve 1376x768; 2K = 2151
+#: tokens ≈ US$ 0,129 e devolve 2752x1536. Os 1376 px já passam dos 1200 que o cartão
+#: do LinkedIn pede, então 1K é o padrão — 2K é bonito, não é necessário.
+IMAGE_SIZE = os.environ.get("BLOG_IMAGE_SIZE", "1K")
+#: o aspecto não custa nada e é o que impede o modelo de devolver quadrado
+IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": IMAGE_SIZE}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
 
