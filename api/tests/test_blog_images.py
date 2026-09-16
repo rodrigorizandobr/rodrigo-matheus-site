@@ -175,7 +175,21 @@ class TestSemAssinaturaDeIA:
         assert cfg["aspectRatio"] == "16:9" and cfg["imageSize"] == "2K"
         assert images.IMAGE_MODEL in capturado["url"]
 
-    def test_se_o_modelo_bom_falhar_tenta_o_rapido_antes_de_desistir(self, bucket, monkeypatch):
+    def test_sem_reserva_configurada_uma_falha_nao_vira_segunda_cobranca(self, bucket, monkeypatch):
+        """A reserva é vazia de propósito: gerar duas vezes por erro raro custa mais."""
+        tentativas = []
+
+        def fake_post(url, **kw):
+            tentativas.append(url)
+            return type("R", (), {"ok": False, "status_code": 500, "text": "erro"})()
+
+        monkeypatch.setattr(images, "API_KEY", "k")
+        monkeypatch.setattr(images, "IMAGE_MODEL_FALLBACK", "")
+        monkeypatch.setattr(images.requests, "post", fake_post)
+        assert images.generate_image("uma cena") is None
+        assert len(tentativas) == 1
+
+    def test_se_houver_reserva_configurada_ela_e_tentada(self, bucket, monkeypatch):
         tentativas = []
 
         def fake_post(url, **kw):
@@ -185,7 +199,8 @@ class TestSemAssinaturaDeIA:
             return _resposta_com_imagem()
 
         monkeypatch.setattr(images, "API_KEY", "k")
+        monkeypatch.setattr(images, "IMAGE_MODEL_FALLBACK", "gemini-3-pro-image")
         monkeypatch.setattr(images.requests, "post", fake_post)
         item = images.generate_image("uma cena")
         assert item is not None
-        assert tentativas == [images.IMAGE_MODEL, images.IMAGE_MODEL_FALLBACK]
+        assert tentativas == [images.IMAGE_MODEL, "gemini-3-pro-image"]

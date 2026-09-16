@@ -21,12 +21,14 @@ from . import media
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 PIXABAY_KEY = os.environ.get("PIXABAY_API_KEY", "")
-#: o modelo bom para capa. Sai em 2K e compõe melhor que o flash — e capa é o
-#: único lugar do blog onde a diferença aparece em tela cheia.
-IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3-pro-image")
-#: se o bom falhar (cota, indisponibilidade), o rápido ainda salva o post
-IMAGE_MODEL_FALLBACK = os.environ.get("BLOG_IMAGE_MODEL_FALLBACK", "gemini-3.1-flash-image")
-#: a capa nasce no formato do cartão de link (LinkedIn pede 1200 px de largura)
+#: o flash é o modelo da capa. **Medido**: com `imageSize: 2K` ele devolve os mesmos
+#: 2752x1536 do pro, na mesma direção de arte — o pro custa várias vezes mais por
+#: imagem sem diferença que apareça numa capa de post. Não troque sem comparar de novo.
+IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3.1-flash-image")
+#: reserva opcional; vazia de propósito, para um erro raro não virar conta mais cara
+IMAGE_MODEL_FALLBACK = os.environ.get("BLOG_IMAGE_MODEL_FALLBACK", "")
+#: 2K e 16:9 são de graça e dobram a resolução, mas o pedido precisa ser explícito:
+#: sem isto o modelo devolve 1376 px por mais que o prompt peça 16:9
 IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": "2K"}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
@@ -69,7 +71,7 @@ def generate_image(prompt: str, alt: str = "") -> dict[str, Any] | None:
     """
     if not API_KEY:
         return None
-    for modelo in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK):
+    for modelo in (m for m in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK) if m):
         try:
             raw = _ask_model(modelo, prompt)
         except Exception:
