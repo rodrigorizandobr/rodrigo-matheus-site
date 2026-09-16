@@ -89,7 +89,7 @@ function Bench() {
                        status: async () => ({ connected: true, hasApp: true, daysLeft: 7, personUrn: 'urn:li:person:bancada' }),
                        connect: async () => '#', disconnect: async () => ({}),
                        saveApp: async () => ({ connected: false, hasApp: true }), shareNow: async () => null,
-                       testAlert: async () => ({ sent: false, configured: false }),
+                       testAlert: async () => ({ sent: false, configured: false, reason: 'bancada: nada é enviado' }),
                      }} />
       {preview && <PostPreview post={preview} onClose={() => setPreview(null)} />}
     </div>

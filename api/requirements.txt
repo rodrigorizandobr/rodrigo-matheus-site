@@ -4,3 +4,4 @@ gunicorn==23.*
 google-cloud-storage==2.*
 google-cloud-firestore==2.*
 pillow==11.*
+boto3==1.43.95

@@ -158,13 +158,14 @@ class TestAvisoDeTeste:
     def test_manda_um_aviso_de_teste(self, client, blog, admin, monkeypatch):
         from blog import notify
         enviados = []
-        monkeypatch.setattr(notify, "send", lambda a, c: enviados.append(a) or True)
+        monkeypatch.setattr(notify, "send_with_reason", lambda a, c: (enviados.append(a), (True, ""))[1])
         dados = client.post("/api/blog/admin/linkedin/test-alert", headers=AUTH).get_json()
         assert dados["sent"] is True
         assert "teste" in enviados[0].lower()
 
-    def test_sem_smtp_diz_que_nao_saiu_em_vez_de_fingir(self, client, blog, admin, monkeypatch):
+    def test_falha_vem_com_o_motivo_em_vez_de_um_nao_seco(self, client, blog, admin, monkeypatch):
         from blog import notify
-        monkeypatch.setattr(notify, "send", lambda a, c: False)
-        res = client.post("/api/blog/admin/linkedin/test-alert", headers=AUTH)
-        assert res.status_code == 200 and res.get_json()["sent"] is False
+        monkeypatch.setattr(notify, "send_with_reason",
+                            lambda a, c: (False, "Email address is not verified"))
+        dados = client.post("/api/blog/admin/linkedin/test-alert", headers=AUTH).get_json()
+        assert dados["sent"] is False and "not verified" in dados["reason"]

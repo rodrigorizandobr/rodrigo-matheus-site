@@ -72,8 +72,10 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "SERPER_API_KEY=${SERPER_API_KEY:-}" \
     --set-env-vars "BLOG_ADMIN_EMAILS=${BLOG_ADMIN_EMAILS:-rodrigorizando@gmail.com}" \
     --set-env-vars "SITE_URL=${SITE_URL:-https://rodrigomatheus.com.br}" \
-    --set-env-vars "^|^SMTP_USER=${SMTP_USER:-}" \
-    --set-env-vars "^|^SMTP_PASSWORD=${SMTP_PASSWORD:-}" \
+    --set-env-vars "AWS_REGION=${AWS_REGION:-us-east-1}" \
+    --set-env-vars "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}" \
+    --set-env-vars "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}" \
+    --set-env-vars "ALERT_FROM=${ALERT_FROM:-}" \
     --set-env-vars "ALERT_EMAILS=${ALERT_EMAILS:-}" \
     --quiet
 else

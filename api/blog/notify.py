@@ -5,34 +5,40 @@ sozinha em ~60 dias e o compartilhamento para **em silêncio**. O painel mostra 
 dias restantes, mas ninguém abre o painel para ver que está tudo bem — por isso o
 aviso vai atrás da pessoa, por e-mail, nas marcas de `model.EXPIRY_MARKS`.
 
-Envio por SMTP porque não exige conta nova em serviço de e-mail: o Gmail aceita
-uma *senha de app* dedicada, que só serve para enviar e pode ser revogada sozinha.
-Sem SMTP configurado nada quebra — `send` devolve False e a batida segue.
+Transporte: **AWS SES** pela API HTTPS (`sesv2:SendEmail`). Não é SMTP de propósito
+— o Cloud Run bloqueia a porta 25 e trata as outras de forma que não vale apostar
+um aviso raro; HTTPS sempre sai. As credenciais são de um usuário IAM que só pode
+enviar por UMA identidade (`blog-ses-sender`), então vazar a chave não vira spam.
+
+Nada aqui levanta exceção: um e-mail não pode derrubar a batida do agendador.
 """
 from __future__ import annotations
 
 import logging
 import os
-import smtplib
-from email.message import EmailMessage
+from functools import lru_cache
 
 log = logging.getLogger(__name__)
 
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", "") or SMTP_USER
-SMTP_TO = [e.strip() for e in (
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+#: remetente — precisa ser identidade verificada no SES
+ALERT_FROM = os.environ.get("ALERT_FROM", "")
+ALERT_TO = [e.strip() for e in (
     os.environ.get("ALERT_EMAILS") or os.environ.get("BLOG_ADMIN_EMAILS") or ""
 ).split(",") if e.strip()]
 
 SITE = os.environ.get("SITE_URL", "https://rodrigomatheus.com.br")
-TIMEOUT = 20
+
+
+@lru_cache(maxsize=1)
+def _ses():
+    import boto3  # importado tarde: o agendador não paga por ele em toda batida
+
+    return boto3.client("sesv2", region_name=AWS_REGION)
 
 
 def configured() -> bool:
-    return bool(SMTP_USER and SMTP_PASSWORD and SMTP_TO)
+    return bool(ALERT_FROM and ALERT_TO)
 
 
 def expiry_message(mark: int, days_left: int) -> tuple[str, str]:
@@ -60,21 +66,30 @@ def expiry_message(mark: int, days_left: int) -> tuple[str, str]:
 
 
 def send(subject: str, body: str) -> bool:
-    """True se saiu. Nunca levanta: um e-mail não pode derrubar o agendador."""
-    if not configured():
-        log.warning("aviso não enviado (SMTP não configurado): %s", subject)
-        return False
+    """True se o SES aceitou a mensagem. Nunca levanta."""
+    return send_with_reason(subject, body)[0]
 
-    msg = EmailMessage()
-    msg["From"] = SMTP_FROM
-    msg["To"] = ", ".join(SMTP_TO)
-    msg["Subject"] = subject
-    msg.set_content(body)
+
+def send_with_reason(subject: str, body: str) -> tuple[bool, str]:
+    """Igual a `send`, mas devolve o motivo da falha.
+
+    O botão de teste do painel mostra esse motivo: "não saiu" sem explicação
+    obrigaria a abrir o log do Cloud Run justamente para o caso mais comum —
+    identidade ainda não verificada no SES.
+    """
+    if not configured():
+        log.warning("aviso não enviado (SES sem remetente/destinatário): %s", subject)
+        return False, "falta o remetente verificado ou o destinatário no servidor"
     try:
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=TIMEOUT) as smtp:
-            smtp.login(SMTP_USER, SMTP_PASSWORD.replace(" ", ""))
-            smtp.send_message(msg)
-        return True
+        _ses().send_email(
+            FromEmailAddress=ALERT_FROM,
+            Destination={"ToAddresses": ALERT_TO},
+            Content={"Simple": {
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {"Text": {"Data": body, "Charset": "UTF-8"}},
+            }},
+        )
+        return True, ""
     except Exception as exc:
         log.warning("falha ao enviar aviso (%s): %s", subject, exc)
-        return False
+        return False, str(exc)

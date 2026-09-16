@@ -53,66 +53,73 @@ class TestTextoDoAviso:
 
 
 class TestEnvio:
-    def test_sem_smtp_configurado_o_envio_avisa_que_nao_deu(self, monkeypatch):
-        monkeypatch.setattr(notify, "SMTP_USER", "")
+    """Envio pelo SES. Nenhuma falha daqui pode derrubar a batida do agendador."""
+
+    def test_sem_remetente_verificado_configurado_nao_tenta_enviar(self, monkeypatch):
+        monkeypatch.setattr(notify, "ALERT_FROM", "")
         assert notify.configured() is False
         assert notify.send("a", "b") is False
 
-    def test_com_smtp_manda_para_os_admins_com_remetente_proprio(self, monkeypatch):
-        enviados = []
+    def test_sem_destinatario_tambem_nao_envia(self, monkeypatch):
+        monkeypatch.setattr(notify, "ALERT_FROM", "robo@example.com")
+        monkeypatch.setattr(notify, "ALERT_TO", [])
+        assert notify.configured() is False
 
-        class FakeSMTP:
-            def __init__(self, host, port, timeout=None):
-                enviados.append(("conexao", host, port))
+    def test_manda_pelo_ses_com_assunto_e_corpo_em_utf8(self, monkeypatch):
+        chamadas = []
 
-            def __enter__(self):
-                return self
+        class FakeSes:
+            def send_email(self, **kw):
+                chamadas.append(kw)
+                return {"MessageId": "abc"}
 
-            def __exit__(self, *a):
-                return False
+        monkeypatch.setattr(notify, "ALERT_FROM", "robo@example.com")
+        monkeypatch.setattr(notify, "ALERT_TO", ["rodrigo@example.com"])
+        monkeypatch.setattr(notify, "_ses", lambda: FakeSes())
 
-            def login(self, user, password):
-                enviados.append(("login", user, password))
+        assert notify.send("assunto com acentuação", "corpo") is True
+        kw = chamadas[0]
+        assert kw["FromEmailAddress"] == "robo@example.com"
+        assert kw["Destination"]["ToAddresses"] == ["rodrigo@example.com"]
+        simples = kw["Content"]["Simple"]
+        assert simples["Subject"] == {"Data": "assunto com acentuação", "Charset": "UTF-8"}
+        assert simples["Body"]["Text"]["Data"] == "corpo"
 
-            def send_message(self, msg):
-                enviados.append(("msg", msg["To"], msg["Subject"], msg.get_content()))
+    def test_remetente_ainda_nao_verificado_nao_explode(self, monkeypatch):
+        """No sandbox do SES isto acontece de verdade — e não pode parar o agendador."""
+        class FakeSes:
+            def send_email(self, **kw):
+                raise RuntimeError("MessageRejected: Email address is not verified")
 
-        monkeypatch.setattr(notify, "SMTP_USER", "robo@gmail.com")
-        monkeypatch.setattr(notify, "SMTP_PASSWORD", "senha-de-app")
-        monkeypatch.setattr(notify, "SMTP_TO", ["rodrigo@example.com"])
-        monkeypatch.setattr(notify.smtplib, "SMTP_SSL", FakeSMTP)
+        monkeypatch.setattr(notify, "ALERT_FROM", "robo@example.com")
+        monkeypatch.setattr(notify, "ALERT_TO", ["rodrigo@example.com"])
+        monkeypatch.setattr(notify, "_ses", lambda: FakeSes())
+        assert notify.send("a", "b") is False
 
-        assert notify.send("assunto", "corpo") is True
-        assert ("login", "robo@gmail.com", "senha-de-app") in enviados
-        msg = [e for e in enviados if e[0] == "msg"][0]
-        assert msg[1] == "rodrigo@example.com" and msg[2] == "assunto"
+    def test_o_motivo_da_falha_chega_a_quem_pediu_o_teste(self, monkeypatch):
+        """No painel, "não saiu" sem motivo obriga a abrir log do Cloud Run."""
+        class FakeSes:
+            def send_email(self, **kw):
+                raise RuntimeError("MessageRejected: Email address is not verified")
 
-    def test_senha_de_app_do_google_vai_sem_os_espacos_que_ele_mostra(self, monkeypatch):
-        """O Google exibe a senha de app em blocos de quatro; colar com espaço é o padrão."""
-        usados = []
+        monkeypatch.setattr(notify, "ALERT_FROM", "robo@example.com")
+        monkeypatch.setattr(notify, "ALERT_TO", ["rodrigo@example.com"])
+        monkeypatch.setattr(notify, "_ses", lambda: FakeSes())
+        ok, motivo = notify.send_with_reason("a", "b")
+        assert ok is False and "not verified" in motivo
 
-        class FakeSMTP:
-            def __init__(self, *a, **k): pass
-            def __enter__(self): return self
-            def __exit__(self, *a): return False
-            def login(self, user, password): usados.append(password)
-            def send_message(self, msg): pass
+    def test_sem_configuracao_o_motivo_diz_o_que_falta(self, monkeypatch):
+        monkeypatch.setattr(notify, "ALERT_FROM", "")
+        ok, motivo = notify.send_with_reason("a", "b")
+        assert ok is False and "remetente" in motivo.lower()
 
-        monkeypatch.setattr(notify, "SMTP_USER", "robo@gmail.com")
-        monkeypatch.setattr(notify, "SMTP_PASSWORD", "abcd efgh ijkl mnop")
-        monkeypatch.setattr(notify, "SMTP_TO", ["rodrigo@example.com"])
-        monkeypatch.setattr(notify.smtplib, "SMTP_SSL", FakeSMTP)
-        notify.send("a", "b")
-        assert usados == ["abcdefghijklmnop"]
+    def test_falha_de_credencial_tambem_devolve_false(self, monkeypatch):
+        def explode():
+            raise RuntimeError("sem credencial da AWS")
 
-    def test_falha_do_servidor_nao_derruba_a_batida(self, monkeypatch):
-        def explode(*a, **k):
-            raise OSError("smtp fora do ar")
-
-        monkeypatch.setattr(notify, "SMTP_USER", "robo@gmail.com")
-        monkeypatch.setattr(notify, "SMTP_PASSWORD", "x")
-        monkeypatch.setattr(notify, "SMTP_TO", ["rodrigo@example.com"])
-        monkeypatch.setattr(notify.smtplib, "SMTP_SSL", explode)
+        monkeypatch.setattr(notify, "ALERT_FROM", "robo@example.com")
+        monkeypatch.setattr(notify, "ALERT_TO", ["rodrigo@example.com"])
+        monkeypatch.setattr(notify, "_ses", explode)
         assert notify.send("a", "b") is False
 
 

@@ -16,7 +16,7 @@ const api = (status: LinkedInStatus, over: Partial<Parameters<typeof LinkedInPan
   disconnect: vi.fn().mockResolvedValue({}),
   saveApp: vi.fn().mockResolvedValue({ connected: false, hasApp: true }),
   shareNow: vi.fn().mockResolvedValue(null),
-  testAlert: vi.fn().mockResolvedValue({ sent: true, configured: true }),
+  testAlert: vi.fn().mockResolvedValue({ sent: true, configured: true, reason: '' }),
   ...over,
 })
 
@@ -67,11 +67,11 @@ describe('LinkedInPanel', () => {
   it('o aviso de teste diz o que aconteceu, inclusive quando não sai', async () => {
     const onMessage = vi.fn()
     const status = { connected: true, hasApp: true, daysLeft: 50, alertsOn: false }
-    const client = api(status, { testAlert: vi.fn().mockResolvedValue({ sent: false, configured: false }) })
+    const client = api(status, { testAlert: vi.fn().mockResolvedValue({ sent: false, configured: false, reason: 'identidade não verificada no SES' }) })
     render(<LinkedInPanel config={config()} api={client} busy={false} status={status}
                           onRefresh={vi.fn()} onConnect={vi.fn()} onSave={vi.fn()} onMessage={onMessage} />)
     await userEvent.click(await screen.findByRole('button', { name: /aviso de teste/i }))
-    await waitFor(() => expect(onMessage).toHaveBeenCalledWith('erro', expect.stringMatching(/não saiu/i)))
+    await waitFor(() => expect(onMessage).toHaveBeenCalledWith('erro', expect.stringMatching(/não verificada no SES/i)))
   })
 
   it('a régua se explica: diz quando avisa e por onde', async () => {

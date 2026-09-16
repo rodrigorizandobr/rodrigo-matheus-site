@@ -369,8 +369,8 @@ def linkedin_test_alert():
     justamente quando ela vence que ninguém está olhando.
     """
     assunto, corpo = notify.expiry_message(7, 7)
-    saiu = notify.send(f"[teste] {assunto}", corpo)
-    return jsonify({"sent": saiu, "configured": notify.configured()})
+    saiu, motivo = notify.send_with_reason(f"[teste] {assunto}", corpo)
+    return jsonify({"sent": saiu, "configured": notify.configured(), "reason": motivo})
 
 
 @bp.post("/api/blog/admin/linkedin/disconnect")

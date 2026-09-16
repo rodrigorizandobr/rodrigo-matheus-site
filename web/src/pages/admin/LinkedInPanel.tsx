@@ -8,7 +8,7 @@ type Api = {
   disconnect: () => Promise<unknown>
   saveApp: (clientId: string, clientSecret: string) => Promise<LinkedInStatus>
   shareNow: () => Promise<Post | null>
-  testAlert: () => Promise<{ sent: boolean; configured: boolean }>
+  testAlert: () => Promise<{ sent: boolean; configured: boolean; reason: string }>
 }
 
 /**
@@ -114,13 +114,14 @@ export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect,
           30, 15, 7, 3 e 1 dia, e de novo no dia em que vencer. {status.alertsOn
             ? 'O envio está ativo.'
             : 'O envio por e-mail ainda não está configurado no servidor — por ora o aviso só aparece aqui no painel.'}
+          {status.alertsOn && ' Chega de avisos@rodrigomatheus.com.br.'}
           {status.lastNoticeAt && ` Último aviso: ${status.lastNoticeAt.slice(0, 10)}.`}
           <button type="button" disabled={working} className="underline ml-1 text-heading"
                   onClick={() => run(async () => {
                     const r = await api.testAlert()
                     onMessage(r.sent ? 'ok' : 'erro', r.sent
                       ? 'Aviso de teste enviado — confira a caixa de entrada.'
-                      : 'O aviso não saiu: falta configurar o envio de e-mail no servidor.')
+                      : `O aviso não saiu: ${r.reason || 'envio de e-mail não configurado no servidor'}`)
                   })}>mandar um aviso de teste</button>
         </p>
       )}

@@ -191,9 +191,20 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   `save_auth` grava com `set()`, então reconectar zera a régua no mesmo gesto — não existe
   limpeza separada para alguém esquecer. `model.expiry_step` dispara a marca MAIS APERTADA entre
   as cruzadas (30/15/7/3/1/0): um Cloud Run que ficou dias sem bater manda UM e-mail, não cinco.
-  O envio (`blog/notify.py`) é SMTP com senha de app e **nunca levanta** — um e-mail não pode
-  derrubar a batida do agendador. Sem `SMTP_USER`/`SMTP_PASSWORD` a régua continua viva na tela
-  (faixa no topo do painel, `LinkedInAlert`), só não sai por e-mail.
+  O envio (`blog/notify.py`) é **AWS SES pela API HTTPS**, nunca SMTP: o Cloud Run bloqueia a
+  porta 25 e um aviso que sai uma vez a cada 60 dias não é lugar de descobrir isso.
+  **Região `us-east-2`** — é onde a conta já opera (br51, hypertrader, monsterjobs) e onde existe
+  **acesso de produção** (50 mil/dia, destinatário não precisa ser verificado); as outras regiões
+  estão no sandbox, com 200/dia e destinatário verificado. Remetente é
+  `avisos@rodrigomatheus.com.br`, coberto pela identidade de DOMÍNIO `rodrigomatheus.com.br`:
+  os três CNAMEs de DKIM já estavam no DNS do registro.br, só faltava reiniciar a checagem
+  (`aws ses verify-domain-dkim`, que devolve os MESMOS tokens quando o status está FAILED).
+  Remetente no domínio próprio, e não no Gmail, porque o SES assinando por `gmail.com` falha o
+  alinhamento de DMARC e o aviso cai em spam — que é o mesmo que não avisar.
+  As credenciais são do usuário IAM `blog-ses-sender`, que só pode `ses:SendEmail` por essa
+  identidade: a chave vazada não vira spam. `notify.send` **nunca levanta**: sem credencial, sem
+  verificação ou com o SES fora do ar, a régua continua viva na tela (faixa no topo do painel,
+  `LinkedInAlert`) e o agendador segue.
 - **A fila do LinkedIn anda do post mais ANTIGO para o mais novo**, um por dia agendado, e só
   pega `status == published` com `linkedinEnabled != false`. `linkedinEnabled`/`linkedinPostedAt`
   estão em `INTERNAL_FIELDS` — o site público nunca os vê.
