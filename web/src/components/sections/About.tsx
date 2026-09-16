@@ -25,7 +25,9 @@ export function About() {
               <span>{character.name}</span>
               <span className="inline-flex items-center gap-1"><span className="chip-dot" data-on="true" aria-hidden="true" />{t.hud.status_online}</span>
             </div>
-            <p className="text-[15px] md:text-[17px] leading-relaxed text-text max-w-4xl">{t.about.lead}</p>
+            {/* sem limite de largura: dentro de um cartão largo, o texto parando antes
+                da borda deixava uma faixa vazia à direita e parecia erro de layout */}
+            <p className="text-[15px] md:text-[17px] leading-relaxed text-text">{t.about.lead}</p>
           </Reveal>
 
           <Reveal className="panel p-6" delay={0.1}>
