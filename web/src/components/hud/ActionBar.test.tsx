@@ -8,8 +8,14 @@ describe('ActionBar — os 3 CTAs do site atual, com os mesmos eventos GA', () =
   it('LinkedIn, Resume e GitHub apontam para os mesmos destinos de hoje', () => {
     render(<ActionBar hero={en.hero} hud={en.hud} />)
     expect(screen.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', 'https://www.linkedin.com/in/rodrigorizando/')
-    expect(screen.getByRole('link', { name: 'Resume PDF' })).toHaveAttribute('href', '/cv-pt-br.pdf')
+    expect(screen.getByRole('link', { name: 'Resume PDF' })).toHaveAttribute('href', '/cv-en.pdf')
     expect(screen.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', 'https://github.com/rodrigorizandobr/')
+  })
+
+  it('em português o currículo baixado é o português', async () => {
+    const pt = (await import('../../i18n/pt.json')).default
+    render(<ActionBar hero={pt.hero} hud={pt.hud} />)
+    expect(screen.getByRole('link', { name: 'Currículo PDF' })).toHaveAttribute('href', '/cv-pt-br.pdf')
   })
 
   it('links externos abrem em nova aba com rel seguro', () => {

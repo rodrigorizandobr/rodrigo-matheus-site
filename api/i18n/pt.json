@@ -140,21 +140,21 @@
         "role": "Líder Técnico",
         "period": "janeiro de 2019 → setembro de 2019",
         "location": "São Paulo, SP",
-        "description": "Liderei a squad de PLD (Prevenção à Lavagem de Dinheiro) e gestão financeira utilizando Kubernetes. Coordenei a integração entre mais de 8 times na criação, desenho e desenvolvimento da plataforma de PLD responsável por captar e monitorar todas as transações do banco. Entreguei o projeto em 8 meses numa época em que cloud ainda não existia no banco e o SLA para um servidor era de meses."
+        "description": "Liderei a squad de PLD (Prevenção à Lavagem de Dinheiro) e a gestão financeira. Coordenei a integração entre mais de 8 times na criação, desenho e desenvolvimento da plataforma de PLD responsável por captar e monitorar todas as transações do banco. Entreguei o projeto em 8 meses numa época em que cloud ainda não existia no banco e o SLA para um servidor era de meses."
       },
       {
         "company": "Serasa Experian",
         "role": "Especialista em TI",
         "period": "janeiro de 2017 → janeiro de 2019",
         "location": "São Paulo e Região, Brasil",
-        "description": "Coordenei projetos estratégicos em Java e .NET com equipes bodyshop, utilizando Kubernetes e gerenciando o ciclo completo do discovery até incidentes em produção no programa de Transformação Digital. Defini arquitetura e requisitos de segurança com times corporativos, além de avaliar propostas e definir escopo para contratação de terceiros. Liderei processos de seleção e contratação, estruturando equipes de alto desempenho e superando metas de produtividade. Executei POCs estratégicas e adotei abordagem de MVP para equilibrar valor imediato e escalabilidade. Otimizei a gestão orçamentária de desenvolvimento, manutenção e infraestrutura."
+        "description": "Coordenei projetos estratégicos em Java e .NET com equipes bodyshop, gerenciando o ciclo completo do discovery até incidentes em produção no programa de Transformação Digital. Defini arquitetura e requisitos de segurança com times corporativos, além de avaliar propostas e definir escopo para contratação de terceiros. Liderei processos de seleção e contratação, estruturando equipes de alto desempenho e superando metas de produtividade. Executei POCs estratégicas e adotei abordagem de MVP para equilibrar valor imediato e escalabilidade. Otimizei a gestão orçamentária de desenvolvimento, manutenção e infraestrutura."
       },
       {
         "company": "Serasa Experian",
         "role": "Especialista em Arquitetura de Software e Inovação",
         "period": "janeiro de 2015 → janeiro de 2017",
         "location": "São Paulo e Região, Brasil",
-        "description": "Defini a arquitetura técnica da unidade Serasa Consumidor em colaboração com times de desenvolvimento e departamentos corporativos, utilizando Kubernetes. Estabeleci boas práticas e padrões utilizando PHP e Node.js na AWS, reduzindo o onboarding de novos desenvolvedores de 2 meses para 2 semanas. Conduzi POCs de novas tecnologias, elevando a performance e a escalabilidade dos sistemas críticos. Defini padrões técnicos e processo de downstream que reduziram incidentes em produção em 40%. Elaborei padrão de documentação arquitetural de referência."
+        "description": "Defini a arquitetura técnica da unidade Serasa Consumidor em colaboração com times de desenvolvimento e departamentos corporativos. Estabeleci boas práticas e padrões utilizando PHP e Node.js na AWS, reduzindo o onboarding de novos desenvolvedores de 2 meses para 2 semanas. Conduzi POCs de novas tecnologias, elevando a performance e a escalabilidade dos sistemas críticos. Defini padrões técnicos e processo de downstream que reduziram incidentes em produção em 40%. Elaborei padrão de documentação arquitetural de referência."
       },
       {
         "company": "Serasa Experian",
@@ -192,18 +192,18 @@
         "description": "Desenvolvi sites, sistemas e portais do Universia utilizando Java, PHP, JavaScript, HTML e CSS. Foquei em inovação e métricas de visitação, além de realizar SEO e a manutenção contínua do portal."
       },
       {
-        "company": "A1.Brasil",
-        "role": "Analista de Qualidade Júnior",
-        "period": "janeiro de 2006 → outubro de 2007",
-        "location": "São Paulo, Brasil",
-        "description": "Garanti a qualidade, acessibilidade e usabilidade em projetos para grandes clientes como Vivo, Credicard, Pirelli e Porto Seguro. Otimizei processos internos e realizei homologação de código conforme normas W3C e manuais de marca dos clientes."
-      },
-      {
         "company": "Universia",
         "role": "Desenvolvedor Fullstack Júnior",
         "period": "maio de 2006 → maio de 2007",
         "location": "",
         "description": "Realizei levantamento de requisitos com clientes internos. Desenvolvi protótipos, sistemas e ferramentas em Java e PHP com SQL Server para a geração de conteúdo do portal."
+      },
+      {
+        "company": "A1.Brasil",
+        "role": "Analista de Qualidade Júnior",
+        "period": "janeiro de 2006 → outubro de 2007",
+        "location": "São Paulo, Brasil",
+        "description": "Garanti a qualidade, acessibilidade e usabilidade em projetos para grandes clientes como Vivo, Credicard, Pirelli e Porto Seguro. Otimizei processos internos e realizei homologação de código conforme normas W3C e manuais de marca dos clientes."
       },
       {
         "company": "Lobster Media Creative Studio",
@@ -228,25 +228,25 @@
         "institution": "FIAP",
         "degree": "Pós-graduação Lato Sensu — Especialização em Inteligência Artificial, Machine Learning Engineering",
         "period": "outubro de 2024 → outubro de 2025",
-        "note": "Especialização focada em inteligência artificial e engenharia de machine learning."
+        "note": "Especialização em engenharia de machine learning, da modelagem ao modelo em produção. É a base técnica do uso de IA em decisão de crédito, automação e qualidade."
       },
       {
         "institution": "MBA USP/Esalq",
         "degree": "Master of Business Administration (MBA) — Gestão de Negócios",
         "period": "junho de 2019 → junho de 2021",
-        "note": "MBA focado em gestão de negócios e estratégia corporativa."
+        "note": "Formação executiva em estratégia, finanças e gestão. É o repertório por trás da responsabilidade por Capex/Opex, OKRs e orçamento de fábricas de software."
       },
       {
         "institution": "Faculdades Metropolitanas Unidas (FMU)",
         "degree": "Graduação — Comunicação",
         "period": "2016 → 2018",
-        "note": "Formação superior em Comunicação."
+        "note": "Graduação em Comunicação. Escrita, narrativa e leitura de público — o que sustenta a ponte entre engenharia e as áreas de negócio."
       },
       {
         "institution": "FIAP",
         "degree": "Bacharelado — Sistemas da Informação (Incompleto)",
         "period": "janeiro de 2000 → dezembro de 2002",
-        "note": "Formação superior incompleta em Sistemas da Informação."
+        "note": "Base formal em desenvolvimento e sistemas no começo da carreira, em 2000. Curso não concluído."
       }
     ]
   },

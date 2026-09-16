@@ -6,14 +6,17 @@ import { IconArrowUpRight, IconDoc, IconGitHub, IconLinkedIn } from '../ui/Icons
 /** Same three destinations and the same `hero_click {button}` event as v2 — now with icons and sublabels. */
 const LINKS = {
   linkedin: { href: 'https://www.linkedin.com/in/rodrigorizando/', external: true, Icon: IconLinkedIn },
-  cv: { href: '/cv-pt-br.pdf', external: false, Icon: IconDoc },
+  cv: { external: false, Icon: IconDoc },
   github: { href: 'https://github.com/rodrigorizandobr/', external: true, Icon: IconGitHub },
 } as const
 
 export function ActionBar({ hero, hud }: { hero: Dictionary['hero']; hud: Dictionary['hud'] }) {
+  // Existem dois PDFs, gerados do mesmo i18n (scripts/cv-pdf.mjs). Quem lê em inglês
+  // baixa o inglês — o rótulo abaixo do botão já dizia o idioma, e antes mentia.
+  const cvHref = hud.cta.cv_sub.startsWith('pt') ? '/cv-pt-br.pdf' : '/cv-en.pdf'
   const items = [
     { ...LINKS.linkedin, label: hero.btn_linkedin, sub: hud.cta.linkedin_sub, primary: true },
-    { ...LINKS.cv, label: hero.btn_cv, sub: hud.cta.cv_sub, primary: false },
+    { ...LINKS.cv, href: cvHref, label: hero.btn_cv, sub: hud.cta.cv_sub, primary: false },
     { ...LINKS.github, label: hero.btn_github, sub: hud.cta.github_sub, primary: false },
   ]
   return (

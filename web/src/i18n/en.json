@@ -171,21 +171,21 @@
         "role": "Tech Lead",
         "period": "January 2019 → September 2019",
         "location": "São Paulo, SP",
-        "description": "Led the AML (Anti-Money Laundering) squad and financial management using Kubernetes. Coordinated the integration of more than 8 teams in the creation, design and development of the AML platform responsible for capturing and monitoring every transaction in the bank. Delivered the project in 8 months, at a time when cloud did not yet exist in the bank and the SLA for a server was months."
+        "description": "Led the AML (Anti-Money Laundering) squad and financial management. Coordinated the integration of more than 8 teams in the creation, design and development of the AML platform responsible for capturing and monitoring every transaction in the bank. Delivered the project in 8 months, at a time when cloud did not yet exist in the bank and the SLA for a server was months."
       },
       {
         "company": "Serasa Experian",
         "role": "IT Specialist",
         "period": "January 2017 → January 2019",
         "location": "São Paulo and Region, Brazil",
-        "description": "Coordinated strategic projects in Java and .NET with bodyshop teams, using Kubernetes and managing the full cycle from discovery to production incidents in the Digital Transformation programme. Defined architecture and security requirements with corporate teams, and assessed proposals and defined scope for third-party contracting. Led selection and hiring processes, building high-performance teams and beating productivity targets. Ran strategic POCs and adopted an MVP approach to balance immediate value and scalability. Optimised budget management for development, maintenance and infrastructure."
+        "description": "Coordinated strategic projects in Java and .NET with bodyshop teams, managing the full cycle from discovery to production incidents in the Digital Transformation programme. Defined architecture and security requirements with corporate teams, and assessed proposals and defined scope for third-party contracting. Led selection and hiring processes, building high-performance teams and beating productivity targets. Ran strategic POCs and adopted an MVP approach to balance immediate value and scalability. Optimised budget management for development, maintenance and infrastructure."
       },
       {
         "company": "Serasa Experian",
         "role": "Software Architecture and Innovation Specialist",
         "period": "January 2015 → January 2017",
         "location": "São Paulo and Region, Brazil",
-        "description": "Defined the technical architecture of the Serasa Consumidor unit together with development teams and corporate departments, using Kubernetes. Established good practices and standards with PHP and Node.js on AWS, cutting the onboarding of new developers from 2 months to 2 weeks. Ran POCs of new technologies, raising the performance and scalability of critical systems. Defined technical standards and a downstream process that cut production incidents by 40%. Wrote the reference architectural documentation standard."
+        "description": "Defined the technical architecture of the Serasa Consumidor unit together with development teams and corporate departments. Established good practices and standards with PHP and Node.js on AWS, cutting the onboarding of new developers from 2 months to 2 weeks. Ran POCs of new technologies, raising the performance and scalability of critical systems. Defined technical standards and a downstream process that cut production incidents by 40%. Wrote the reference architectural documentation standard."
       },
       {
         "company": "Serasa Experian",
@@ -223,18 +223,18 @@
         "description": "Developed Universia's sites, systems and portals using Java, PHP, JavaScript, HTML and CSS. Focused on innovation and visit metrics, and handled SEO and the continuous maintenance of the portal."
       },
       {
-        "company": "A1.Brasil",
-        "role": "Junior Quality Analyst",
-        "period": "January 2006 → October 2007",
-        "location": "São Paulo, Brazil",
-        "description": "Ensured quality, accessibility and usability in projects for large clients such as Vivo, Credicard, Pirelli and Porto Seguro. Optimised internal processes and signed off code against W3C standards and the clients' brand manuals."
-      },
-      {
         "company": "Universia",
         "role": "Junior Fullstack Developer",
         "period": "May 2006 → May 2007",
         "location": "",
         "description": "Gathered requirements directly with internal clients. Developed prototypes, systems and tools in Java and PHP with SQL Server for the portal's content generation."
+      },
+      {
+        "company": "A1.Brasil",
+        "role": "Junior Quality Analyst",
+        "period": "January 2006 → October 2007",
+        "location": "São Paulo, Brazil",
+        "description": "Ensured quality, accessibility and usability in projects for large clients such as Vivo, Credicard, Pirelli and Porto Seguro. Optimised internal processes and signed off code against W3C standards and the clients' brand manuals."
       },
       {
         "company": "Lobster Media Creative Studio",
@@ -259,25 +259,25 @@
         "institution": "FIAP",
         "degree": "Postgraduate — Specialization in Artificial Intelligence, Machine Learning Engineering",
         "period": "October 2024 → October 2025",
-        "note": "Specialisation focused on artificial intelligence and machine learning engineering."
+        "note": "Specialisation in machine learning engineering, from modelling to models in production. The technical basis for using AI in credit decisioning, automation and quality."
       },
       {
         "institution": "MBA USP/Esalq",
         "degree": "Master of Business Administration (MBA) — Business Management",
         "period": "June 2019 → June 2021",
-        "note": "MBA focused on business management and corporate strategy."
+        "note": "Executive programme in strategy, finance and management. The background behind owning Capex/Opex, OKRs and software factory budgets."
       },
       {
         "institution": "Faculdades Metropolitanas Unidas (FMU)",
         "degree": "Bachelor's Degree — Communication",
         "period": "2016 → 2018",
-        "note": "Higher education in Communication."
+        "note": "Degree in Communication. Writing, narrative and reading an audience — what holds up the bridge between engineering and the business areas."
       },
       {
         "institution": "FIAP",
         "degree": "Bachelor's Degree — Information Systems (Incomplete)",
         "period": "January 2000 → December 2002",
-        "note": "Unfinished degree in Information Systems."
+        "note": "Formal grounding in development and systems at the start of the career, in 2000. Course not completed."
       }
     ]
   },
@@ -316,7 +316,7 @@
     "top_skills": "CORE MODULES",
     "cta": {
       "linkedin_sub": "connect",
-      "cv_sub": "pt-br · pdf",
+      "cv_sub": "en · pdf",
       "github_sub": "public repos"
     },
     "sync": {
@@ -366,7 +366,9 @@
     "contact": {
       "tag": "JOIN PARTY",
       "sub": "open to conversations about engineering, AI and leadership",
-      "linkedin": "Message on LinkedIn"
+      "linkedin": "Message on LinkedIn",
+      "phone": "Phone",
+      "whatsapp": "WhatsApp"
     },
     "blog": {
       "tag": "BLOG",

@@ -133,6 +133,20 @@ describe('Arena — projetos e comunidade do currículo', () => {
   })
 })
 
+describe('Contact — telefone do currículo, protegido como o e-mail', () => {
+  it('mostra o número e liga, mas só depois de montar no navegador', async () => {
+    r(<Contact />)
+    const tel = await screen.findByRole('link', { name: /94180-0766/ })
+    expect(tel).toHaveAttribute('href', 'tel:+5511941800766')
+  })
+
+  it('oferece WhatsApp para o mesmo número', async () => {
+    r(<Contact />)
+    const wa = await screen.findByRole('link', { name: /WhatsApp/ })
+    expect(wa).toHaveAttribute('href', 'https://wa.me/5511941800766')
+  })
+})
+
 describe('Training / Contact / Logs', () => {
   it('Training: 4 formações', () => {
     r(<Training />)

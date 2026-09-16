@@ -159,6 +159,21 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   prévia com dados de exemplo. O painel real exige login com Google, o que impede conferir telas
   estreitas durante o desenvolvimento. Não entra no build (o Vite só empacota o `index.html`).
 
+## Currículo: uma fonte, duas saídas
+
+O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta **a home e o PDF**.
+`npm run cv:pdf` (`web/scripts/cv-pdf.mjs`, @react-pdf/renderer) gera
+`public/cv-pt-br.pdf` e `public/cv-en.pdf` a partir desse mesmo JSON — antes eram dois
+documentos com duas fontes, e divergiam. Editou carreira? Rode o script e faça deploy.
+
+- **A prosa do site vira marcadores no PDF**: o i18n guarda um parágrafo por cargo (é o que
+  a linha do tempo desenha) e o gerador quebra por frase. Frase que começa com maiúscula
+  depois de ponto é um marcador novo.
+- **A seta `→` não existe na Helvetica** (WinAnsi) e sai como lixo no PDF: `periodo()` troca
+  por travessão e encurta os meses (`junho de 2024` → `jun/2024`), como currículo escreve.
+- **O botão do hero segue o idioma da página** (`ActionBar`): em inglês baixa `cv-en.pdf`.
+  O rótulo embaixo do botão sempre disse o idioma — antes ele mentia.
+
 ## Comandos
 
 ```bash

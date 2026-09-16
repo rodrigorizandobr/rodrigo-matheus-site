@@ -6,13 +6,17 @@ import { Section, SectionHead } from '../ui/SectionHead'
 import { Reveal } from '../ui/Reveal'
 import { IconArrowUpRight, IconLinkedIn } from '../ui/Icons'
 import { mailtoHref } from '../ui/email'
+import { assemblePhone, telHref, whatsappHref } from '../ui/phone'
 
 export function Contact() {
   const { t } = useI18n()
   // O href só existe depois que o React monta: o endereço não vai no HTML servido,
   // que é onde o coletor de spam procura. Ver ui/email.ts.
   const [mailto, setMailto] = useState<string | undefined>(undefined)
+  // Mesmo tratamento do telefone: o número não existe no HTML servido (ver ui/phone.ts).
+  const [fone, setFone] = useState<{ texto: string; tel: string; zap: string } | null>(null)
   useEffect(() => setMailto(mailtoHref(t.contact.card_title)), [t.contact.card_title])
+  useEffect(() => setFone({ texto: assemblePhone(), tel: telHref(), zap: whatsappHref() }), [])
   const ref = useRef<HTMLDivElement>(null)
   useSectionView(ref, 'contact')
   const s = t.sections.contact
@@ -32,6 +36,18 @@ export function Contact() {
             <IconLinkedIn width={15} height={15} />{s.linkedin}<IconArrowUpRight width={12} height={12} />
           </a>
         </div>
+
+        {fone && (
+          <p className="font-mono text-[11.5px] text-muted mt-6">
+            <span className="uppercase tracking-wider">{s.phone}</span>{' '}
+            <a href={fone.tel} onClick={() => gaEvt('contact_click', { channel: 'phone' })}
+               className="text-heading hover:text-red">{fone.texto}</a>
+            <span aria-hidden="true" className="mx-2">·</span>
+            <a href={fone.zap} target="_blank" rel="noopener noreferrer"
+               onClick={() => gaEvt('contact_click', { channel: 'whatsapp' })}
+               className="text-heading hover:text-red">{s.whatsapp}</a>
+          </p>
+        )}
       </Reveal>
     </Section>
     </div>

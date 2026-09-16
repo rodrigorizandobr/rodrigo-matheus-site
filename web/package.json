@@ -14,7 +14,8 @@
     "hero:pack": "node scripts/pack-hero.mjs",
     "hero:video": "node scripts/pack-video.mjs",
     "scenes:pack": "node scripts/pack-scenes.mjs",
-    "mobile:pack": "node scripts/pack-mobile.mjs"
+    "mobile:pack": "node scripts/pack-mobile.mjs",
+    "cv:pdf": "node scripts/cv-pdf.mjs && node scripts/cv-pdf.mjs en"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -27,6 +28,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
