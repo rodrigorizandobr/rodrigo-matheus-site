@@ -89,3 +89,66 @@ class TestCatalogo:
     def test_hash_malformado_nunca_vira_caminho_no_bucket(self, env):
         assert media.read_image("../../etc/passwd") is None
         assert media.get_media("../../x") is None
+
+
+class TestSemRastroDaOrigem:
+    """A capa é material editorial do site. Ela não carrega ficha técnica."""
+
+    def _com_exif(self) -> bytes:
+        from PIL import Image
+        import io, piexif  # noqa: F401  (piexif é opcional; se faltar, usamos bytes crus)
+        img = Image.new("RGB", (40, 30), "white")
+        buf = io.BytesIO()
+        exif = img.getexif()
+        exif[270] = "Made with Google AI"      # ImageDescription
+        exif[305] = "gemini-3-pro-image"       # Software
+        img.save(buf, format="JPEG", exif=exif.tobytes())
+        return buf.getvalue()
+
+    def test_exif_da_origem_nao_sobrevive_ao_arquivo_final(self):
+        from PIL import Image
+        import io
+        try:
+            entrada = self._com_exif()
+        except ImportError:
+            pytest.skip("piexif ausente")
+        saida, _, _ = media._jpeg(entrada)
+        assert b"Made with Google AI" not in saida
+        assert b"gemini-3-pro-image" not in saida
+        assert not Image.open(io.BytesIO(saida)).getexif()
+
+    def test_nenhum_bloco_de_metadado_fica_no_jpeg(self):
+        from PIL import Image
+        import io
+        img = Image.new("RGB", (40, 30), "white")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", comment=b"gerado por IA")
+        saida, _, _ = media._jpeg(buf.getvalue())
+        lido = Image.open(io.BytesIO(saida))
+        assert b"gerado por IA" not in saida
+        assert not any(k.lower() in ("exif", "xmp", "comment", "icc_profile", "photoshop")
+                       for k in lido.info)
+
+
+class TestQualidadeDaCapa:
+    def test_capa_grande_o_bastante_para_o_cartao_do_linkedin(self):
+        """O LinkedIn pede 1200 px de largura; 2K do modelo cabe em 1920 sem exagero."""
+        from PIL import Image
+        import io
+        grande = Image.new("RGB", (2752, 1536), "white")
+        buf = io.BytesIO(); grande.save(buf, format="JPEG")
+        _, largura, altura = media._jpeg(buf.getvalue())
+        assert largura == 1920 and altura == 1072
+        assert media.MAX_SIDE >= 1920 and largura >= 1200
+
+    def test_vermelho_sobre_branco_sem_subamostragem_de_croma(self):
+        """O acento do site é vermelho puro; 4:2:0 borra exatamente essa borda."""
+        from PIL import Image, JpegImagePlugin
+        import io
+        img = Image.new("RGB", (80, 60), "white")
+        for x in range(30, 50):
+            for y in range(60):
+                img.putpixel((x, y), (204, 0, 0))
+        buf = io.BytesIO(); img.save(buf, format="JPEG")
+        saida, _, _ = media._jpeg(buf.getvalue())
+        assert JpegImagePlugin.get_sampling(Image.open(io.BytesIO(saida))) == 0

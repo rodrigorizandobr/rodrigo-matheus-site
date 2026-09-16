@@ -112,6 +112,18 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   estrutura, não orçamento.
 - **Termo de notícia REPETE de propósito.** O que muda numa notícia é a notícia, então os termos entram
   em rodízio (`pick_rotating`, o mais antigo primeiro).
+- **A capa não carrega ficha técnica.** `media._jpeg` remonta o arquivo **só a partir dos
+  pixels** (`Image.frombytes`), então EXIF, XMP, IPTC, perfil de cor e comentário da origem
+  não atravessam — e `_public_view` reduz a capa a `COVER_PUBLIC_FIELDS`, de forma que o JSON
+  público também não diz `provider`. Capa de IA vai **sem crédito**: crédito existe para dar a
+  quem é devido, e banco de imagens tem esse direito, ilustração da casa não. `PostArticle` só
+  desenha a legenda quando há crédito. Migração de uso único: `api/migrate_covers.py`.
+- **Capa em `gemini-3-pro-image`, 16:9 em 2K** (`IMAGE_CONFIG`), com o flash como reserva se o
+  pro falhar: é o único lugar do blog onde a diferença de modelo aparece em tela cheia, e custa
+  centavos por post. Armazenada em 1920 px, qualidade 86, **4:4:4** — o acento do site é vermelho
+  puro sobre branco, e é exatamente essa borda que a subamostragem 4:2:0 borra.
+- **`og:image:width/height` não é enfeite:** sem as dimensões declaradas, LinkedIn e WhatsApp
+  tentam baixar a imagem para medir, desistem no tempo limite e caem no cartão pequeno.
 - **Toda imagem passa por `media.store_image`** — upload, IA ou banco. Nunca se linka o arquivo de
   terceiro: a URL pode virar 403 e o post fica com imagem quebrada para sempre. O nome é o sha256 do
   JPEG final, então a mesma imagem não duplica e a URL pode ser cacheada para sempre.

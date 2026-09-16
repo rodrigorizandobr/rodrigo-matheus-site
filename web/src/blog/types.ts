@@ -6,10 +6,14 @@ export type PostStatus = 'draft' | 'scheduled' | 'published'
 
 export type CoverImage = {
   hash: string
-  provider: 'gemini' | 'pixabay'
+  /** o site público não recebe isto — só o painel, pela biblioteca de mídia */
+  provider?: 'gemini' | 'pixabay'
+  /** vazio na ilustração da casa; preenchido no que vem de banco de imagens */
   credit: string
   sourceUrl: string
   alt: string
+  width?: number
+  height?: number
 }
 
 /** Fonte usada pela pesquisa, com o que a ABNT pede para citar. */

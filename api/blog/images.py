@@ -21,7 +21,13 @@ from . import media
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 PIXABAY_KEY = os.environ.get("PIXABAY_API_KEY", "")
-IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3.1-flash-image")
+#: o modelo bom para capa. Sai em 2K e compõe melhor que o flash — e capa é o
+#: único lugar do blog onde a diferença aparece em tela cheia.
+IMAGE_MODEL = os.environ.get("BLOG_IMAGE_MODEL", "gemini-3-pro-image")
+#: se o bom falhar (cota, indisponibilidade), o rápido ainda salva o post
+IMAGE_MODEL_FALLBACK = os.environ.get("BLOG_IMAGE_MODEL_FALLBACK", "gemini-3.1-flash-image")
+#: a capa nasce no formato do cartão de link (LinkedIn pede 1200 px de largura)
+IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": "2K"}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
 
@@ -35,27 +41,41 @@ ART_DIRECTION = (
 )
 
 
+def _ask_model(model: str, prompt: str) -> bytes | None:
+    res = requests.post(
+        f"{BASE}/models/{model}:generateContent",
+        headers={"x-goog-api-key": API_KEY, "content-type": "application/json"},
+        json={
+            "contents": [{"role": "user", "parts": [{"text": f"{ART_DIRECTION}\n\nSCENE: {prompt}"}]}],
+            "generationConfig": {"imageConfig": dict(IMAGE_CONFIG)},
+        },
+        timeout=TIMEOUT,
+    )
+    if not res.ok:
+        return None
+    for part in res.json().get("candidates", [{}])[0].get("content", {}).get("parts", []):
+        inline = part.get("inlineData") or part.get("inline_data")
+        if inline and inline.get("data"):
+            return base64.b64decode(inline["data"])
+    return None
+
+
 def generate_image(prompt: str, alt: str = "") -> dict[str, Any] | None:
-    """Gera uma imagem com IA na direção de arte do site e cataloga."""
+    """Gera a capa na direção de arte do site e cataloga.
+
+    Sem crédito: a capa é ilustração editorial do site, não citação de terceiro.
+    Crédito existe para dar a quem é devido — banco de imagens tem, ilustração
+    da casa não tem.
+    """
     if not API_KEY:
         return None
-    try:
-        res = requests.post(
-            f"{BASE}/models/{IMAGE_MODEL}:generateContent",
-            headers={"x-goog-api-key": API_KEY, "content-type": "application/json"},
-            json={"contents": [{"role": "user", "parts": [{"text": f"{ART_DIRECTION}\n\nSCENE: {prompt}"}]}]},
-            timeout=TIMEOUT,
-        )
-        if not res.ok:
-            return None
-        for part in res.json().get("candidates", [{}])[0].get("content", {}).get("parts", []):
-            inline = part.get("inlineData") or part.get("inline_data")
-            if inline and inline.get("data"):
-                raw = base64.b64decode(inline["data"])
-                return media.store_image(raw, provider="gemini", alt=alt,
-                                         credit="Gerada com IA (Gemini)", prompt=prompt)
-    except Exception:
-        return None
+    for modelo in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK):
+        try:
+            raw = _ask_model(modelo, prompt)
+        except Exception:
+            raw = None
+        if raw:
+            return media.store_image(raw, provider="gemini", alt=alt, credit="", prompt=prompt)
     return None
 
 

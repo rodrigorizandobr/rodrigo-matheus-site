@@ -29,6 +29,10 @@ CONFIG_DOC = "settings"
 INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic",
                    "linkedinEnabled", "linkedinPostedAt", "linkedinUrn")
 
+#: da capa, o site público vê o necessário para exibir e creditar — e nada sobre
+#: como ela foi produzida
+COVER_PUBLIC_FIELDS = ("hash", "credit", "sourceUrl", "alt", "width", "height")
+
 _client: firestore.Client | None = None
 
 
@@ -157,7 +161,11 @@ def list_posts() -> list[dict[str, Any]]:
 
 
 def _public_view(post: dict[str, Any]) -> dict[str, Any]:
-    return {k: v for k, v in post.items() if k not in INTERNAL_FIELDS}
+    limpo = {k: v for k, v in post.items() if k not in INTERNAL_FIELDS}
+    imagem = limpo.get("image")
+    if isinstance(imagem, dict):
+        limpo["image"] = {k: imagem[k] for k in COVER_PUBLIC_FIELDS if k in imagem}
+    return limpo
 
 
 def list_public_posts() -> list[dict[str, Any]]:

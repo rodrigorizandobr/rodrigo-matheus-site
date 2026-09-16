@@ -25,8 +25,11 @@ from .store import POSTS, _db
 
 COLLECTION = "blog_media"
 PREFIX = "blog-images"
-MAX_SIDE = 1600
-JPEG_QUALITY = 82
+MAX_SIDE = 1920
+JPEG_QUALITY = 86
+#: 4:4:4 — sem subamostragem de croma. O acento do site é vermelho puro sobre
+#: branco, e é exatamente essa borda que 4:2:0 borra.
+JPEG_SUBSAMPLING = 0
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 EDITABLE = ("alt", "credit", "sourceUrl")
@@ -45,18 +48,28 @@ def _now() -> datetime:
 
 
 def _jpeg(raw: bytes) -> tuple[bytes, int, int] | None:
-    """Normaliza qualquer entrada para um JPEG dentro do lado máximo."""
+    """Normaliza qualquer entrada para um JPEG dentro do lado máximo.
+
+    O arquivo final é remontado **só a partir dos pixels**: EXIF, XMP, IPTC,
+    perfil de cor, comentário e qualquer bloco de proveniência da origem ficam
+    para trás. A capa é material editorial do site — não carrega ficha técnica de
+    quem a produziu, nem para imagem de IA, nem para foto de banco de imagens.
+    """
     try:
-        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        origem = Image.open(io.BytesIO(raw)).convert("RGB")
     except Exception:
         return None
 
-    if max(img.size) > MAX_SIDE:
-        scale = MAX_SIDE / max(img.size)
-        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
+    if max(origem.size) > MAX_SIDE:
+        scale = MAX_SIDE / max(origem.size)
+        origem = origem.resize((round(origem.width * scale), round(origem.height * scale)), Image.LANCZOS)
+
+    # imagem nova a partir dos bytes de pixel: nada do `info` da origem viaja junto
+    img = Image.frombytes("RGB", origem.size, origem.tobytes())
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True,
+             progressive=True, subsampling=JPEG_SUBSAMPLING)
     return buf.getvalue(), img.width, img.height
 
 
@@ -151,4 +164,8 @@ def as_cover(item: dict[str, Any] | None) -> dict[str, Any] | None:
     """Recorte que vai gravado no post — o post não guarda o catálogo inteiro."""
     if not item:
         return None
-    return {k: item.get(k, "") for k in ("hash", "provider", "credit", "sourceUrl", "alt")}
+    recorte = {k: item.get(k, "") for k in ("hash", "provider", "credit", "sourceUrl", "alt")}
+    # dimensões viajam junto: o og:image declarado dá cartão grande no LinkedIn
+    recorte["width"] = item.get("width", 0)
+    recorte["height"] = item.get("height", 0)
+    return recorte

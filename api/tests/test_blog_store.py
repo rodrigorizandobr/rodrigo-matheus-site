@@ -110,3 +110,34 @@ class TestPosts:
 
     def test_sem_nenhuma_geracao_devolve_None(self, db):
         assert store.last_generated_at() is None
+
+
+class TestCapaSemFichaTecnica:
+    """O JSON público não conta como a capa foi feita."""
+
+    def test_provider_e_prompt_da_capa_somem_da_resposta_publica(self, db):
+        post = store.create_post({
+            "slug": "com-capa", "tags": ["ia"],
+            "image": {"hash": "a" * 64, "provider": "gemini", "credit": "",
+                      "sourceUrl": "", "alt": "capa", "prompt": "um cabo vermelho",
+                      "width": 1920, "height": 1080},
+            "i18n": {l: {"title": "T", "excerpt": "E",
+                      "sections": [{"heading": "h", "paragraphs": ["p"]}]} for l in ("pt", "en")},
+        })
+        store.publish_post(post["id"])
+        publico = store.get_public_post(post["slug"])
+        assert set(publico["image"]) == {"hash", "credit", "sourceUrl", "alt", "width", "height"}
+
+    def test_credito_do_banco_de_imagens_continua_publico(self, db):
+        """Crédito de terceiro é obrigação, não enfeite — esse não pode sumir."""
+        post = store.create_post({
+            "slug": "de-banco", "tags": ["ia"],
+            "image": {"hash": "b" * 64, "provider": "pixabay", "credit": "Foto de Fulano",
+                      "sourceUrl": "https://pixabay.com/x", "alt": "capa"},
+            "i18n": {l: {"title": "T", "excerpt": "E",
+                      "sections": [{"heading": "h", "paragraphs": ["p"]}]} for l in ("pt", "en")},
+        })
+        store.publish_post(post["id"])
+        publico = store.get_public_post(post["slug"])
+        assert publico["image"]["credit"] == "Foto de Fulano"
+        assert publico["image"]["sourceUrl"] == "https://pixabay.com/x"

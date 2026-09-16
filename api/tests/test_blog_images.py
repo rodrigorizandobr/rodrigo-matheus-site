@@ -15,6 +15,15 @@ def _png(w=1200, h=700, cor=(240, 240, 242)) -> bytes:
     return buf.getvalue()
 
 
+def _resposta_com_imagem():
+    """Resposta do Gemini com um PNG embutido, como a API devolve."""
+    return type("R", (), {
+        "ok": True, "status_code": 200,
+        "json": lambda self=None: {"candidates": [{"content": {"parts": [
+            {"inlineData": {"data": base64.b64encode(_png()).decode()}}]}}]},
+    })()
+
+
 class FakeResp:
     def __init__(self, payload=None, content=b"", status=200):
         self._payload, self.content, self.status_code = payload, content, status
@@ -142,3 +151,41 @@ class TestLeitura:
     def test_toda_capa_gerada_entra_na_biblioteca(self, bucket, gemini_ok):
         capa = images.build_cover("x", "alt")
         assert media.get_media(capa["hash"])["provider"] == "gemini"
+
+
+class TestSemAssinaturaDeIA:
+    def test_capa_de_ia_nao_leva_credito_dizendo_que_e_de_ia(self, bucket, monkeypatch):
+        monkeypatch.setattr(images, "API_KEY", "k")
+        monkeypatch.setattr(images.requests, "post", lambda *a, **k: _resposta_com_imagem())
+        item = images.generate_image("uma cena", alt="capa")
+        assert item["credit"] == ""
+
+    def test_pede_16x9_em_2k_ao_modelo(self, bucket, monkeypatch):
+        capturado = {}
+
+        def fake_post(url, **kw):
+            capturado["url"] = url
+            capturado["body"] = kw.get("json")
+            return _resposta_com_imagem()
+
+        monkeypatch.setattr(images, "API_KEY", "k")
+        monkeypatch.setattr(images.requests, "post", fake_post)
+        images.generate_image("uma cena")
+        cfg = capturado["body"]["generationConfig"]["imageConfig"]
+        assert cfg["aspectRatio"] == "16:9" and cfg["imageSize"] == "2K"
+        assert images.IMAGE_MODEL in capturado["url"]
+
+    def test_se_o_modelo_bom_falhar_tenta_o_rapido_antes_de_desistir(self, bucket, monkeypatch):
+        tentativas = []
+
+        def fake_post(url, **kw):
+            tentativas.append(url.split("/models/")[1].split(":")[0])
+            if len(tentativas) == 1:
+                return type("R", (), {"ok": False, "status_code": 500, "text": "erro"})()
+            return _resposta_com_imagem()
+
+        monkeypatch.setattr(images, "API_KEY", "k")
+        monkeypatch.setattr(images.requests, "post", fake_post)
+        item = images.generate_image("uma cena")
+        assert item is not None
+        assert tentativas == [images.IMAGE_MODEL, images.IMAGE_MODEL_FALLBACK]

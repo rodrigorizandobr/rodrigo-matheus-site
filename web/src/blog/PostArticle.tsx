@@ -20,12 +20,16 @@ export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; m
       {cover && (
         <figure className="mb-7 md:mb-8">
           <img src={cover} alt={post.image?.alt || post.imageAlt} loading="lazy" decoding="async"
+               width={post.image?.width || undefined} height={post.image?.height || undefined}
                className="w-full aspect-[16/9] object-cover border border-line" />
-          <figcaption className="font-mono text-[10.5px] text-muted mt-2">
-            {post.image?.sourceUrl
-              ? <a href={post.image.sourceUrl} rel="noopener nofollow" target="_blank" className="hover:text-red">{post.image.credit}</a>
-              : post.image?.credit}
-          </figcaption>
+          {/* Crédito só existe quando há a quem creditar: banco de imagens tem, ilustração da casa não. */}
+          {post.image?.credit && (
+            <figcaption className="font-mono text-[10.5px] text-muted mt-2">
+              {post.image.sourceUrl
+                ? <a href={post.image.sourceUrl} rel="noopener nofollow" target="_blank" className="hover:text-red">{post.image.credit}</a>
+                : post.image.credit}
+            </figcaption>
+          )}
         </figure>
       )}
 

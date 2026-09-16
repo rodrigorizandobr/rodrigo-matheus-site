@@ -147,3 +147,29 @@ class TestOrigemDoShell:
         page._shell(); page._shell()
         assert len(chamadas) == 1
         assert page.SHELL_TTL <= 120, "cache longo faz a página do post ficar com o bundle velho após o deploy"
+
+
+class TestCartaoDeLink:
+    """O post vai para o LinkedIn como ARTICLE: quem desenha o cartão é o og:."""
+
+    def _html(self, client, blog, **over):
+        imagem = {"hash": "a" * 64, "provider": "gemini", "credit": "", "sourceUrl": "",
+                  "alt": "cabo vermelho", "width": 1920, "height": 1080}
+        post = store.create_post(_post(image={**imagem, **over}))
+        store.publish_post(post["id"])
+        return client.get(f"/blog/{post['slug']}").get_data(as_text=True)
+
+    def test_declara_tamanho_da_capa_para_o_cartao_sair_grande(self, client, blog):
+        html = self._html(client, blog)
+        assert 'property="og:image:width" content="1920"' in html
+        assert 'property="og:image:height" content="1080"' in html
+
+    def test_sem_dimensao_gravada_nao_inventa_numero(self, client, blog):
+        html = self._html(client, blog, width=0, height=0)
+        assert "og:image:width" not in html
+
+    def test_cartao_largo_no_twitter_e_no_whatsapp(self, client, blog):
+        assert 'name="twitter:card" content="summary_large_image"' in self._html(client, blog)
+
+    def test_alt_da_capa_vai_junto(self, client, blog):
+        assert 'property="og:image:alt" content="cabo vermelho"' in self._html(client, blog)
