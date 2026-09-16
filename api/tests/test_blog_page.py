@@ -169,7 +169,10 @@ class TestCartaoDeLink:
         assert "og:image:width" not in html
 
     def test_cartao_largo_no_twitter_e_no_whatsapp(self, client, blog):
-        assert 'name="twitter:card" content="summary_large_image"' in self._html(client, blog)
+        html = self._html(client, blog)
+        assert 'name="twitter:card" content="summary_large_image"' in html
+        # o shell já traz a sua: duas tags iguais é aposta em qual o robô lê primeiro
+        assert html.count('name="twitter:card"') == 1
 
     def test_alt_da_capa_vai_junto(self, client, blog):
         assert 'property="og:image:alt" content="cabo vermelho"' in self._html(client, blog)

@@ -133,8 +133,9 @@ def blog_post_page(slug: str):
         out = _replace_meta(out, "og:image", f"{SITE}/api/blog/image/{image['hash']}.jpg")
 
     published = post.get("publishedAt")
-    extra = [f'<meta property="og:url" content="{url}" />', f'<link rel="canonical" href="{url}" />',
-             '<meta name="twitter:card" content="summary_large_image" />']
+    extra = [f'<meta property="og:url" content="{url}" />', f'<link rel="canonical" href="{url}" />']
+    if 'name="twitter:card"' not in out:
+        extra.append('<meta name="twitter:card" content="summary_large_image" />')
     if image:
         # LinkedIn e WhatsApp só desenham o cartão grande quando o tamanho vem declarado;
         # sem isso eles baixam a imagem, desistem no tempo limite e caem no cartão pequeno.
