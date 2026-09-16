@@ -22,6 +22,7 @@ export function Training() {
               </div>
               <h3 className="font-display font-semibold uppercase tracking-wide text-heading text-[14px] leading-tight">{e.institution}</h3>
               <p className="text-[12.5px] leading-relaxed text-text">{e.degree}</p>
+              {e.note && <p className="text-[11.5px] leading-relaxed text-muted">{e.note}</p>}
             </article>
           </Reveal>
         ))}

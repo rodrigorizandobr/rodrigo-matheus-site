@@ -7,7 +7,7 @@ import { Reveal } from '../ui/Reveal'
 import { pinDistance, shouldPin } from '../../motion/horizontalPin'
 
 /**
- * CAMPANHAS: os 16 cargos como linha do tempo.
+ * CAMPANHAS: todos os cargos do currículo como linha do tempo.
  *
  * No desktop a seção PRENDE e a linha corre para o lado enquanto a pessoa rola:
  * chegando ao fim da trilha, a página volta a descer normalmente; subindo, a trilha
@@ -84,6 +84,7 @@ export function Campaigns() {
                   </div>
                   <h3 className="font-display font-semibold uppercase tracking-wide text-heading text-[15px] mt-2 leading-tight">{it.company}</h3>
                   <div className="text-[12.5px] text-red font-medium mt-0.5">{it.role}</div>
+                  {it.location && <div className="font-mono text-[10.5px] text-muted mt-1">{it.location}</div>}
                   {/* No horizontal, o texto é aparado: cartão que cresce sozinho obriga
                       toda a trilha à altura do mais longo e enche a tela de vazio. */}
                   <p className="text-[13px] leading-relaxed text-text mt-3 lg:line-clamp-[12]">{it.description}</p>

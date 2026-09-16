@@ -43,6 +43,27 @@ export function About() {
           </Reveal>
 
           <Reveal className="panel p-6" delay={0.1}>
+            <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
+              <div>
+                <div className="hud-label mb-3">{s.stack}</div>
+                <ul aria-label={s.stack} className="flex flex-wrap gap-2">
+                  {t.about.stack.map((tech) => (
+                    <li key={tech} className="font-mono text-[11.5px] px-2.5 py-1.5 border border-line bg-surface/70 text-heading">{tech}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="md:border-l md:border-line md:pl-5">
+                <div className="hud-label mb-3">{s.languages}</div>
+                <ul className="grid gap-1.5">
+                  {t.about.languages.map((idioma) => (
+                    <li key={idioma} className="font-mono text-[11.5px] text-text whitespace-nowrap">{idioma}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal className="panel p-6" delay={0.1}>
             <div className="flex items-center justify-between mb-3">
               <span className="hud-label">{s.skills}</span>
               <span className="flex gap-1.5">

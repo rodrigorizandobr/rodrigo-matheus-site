@@ -54,6 +54,26 @@ export function Arena() {
           {arena.repos.map((r, i) => <RepoCard key={r.name} repo={r} i={i} t={t} />)}
         </ul>
       )}
+
+      {/* O que não está no GitHub: publicação, palestra e o projeto autoral do currículo.
+          Fica aqui porque é a mesma pergunta que os repos respondem — o que ele produziu. */}
+      <Reveal className="panel p-6 mt-4">
+        <div className="hud-label mb-4">{s.works}</div>
+        <ul className="grid gap-4 md:grid-cols-3">
+          {t.projects.works.map((w) => (
+            <li key={w.title} className="border-l-2 border-line pl-4">
+              <h3 className="font-display font-semibold uppercase tracking-wide text-heading text-[12.5px] leading-tight">
+                {w.url
+                  ? <a href={w.url} target="_blank" rel="noopener noreferrer" className="hover:text-red inline-flex items-center gap-1">
+                      {w.title}<IconArrowUpRight width={11} height={11} />
+                    </a>
+                  : w.title}
+              </h3>
+              <p className="text-[12px] leading-relaxed text-muted mt-1.5">{w.note}</p>
+            </li>
+          ))}
+        </ul>
+      </Reveal>
     </Section>
     </div>
   )

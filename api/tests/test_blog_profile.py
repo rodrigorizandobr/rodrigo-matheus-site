@@ -5,7 +5,7 @@ from blog import profile
 class TestCurriculo:
     def test_traz_cargo_empresa_periodo_e_descricao(self):
         texto = profile.career_context()
-        assert "banQi" in texto and "Gerente de Engenharia" in texto
+        assert "Digio" in texto and "Gerente de Engenharia" in texto
         assert "40" in texto, "os números de carreira são o que dá especificidade ao texto"
 
     def test_traz_formacao_e_competencias(self):
@@ -17,7 +17,7 @@ class TestCurriculo:
 
     def test_experiencias_vem_das_mais_recentes_para_as_mais_antigas(self):
         texto = profile.career_context()
-        assert texto.index("banQi") < texto.index("EXPERIÊNCIA") + len(texto)
+        assert texto.index("Digio") < texto.index("Casas Bahia Pay") < texto.index("Serasa Experian")
 
     def test_memoiza_para_nao_reler_o_arquivo_a_cada_post(self):
         assert profile.career_context() is profile.career_context()

@@ -30,16 +30,45 @@ describe('About — BIO', () => {
     r(<About />)
     for (const s of en.hero.stats) expect(screen.getByText(s.value)).toBeInTheDocument()
   })
+
+  it('a stack do currículo aparece inteira — era a lista que o site não tinha', () => {
+    r(<About />)
+    const list = screen.getByRole('list', { name: /STACK/ })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(en.about.stack.length)
+    expect(within(list).getByText('Kafka')).toBeInTheDocument()
+    expect(within(list).getByText('.NET')).toBeInTheDocument()
+  })
+
+  it('idiomas com o nível declarado no currículo', () => {
+    r(<About />)
+    expect(screen.getByText(/English \(Full Professional\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Portuguese \(Native \/ Bilingual\)/)).toBeInTheDocument()
+  })
 })
 
-describe('Campaigns — 16 experiências', () => {
-  it('renderiza 16 cards, o primeiro como ATIVA, em ordem do i18n', () => {
+describe('Campaigns — os 17 cargos do currículo', () => {
+  it('renderiza um card por cargo, o atual como ATIVA, em ordem do i18n', () => {
     r(<Campaigns />)
     const items = screen.getAllByRole('article')
-    expect(items).toHaveLength(16)
+    expect(items).toHaveLength(en.experience.items.length)
+    expect(items).toHaveLength(17)
     expect(within(items[0]).getByText('ACTIVE')).toBeInTheDocument()
-    expect(within(items[0]).getByText('banQi — Casas Bahia')).toBeInTheDocument()
-    expect(within(items[15]).queryByText('ACTIVE')).toBeNull()
+    expect(within(items[0]).getByText('Digio')).toBeInTheDocument()
+    expect(within(items[16]).queryByText('ACTIVE')).toBeNull()
+  })
+
+  it('o emprego anterior deixou de ser o atual e ganhou data de saída', () => {
+    r(<Campaigns />)
+    const items = screen.getAllByRole('article')
+    expect(within(items[1]).getByText('Casas Bahia Pay')).toBeInTheDocument()
+    expect(within(items[1]).getByText(/June 2024 → June 2026/)).toBeInTheDocument()
+    expect(within(items[1]).queryByText('ACTIVE')).toBeNull()
+  })
+
+  it('mostra a praça de cada cargo, que o currículo traz e o site ignorava', () => {
+    r(<Campaigns />)
+    const items = screen.getAllByRole('article')
+    expect(within(items[12]).getByText(/Américo Brasiliense/)).toBeInTheDocument()
   })
 })
 
@@ -82,6 +111,25 @@ describe('Arena — repos do GitHub', () => {
     expect(window.gtag).toHaveBeenCalledWith('event', 'repo_card_flip', { repo_name: 'alpha', language: 'en' })
     await userEvent.click(within(cards[0]).getByRole('link', { name: /open repo/i }))
     expect(window.gtag).toHaveBeenCalledWith('event', 'repo_link_click', { repo_name: 'alpha', language: 'en' })
+  })
+})
+
+describe('Training — formação com a linha de descrição do currículo', () => {
+  it('cada curso mostra também o que o currículo descreve dele', () => {
+    r(<Training />)
+    for (const e of en.education.items) {
+      expect(screen.getByText(e.note)).toBeInTheDocument()
+    }
+  })
+})
+
+describe('Arena — projetos e comunidade do currículo', () => {
+  it('lista os três projetos do currículo, com link onde existe', () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+    r(<Arena />)
+    for (const w of en.projects.works) expect(screen.getByText(w.title)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /CrawlerJS/ }))
+      .toHaveAttribute('href', 'https://github.com/rodrigorizandobr')
   })
 })
 
