@@ -245,15 +245,6 @@
       "leading": "COMANDO",
       "ai": "IA / ML"
     },
-    "top": {
-      "repos": "REPOS",
-      "commits": "COMMITS · 28D",
-      "stars": "STARS",
-      "link": "LINK",
-      "online": "ONLINE",
-      "offline": "OFFLINE",
-      "syncing": "SINCRONIZANDO"
-    },
     "unit": "UNIDADE",
     "rank": "RANK",
     "location": "SÃO PAULO · BR",
