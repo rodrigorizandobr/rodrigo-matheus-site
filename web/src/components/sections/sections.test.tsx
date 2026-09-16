@@ -57,6 +57,14 @@ describe('Campaigns — os 17 cargos do currículo', () => {
     expect(within(items[16]).queryByText('ACTIVE')).toBeNull()
   })
 
+  it('o cargo do Casas Bahia Pay reflete o ajuste do PO: 5 squads, com Consórcio dentro', () => {
+    r(<Campaigns />)
+    const card = screen.getAllByRole('article')[1]
+    expect(within(card).getByText(/5 high-performance squads/)).toBeInTheDocument()
+    expect(within(card).getByText(/Consortium/)).toBeInTheDocument()
+    expect(within(card).queryByText(/Super App|Databricks|R\$ 5–10/)).toBeNull()
+  })
+
   it('o emprego anterior deixou de ser o atual e ganhou data de saída', () => {
     r(<Campaigns />)
     const items = screen.getAllByRole('article')
