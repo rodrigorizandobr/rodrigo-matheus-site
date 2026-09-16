@@ -6,6 +6,7 @@ import { ConfigPanel } from './admin/ConfigPanel'
 import { PostList } from './admin/PostList'
 import { PostPreview } from './admin/PostPreview'
 import { MediaPage } from './admin/MediaPage'
+import { LinkedInPanel } from './admin/LinkedInPanel'
 import { ImagePicker } from './admin/ImagePicker'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 
@@ -119,8 +120,13 @@ export function AdminPage() {
       {tab === 'media' && <MediaPage api={api.media} />}
 
       {tab === 'config' && config && (
-        <ConfigPanel config={config} busy={busy === 'config'}
-                     onSave={(patch) => run('config', async () => { setConfig(await api.saveConfig(patch)) }, 'Configuração salva.')} />
+        <div className="grid gap-5">
+          <ConfigPanel config={config} busy={busy === 'config'}
+                       onSave={(patch) => run('config', async () => { setConfig(await api.saveConfig(patch)) }, 'Configuração salva.')} />
+          <LinkedInPanel config={config} api={api.linkedin} busy={busy === 'config'}
+                         onSave={(patch) => run('config', async () => { setConfig(await api.saveConfig(patch)) }, 'Agenda do LinkedIn salva.')}
+                         onMessage={(kind, text) => setMessage({ kind, text })} />
+        </div>
       )}
 
       {tab === 'posts' && editing && (
@@ -135,6 +141,9 @@ export function AdminPage() {
           }, 'Post salvo.')}
           onRevise={(instruction) => run('revise', async () => { update(await api.revise(editing.id, instruction)) }, 'Post reescrito pela IA.')}
           onCover={(prompt) => run('cover', async () => { update(await api.cover(editing.id, prompt)) }, 'Capa nova gerada.')}
+          onToggleLinkedin={() => run('linkedin', async () => {
+            update(await api.update(editing.id, { linkedinEnabled: editing.linkedinEnabled === false }))
+          })}
           onPickCover={() => setPickingCover(true)}
           onClearCover={() => run('cover', async () => { update(await api.setCover(editing.id, null)) }, 'Capa removida.')}
           onPublish={() => run('publish', async () => { update(await api.publish(editing.id)) }, 'No ar.')}
@@ -222,6 +231,13 @@ export function AdminPage() {
                         setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
                       }, post.status === 'published' ? 'Post fora do ar.' : 'Post no ar.')
                         .finally(() => setTogglingId(null))
+                    }}
+                    onToggleLinkedin={(post) => {
+                      setTogglingId(post.id)
+                      void run('linkedin', async () => {
+                        const saved = await api.update(post.id, { linkedinEnabled: post.linkedinEnabled === false })
+                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
+                      }).finally(() => setTogglingId(null))
                     }} />
         </>
       )}

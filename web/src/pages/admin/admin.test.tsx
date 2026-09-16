@@ -13,6 +13,7 @@ const post = (over: Partial<Post> = {}): Post => ({
     pt: { title: 'Título PT', excerpt: 'Resumo PT', sections: [{ heading: 'Seção', paragraphs: ['Parágrafo.'] }] },
     en: { title: 'Title EN', excerpt: 'Excerpt EN', sections: [{ heading: 'Section', paragraphs: ['Paragraph.'] }] },
   },
+  linkedinEnabled: true, linkedinPostedAt: null,
   createdAt: '2026-09-14T00:00:00Z', updatedAt: '2026-09-14T00:00:00Z',
   scheduledFor: null, publishedAt: null, ...over,
 })
@@ -20,30 +21,30 @@ const post = (over: Partial<Post> = {}): Post => ({
 describe('PostList — ações de cada post', () => {
   it('rascunho também tem visualizar: é o único jeito de ver antes de publicar', async () => {
     const onPreview = vi.fn()
-    render(<PostList posts={[post({ status: 'draft' })]} onPreview={onPreview} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'draft' })]} onPreview={onPreview} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /visualizar/i }))
     expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
 
   it('post publicado ganha também um link para a página real', () => {
-    render(<PostList posts={[post({ status: 'published', slug: 'no-ar' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'published', slug: 'no-ar' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     expect(screen.getByRole('link', { name: /no site/i })).toHaveAttribute('href', '/blog/no-ar')
   })
 
   it('rascunho NÃO oferece link para o site — a página não existe ainda', () => {
-    render(<PostList posts={[post({ status: 'draft' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'draft' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     expect(screen.queryByRole('link', { name: /no site/i })).toBeNull()
   })
 
   it('mostra o estado e a data de cada post', () => {
-    render(<PostList posts={[post({ status: 'scheduled', scheduledFor: '2026-09-20T11:00:00Z' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[post({ status: 'scheduled', scheduledFor: '2026-09-20T11:00:00Z' })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     expect(screen.getByText('scheduled')).toBeInTheDocument()
     expect(screen.getByText('2026-09-20')).toBeInTheDocument()
   })
 
   it('post sem título ainda aparece na lista, com aviso', () => {
     const vazio = post({ i18n: { pt: { title: '', excerpt: '', sections: [] }, en: { title: '', excerpt: '', sections: [] } } })
-    render(<PostList posts={[vazio]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[vazio]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     expect(screen.getByText(/sem título/i)).toBeInTheDocument()
   })
 
@@ -53,19 +54,19 @@ describe('PostList — ações de cada post', () => {
     ['published', 'despublicar'],
   ])('post %s mostra o botao %s direto na lista', async (status, rotulo) => {
     const onToggle = vi.fn()
-    render(<PostList posts={[post({ status: status as never })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={onToggle} />)
+    render(<PostList posts={[post({ status: status as never })]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={onToggle} onToggleLinkedin={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: new RegExp(`^${rotulo}$`, 'i') }))
     expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
 
   it('a acao fica desabilitada enquanto outra esta em andamento', () => {
-    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} busyId="1" />)
+    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={vi.fn()} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} busyId="1" />)
     expect(screen.getByRole('button', { name: /publicar/i })).toBeDisabled()
   })
 
   it('editar chama de volta com o post', async () => {
     const onEdit = vi.fn()
-    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={onEdit} onTogglePublish={vi.fn()} />)
+    render(<PostList posts={[post()]} onPreview={vi.fn()} onEdit={onEdit} onTogglePublish={vi.fn()} onToggleLinkedin={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /^editar$/i }))
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
@@ -107,5 +108,42 @@ describe('PostPreview — vê o post como o leitor veria', () => {
     })
     render(<PostPreview post={longo} onClose={vi.fn()} />)
     expect(screen.getByText(/3 min/)).toBeInTheDocument()
+  })
+})
+
+describe('marca do LinkedIn em cada post', () => {
+  const props = (over = {}) => ({
+    posts: [post({ status: 'published' })], onPreview: vi.fn(), onEdit: vi.fn(),
+    onTogglePublish: vi.fn(), onToggleLinkedin: vi.fn(), ...over,
+  })
+
+  it('post publicado mostra que está na fila do LinkedIn', () => {
+    render(<PostList {...props()} />)
+    expect(screen.getByRole('button', { name: /linkedin/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('post sem o campo conta como habilitado — o padrão é compartilhar', () => {
+    const semCampo = post({ status: 'published' })
+    delete (semCampo as Record<string, unknown>).linkedinEnabled
+    render(<PostList {...props({ posts: [semCampo] })} />)
+    expect(screen.getByRole('button', { name: /linkedin/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('clicar alterna e avisa quem chamou', async () => {
+    const onToggleLinkedin = vi.fn()
+    render(<PostList {...props({ onToggleLinkedin })} />)
+    await userEvent.click(screen.getByRole('button', { name: /linkedin/i }))
+    expect(onToggleLinkedin).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+  })
+
+  it('post já compartilhado diz quando foi, e não oferece alternar', () => {
+    render(<PostList {...props({ posts: [post({ status: 'published', linkedinPostedAt: '2026-09-15T12:00:00Z' })] })} />)
+    expect(screen.getByText(/no linkedin/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^linkedin$/i })).toBeNull()
+  })
+
+  it('rascunho não mostra nada de LinkedIn — ele nem entra na fila', () => {
+    render(<PostList {...props({ posts: [post({ status: 'draft' })] })} />)
+    expect(screen.queryByRole('button', { name: /linkedin/i })).toBeNull()
   })
 })

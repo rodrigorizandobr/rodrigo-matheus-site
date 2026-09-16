@@ -1,4 +1,4 @@
-import type { BlogConfig, MediaItem, NewPost, Post, StockResult } from './types'
+import type { BlogConfig, LinkedInStatus, MediaItem, NewPost, Post, StockResult } from './types'
 
 /**
  * Cliente da API do blog. Leitura é pública; escrita passa pelo painel e vai
@@ -73,6 +73,17 @@ export const blogApi = {
       /** escolhe uma imagem já catalogada — `null` tira a capa */
       setCover: async (id: string, hash: string | null) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { hash })).post,
+
+      linkedin: {
+        status: async () => call<LinkedInStatus>('/api/blog/admin/linkedin'),
+        /** devolve a URL de autorização; a janela do navegador vai para lá */
+        connect: async () => (await call<{ url: string }>('/api/blog/admin/linkedin/connect', 'POST')).url,
+        disconnect: async () => call<{ ok: boolean }>('/api/blog/admin/linkedin/disconnect', 'POST'),
+        saveApp: async (clientId: string, clientSecret: string) =>
+          call<LinkedInStatus>('/api/blog/admin/linkedin/app', 'POST', { clientId, clientSecret }),
+        /** manda o próximo da fila agora; `null` quando a fila está vazia */
+        shareNow: async () => (await call<{ post: Post | null }>('/api/blog/admin/linkedin/share', 'POST')).post,
+      },
 
       media: {
         list: async () => (await call<{ items: MediaItem[] }>('/api/blog/admin/media')).items,

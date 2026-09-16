@@ -71,6 +71,7 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
     --set-env-vars "SERPER_API_KEY=${SERPER_API_KEY:-}" \
     --set-env-vars "BLOG_ADMIN_EMAILS=${BLOG_ADMIN_EMAILS:-rodrigorizando@gmail.com}" \
+    --set-env-vars "SITE_URL=${SITE_URL:-https://rodrigomatheus.com.br}" \
     --quiet
 else
   echo "⚠ REFRESH_KEY/GITHUB_TOKEN ausentes no .env — pulando atualização de env vars."

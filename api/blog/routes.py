@@ -17,9 +17,9 @@ from datetime import datetime, timezone
 from functools import wraps
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify, redirect, request
 
-from . import images, media, model, service, store
+from . import images, linkedin, media, model, service, store
 from .auth import AuthError, verify_admin
 
 bp = Blueprint("blog", __name__)
@@ -318,6 +318,78 @@ def admin_save_config():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"config": _json(cfg)})
+
+
+# ── LinkedIn ────────────────────────────────────────────────────────────────
+
+@bp.get("/api/blog/admin/linkedin")
+@admin_only
+def linkedin_status():
+    return jsonify(_json(linkedin.status()))
+
+
+@bp.post("/api/blog/admin/linkedin/connect")
+@admin_only
+def linkedin_connect():
+    """Devolve a URL de autorização. O `state` é criado AQUI, por um admin logado —
+    é o que garante que o callback, que chega sem token, veio de um pedido nosso."""
+    url = linkedin.authorize_url(linkedin.create_state())
+    if not url:
+        return jsonify({"error": "cadastre o app do LinkedIn (client id e secret) antes de conectar"}), 409
+    return jsonify({"url": url})
+
+
+@bp.get("/api/blog/admin/linkedin/callback")
+def linkedin_callback():
+    """O LinkedIn manda o navegador para cá — sem cabeçalho de autenticação possível.
+
+    Quem autoriza é o `state`: de uso único, com validade curta, e só existe porque um
+    admin logado pediu a conexão. Sem ele, nada é gravado.
+    """
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+    if not code:
+        return jsonify({"error": "sem code"}), 400
+    if not linkedin.consume_state(state):
+        return jsonify({"error": "state inválido ou vencido — peça a conexão de novo pelo painel"}), 400
+    try:
+        token, expires_in = linkedin.exchange_code(code)
+        linkedin.save_auth(token, expires_in)
+    except linkedin.LinkedInError as exc:
+        return jsonify({"error": str(exc)}), 502
+    return redirect("/admin?linkedin=ok", code=302)
+
+
+@bp.post("/api/blog/admin/linkedin/disconnect")
+@admin_only
+def linkedin_disconnect():
+    linkedin.disconnect()
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/blog/admin/linkedin/app")
+@admin_only
+def linkedin_save_app():
+    body = request.get_json(silent=True) or {}
+    client_id = (body.get("clientId") or "").strip()
+    client_secret = (body.get("clientSecret") or "").strip()
+    if not client_id or not client_secret:
+        return jsonify({"error": "client id e secret são obrigatórios"}), 400
+    linkedin.save_credentials(client_id, client_secret)
+    return jsonify(_json(linkedin.status()))
+
+
+@bp.post("/api/blog/admin/linkedin/share")
+@admin_only
+def linkedin_share_now():
+    """Manda o próximo da fila agora, sem esperar o agendador."""
+    try:
+        post = service.share_next()
+    except service.NotConnectedError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except linkedin.LinkedInError as exc:
+        return jsonify({"error": str(exc)}), 502
+    return jsonify({"post": _json(post)})
 
 
 # ── agendador ───────────────────────────────────────────────────────────────

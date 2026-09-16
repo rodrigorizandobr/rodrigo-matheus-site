@@ -14,6 +14,8 @@ from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
 DEFAULT_TZ = "America/Sao_Paulo"
+#: usado só para ordenar: post sem data de publicação vai para o fim da fila
+_FAR_FUTURE = datetime(9999, 1, 1, tzinfo=timezone.utc)
 LANGS = ("pt", "en")
 MAX_TAGS = 6
 WORDS_PER_MINUTE = 200
@@ -29,6 +31,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "generate_weekdays": [0, 3],
     # Pesquisa na web (Serper + leitura das páginas) ao escrever. Opcional.
     "research_enabled": True,
+    # Compartilhamento automático no LinkedIn. Desligado até o autor conectar a conta.
+    "linkedin_enabled": False,
+    # terça e quinta, às 9h — horário em que post de carreira costuma render
+    "linkedin_weekdays": [1, 3],
+    "linkedin_hour": 9,
     # Assuntos vigiados. Medido contra o Serper: termo que é NOME DE PROFISSÃO
     # ("desenvolvimento de software", "arquitetura de software") devolve anúncio de
     # vaga e concurso; termo que nomeia um ACONTECIMENTO ou uma PERGUNTA DE NEGÓCIO
@@ -126,6 +133,48 @@ def pick_rotating(terms: list[str], history: list[str]) -> str | None:
 
     # `history` vem do mais recente para o mais antigo: índice maior = usado há mais tempo
     return max(livres, key=ultima_vez)
+
+
+def linkedin_queue(posts: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Posts esperando para ir ao LinkedIn, DO MAIS ANTIGO para o mais novo.
+
+    Começar pelos antigos é intencional (pedido do autor): o arquivo já escrito é o
+    que nunca foi divulgado, então ele sai na frente do que acabou de ser publicado.
+
+    `linkedinEnabled` ausente conta como HABILITADO — o padrão é compartilhar, e os
+    posts que existiam antes desta funcionalidade não têm o campo gravado.
+    """
+    espera = [
+        p for p in posts or []
+        if p.get("status") == "published"
+        and p.get("linkedinEnabled", True)
+        and not p.get("linkedinPostedAt")
+    ]
+    # Sem data de publicação vai para o fim, em vez de derrubar a ordenação.
+    return sorted(espera, key=lambda p: (p.get("publishedAt") is None, p.get("publishedAt") or _FAR_FUTURE))
+
+
+def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | None) -> bool:
+    """É hora de mandar um post para o LinkedIn?
+
+    Mesma forma de `should_generate`: dia da semana, hora local e no máximo uma vez
+    por dia — o agendador bate de hora em hora.
+    """
+    if not cfg.get("linkedin_enabled"):
+        return False
+    weekdays = cfg.get("linkedin_weekdays") or []
+    if not weekdays:
+        return False
+
+    tz = _tz(cfg)
+    local = now.astimezone(tz)
+    if local.weekday() not in weekdays:
+        return False
+    if local.hour < int(cfg.get("linkedin_hour", DEFAULT_CONFIG["linkedin_hour"])):
+        return False
+    if last_shared_at is not None and last_shared_at.astimezone(tz).date() == local.date():
+        return False
+    return True
 
 
 def clean_tags(tags: Iterable[str]) -> list[str]:

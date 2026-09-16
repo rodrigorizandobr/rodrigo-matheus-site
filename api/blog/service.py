@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, images, model, profile, research, store
+from . import gemini, images, linkedin, model, profile, research, store
 
 
 class NoTopicError(RuntimeError):
@@ -104,10 +104,35 @@ def regenerate_cover(post_id: str, prompt: str | None = None) -> dict[str, Any] 
     return store.update_post(post_id, {"image": cover, "imagePrompt": usado})
 
 
+class NotConnectedError(RuntimeError):
+    """Sem token do LinkedIn — o autor precisa conectar a conta no painel."""
+
+
+def share_next(now: datetime | None = None) -> dict[str, Any] | None:
+    """Manda para o LinkedIn o post mais antigo que ainda não foi.
+
+    Devolve o post compartilhado, ou None quando a fila está vazia. Só marca como
+    compartilhado DEPOIS que o LinkedIn confirma — falhar e marcar perderia o post
+    para sempre.
+    """
+    now = now or _now()
+    auth = linkedin.get_auth()
+    if not auth:
+        raise NotConnectedError("conecte a conta do LinkedIn no painel")
+
+    fila = model.linkedin_queue(store.list_posts())
+    if not fila:
+        return None
+
+    post = fila[0]
+    urn = linkedin.publish(auth, linkedin.share_text(post), f"{linkedin.SITE}/blog/{post['slug']}")
+    return store.mark_shared(post["id"], urn, now=now)
+
+
 def tick(now: datetime | None = None) -> dict[str, Any]:
     """Batida do agendador: publica o que venceu e, se for a hora, gera o próximo."""
     now = now or _now()
-    result: dict[str, Any] = {"published": 0, "generated": 0, "error": ""}
+    result: dict[str, Any] = {"published": 0, "generated": 0, "shared": 0, "error": ""}
 
     # Primeiro o que tem hora marcada — não pode depender do Gemini estar de pé.
     try:
@@ -116,6 +141,16 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
         result["error"] = f"publicação: {exc}"
 
     cfg = store.get_config()
+
+    # LinkedIn antes da geração, pela mesma razão que publicar vem antes: tem hora
+    # marcada e não pode depender do Gemini estar de pé.
+    if model.should_share(now, cfg, store.last_shared_at()):
+        try:
+            compartilhado = share_next(now=now)
+            result["shared"] = 1 if compartilhado else 0
+        except Exception as exc:
+            result["error"] = (result["error"] + " | " if result["error"] else "") + f"linkedin: {exc}"
+
     if model.should_generate(now, cfg, store.last_generated_at()):
         try:
             generate(None, now=now)

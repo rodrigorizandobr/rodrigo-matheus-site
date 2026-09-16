@@ -10,12 +10,14 @@ const titleOf = (post: Post) => post.i18n?.pt?.title || post.i18n?.en?.title || 
  * cima, botões embaixo ocupando a largura — botão de 11px espremido ao lado de
  * um título truncado é impossível de acertar com o dedo.
  */
-export function PostList({ posts, onPreview, onEdit, onTogglePublish, busyId = null }: {
+export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLinkedin, busyId = null }: {
   posts: Post[]
   onPreview: (post: Post) => void
   onEdit: (post: Post) => void
   /** publicar (rascunho e agendado) ou tirar do ar (publicado), sem abrir o editor */
   onTogglePublish: (post: Post) => void
+  /** habilitar ou não este post para o compartilhamento no LinkedIn */
+  onToggleLinkedin: (post: Post) => void
   busyId?: string | null
 }) {
   return (
@@ -34,6 +36,22 @@ export function PostList({ posts, onPreview, onEdit, onTogglePublish, busyId = n
                   <span className="badge" data-status={post.status}>{post.status}</span>
                   <span className="font-mono text-[11px] text-muted">{dateOf(post)}</span>
                   {post.generation && <span className="font-mono text-[10px] text-muted">IA</span>}
+
+                  {/* Só post publicado entra na fila do LinkedIn. Campo ausente = habilitado. */}
+                  {post.status === 'published' && (
+                    post.linkedinPostedAt
+                      ? <span className="badge" title={`compartilhado em ${post.linkedinPostedAt.slice(0, 10)}`}>
+                          no LinkedIn · {post.linkedinPostedAt.slice(0, 10)}
+                        </span>
+                      : <button type="button" disabled={busyId === post.id}
+                                onClick={() => onToggleLinkedin(post)}
+                                aria-pressed={post.linkedinEnabled !== false}
+                                aria-label="LinkedIn"
+                                title={post.linkedinEnabled !== false ? 'na fila do LinkedIn — clique para tirar' : 'fora da fila do LinkedIn — clique para incluir'}
+                                className="toggle-chip !h-[1.4rem] !min-w-0 !px-2 !text-[10px]">
+                          LinkedIn
+                        </button>
+                  )}
                 </div>
                 <p className="font-display font-semibold text-heading text-[14px] mt-1 line-clamp-2 break-words">
                   {title || <span className="text-muted font-normal">(sem título)</span>}

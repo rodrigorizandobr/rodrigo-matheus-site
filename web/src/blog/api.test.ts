@@ -141,3 +141,37 @@ describe('biblioteca de mídia', () => {
     expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ topic: 'tema', context: '', research: false })
   })
 })
+
+describe('LinkedIn', () => {
+  const token = async () => 'jwt-123'
+
+  it('o status vai com o token e não pede corpo', async () => {
+    const f = fetchOk({ connected: false, hasApp: false })
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).linkedin.status()
+    expect(f.mock.calls[0][1].headers.Authorization).toBe('Bearer jwt-123')
+    expect(f.mock.calls[0][1].body).toBeUndefined()
+  })
+
+  it('conectar devolve a URL de autorização', async () => {
+    vi.stubGlobal('fetch', fetchOk({ url: 'https://www.linkedin.com/oauth/v2/authorization?x=1' }))
+    expect(await blogApi.admin(token).linkedin.connect()).toContain('linkedin.com/oauth')
+  })
+
+  it('sem app cadastrado (409) chega com a mensagem do servidor', async () => {
+    vi.stubGlobal('fetch', fetchOk({ error: 'cadastre o app do LinkedIn' }, 409))
+    await expect(blogApi.admin(token).linkedin.connect()).rejects.toThrow(/cadastre o app/)
+  })
+
+  it('compartilhar agora devolve null quando a fila está vazia', async () => {
+    vi.stubGlobal('fetch', fetchOk({ post: null }))
+    expect(await blogApi.admin(token).linkedin.shareNow()).toBeNull()
+  })
+
+  it('marcar um post para não ir ao LinkedIn é um PATCH comum', async () => {
+    const f = fetchOk({ post: post() })
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).update('1', { linkedinEnabled: false })
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ linkedinEnabled: false })
+  })
+})

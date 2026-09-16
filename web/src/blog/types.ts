@@ -37,6 +37,11 @@ export type Post = {
   references?: Reference[]
   /** posts antigos guardavam só as URLs */
   sources?: string[]
+  /** habilitado para ir ao LinkedIn — ausente conta como SIM */
+  linkedinEnabled?: boolean
+  /** quando foi ao LinkedIn; `null` = ainda na fila */
+  linkedinPostedAt?: string | null
+  linkedinUrn?: string
   createdAt: string
   updatedAt: string
   scheduledFor: string | null
@@ -91,6 +96,20 @@ export type BlogConfig = {
   research_enabled: boolean
   /** assuntos vigiados; o robô passa por todos em rodízio antes de repetir */
   news_terms: string[]
+  /** compartilhar os posts no LinkedIn automaticamente */
+  linkedin_enabled: boolean
+  /** 0 = segunda … 6 = domingo */
+  linkedin_weekdays: number[]
+  linkedin_hour: number
+}
+
+/** Resumo da conexão com o LinkedIn. Nunca carrega o token. */
+export type LinkedInStatus = {
+  connected: boolean
+  hasApp: boolean
+  personUrn?: string
+  daysLeft?: number
+  expiresAt?: string
 }
 
 /** URL pública da capa — servida pela nossa API, nunca pelo banco de imagens de origem. */

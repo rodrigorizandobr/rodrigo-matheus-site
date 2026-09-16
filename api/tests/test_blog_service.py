@@ -252,3 +252,65 @@ class TestAPartirDeUmaNoticia:
         monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research(context="c"))
         post = service.generate("apagão em datacenter", now=utc(2026, 9, 14, 21))
         assert post["topic"] == "apagão em datacenter"
+
+
+class TestCompartilharNoLinkedIn:
+    def _com_token(self, monkeypatch, urn="urn:li:share:1"):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        enviados = []
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda auth, texto, url: enviados.append({"texto": texto, "url": url}) or urn)
+        return enviados
+
+    def test_manda_o_MAIS_ANTIGO_primeiro(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        velho = service.generate("t1", now=utc(2026, 9, 10, 21)); store.publish_post(velho["id"], now=utc(2026, 9, 10, 22))
+        novo = service.generate("t2", now=utc(2026, 9, 14, 21)); store.publish_post(novo["id"], now=utc(2026, 9, 14, 22))
+        compartilhado = service.share_next(now=utc(2026, 9, 15, 12))
+        assert compartilhado["id"] == velho["id"]
+        assert enviados[0]["url"].endswith(f"/blog/{velho['slug']}")
+
+    def test_marca_e_nao_repete(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert store.get_post(post["id"])["linkedinUrn"] == "urn:li:share:1"
+        assert service.share_next(now=utc(2026, 9, 16, 12)) is None
+
+    def test_falha_do_linkedin_NAO_marca_o_post(self, env, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda *a: (_ for _ in ()).throw(service.linkedin.LinkedInError("422")))
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        with pytest.raises(service.linkedin.LinkedInError):
+            service.share_next(now=utc(2026, 9, 15, 12))
+        assert store.get_post(post["id"])["linkedinPostedAt"] is None, "marcar sem confirmar perderia o post"
+
+    def test_post_desmarcado_e_pulado(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        off = service.generate("t1", now=utc(2026, 9, 10, 21)); store.publish_post(off["id"], now=utc(2026, 9, 10, 22))
+        store.update_post(off["id"], {"linkedinEnabled": False})
+        on = service.generate("t2", now=utc(2026, 9, 12, 21)); store.publish_post(on["id"], now=utc(2026, 9, 12, 22))
+        assert service.share_next(now=utc(2026, 9, 15, 12))["id"] == on["id"]
+
+    def test_sem_conta_conectada_avisa_em_vez_de_estourar_generico(self, env, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: None)
+        with pytest.raises(service.NotConnectedError, match="conecte"):
+            service.share_next(now=utc(2026, 9, 15, 12))
+
+    def test_tick_compartilha_no_dia_e_hora_marcados(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        store.save_config({"linkedin_enabled": True, "linkedin_weekdays": [1], "linkedin_hour": 9,
+                           "generate_weekdays": []})
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        # 2026-09-15 é terça; 13:00 UTC = 10:00 SP
+        assert service.tick(now=utc(2026, 9, 15, 13))["shared"] == 1
+
+    def test_falha_no_linkedin_nao_impede_a_publicacao_agendada(self, env, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: None)
+        store.save_config({"linkedin_enabled": True, "linkedin_weekdays": [1], "linkedin_hour": 9,
+                           "delay_days": 0, "publish_hour": 8, "generate_weekdays": []})
+        service.generate("t", now=utc(2026, 9, 14, 21))  # agenda 15/09 11:00 UTC
+        resultado = service.tick(now=utc(2026, 9, 15, 13))
+        assert resultado["published"] == 1
+        assert "linkedin" in resultado["error"]

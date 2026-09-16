@@ -182,6 +182,15 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 - `site/index.html` e `site/blog/index.html` têm CSS e JS **inline**. Não existe bundler — edite no lugar.
 - `github_cache.json` na raiz é artefato local e está no `.gitignore`.
 
+- **O token do LinkedIn dura ~60 dias e não tem refresh.** Apps self-serve não recebem
+  `refresh_token`; quando vence, o compartilhamento para **em silêncio**. O painel
+  (`4. LinkedIn`, em configuração) mostra os dias restantes e fica vermelho a 10 dias — é o
+  único aviso. Credenciais do app ficam em Firestore `linkedin_auth/app`, o token em
+  `linkedin_auth/principal`, e o `state` do OAuth é documento de vida curta em `linkedin_state`.
+- **A fila do LinkedIn anda do post mais ANTIGO para o mais novo**, um por dia agendado, e só
+  pega `status == published` com `linkedinEnabled != false`. `linkedinEnabled`/`linkedinPostedAt`
+  estão em `INTERNAL_FIELDS` — o site público nunca os vê.
+
 ## Testes
 
 ```bash

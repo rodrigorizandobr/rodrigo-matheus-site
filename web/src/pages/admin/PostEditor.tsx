@@ -18,6 +18,7 @@ type Props = {
   onPreview: () => void
   onPickCover: () => void
   onClearCover: () => void
+  onToggleLinkedin: () => void
 }
 
 /**
@@ -119,6 +120,28 @@ export function PostEditor(p: Props) {
             <button type="button" className="cta !py-2 font-display font-semibold text-[11px] uppercase tracking-wider"
                     disabled={disabled} onClick={() => p.onSchedule(new Date(when))}>agendar</button>
           </div>
+        </div>
+
+        <div className="panel p-5 grid gap-3">
+          <span className="field-label !mb-0">LinkedIn</span>
+          {p.post.linkedinPostedAt ? (
+            <p className="text-[12px] text-muted leading-relaxed">
+              Compartilhado em {p.post.linkedinPostedAt.slice(0, 10)}. Um post vai ao LinkedIn uma vez só.
+            </p>
+          ) : (
+            <>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" disabled={disabled}
+                       checked={p.post.linkedinEnabled !== false} onChange={p.onToggleLinkedin} />
+                <span>
+                  <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Compartilhar no LinkedIn</span>
+                  <span className="block text-[12px] text-muted mt-0.5 leading-relaxed">
+                    Entra na fila assim que o post estiver no ar. A fila começa pelos posts mais antigos.
+                  </span>
+                </span>
+              </label>
+            </>
+          )}
         </div>
 
         <div className="panel p-5 grid gap-3">

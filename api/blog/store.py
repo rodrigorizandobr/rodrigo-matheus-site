@@ -26,7 +26,8 @@ CONFIG = "blog_config"
 CONFIG_DOC = "settings"
 
 # Campos que só o painel vê.
-INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic")
+INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic",
+                   "linkedinEnabled", "linkedinPostedAt", "linkedinUrn")
 
 _client: firestore.Client | None = None
 
@@ -47,6 +48,7 @@ def _now() -> datetime:
 _LIMITS = {
     "publish_hour": (0, 23),
     "generate_hour": (0, 23),
+    "linkedin_hour": (0, 23),
     "delay_days": (0, 60),
 }
 
@@ -73,8 +75,12 @@ def save_config(patch: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(value, list) or any(not isinstance(d, int) or not 0 <= d <= 6 for d in value):
                 raise ValueError("generate_weekdays deve ser uma lista de 0 (segunda) a 6 (domingo)")
             value = sorted(set(value))
-        if key in ("auto_publish", "research_enabled") and not isinstance(value, bool):
+        if key in ("auto_publish", "research_enabled", "linkedin_enabled") and not isinstance(value, bool):
             raise ValueError(f"{key} deve ser booleano")
+        if key == "linkedin_weekdays":
+            if not isinstance(value, list) or any(not isinstance(d, int) or not 0 <= d <= 6 for d in value):
+                raise ValueError("linkedin_weekdays deve ser uma lista de 0 (segunda) a 6 (domingo)")
+            value = sorted(set(value))
         if key == "news_terms":
             if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
                 raise ValueError("news_terms deve ser uma lista de textos")
@@ -119,6 +125,10 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         "updatedAt": now,
         "scheduledFor": None,
         "publishedAt": None,
+        # O padrão é compartilhar — o autor desmarca o que não quiser no painel.
+        "linkedinEnabled": draft.get("linkedinEnabled", True),
+        "linkedinPostedAt": None,
+        "linkedinUrn": "",
     }
     _db().collection(POSTS).document(post_id).set(post)
     return {"id": post_id, **post}
@@ -131,7 +141,8 @@ def get_post(post_id: str) -> dict[str, Any] | None:
 def update_post(post_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     """Atualiza campos editáveis. Status e datas mudam pelas funções próprias."""
     editable = {k: v for k, v in (patch or {}).items()
-                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "topic", "references")}
+                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "topic",
+                         "references", "linkedinEnabled")}
     if "tags" in editable:
         editable["tags"] = model.clean_tags(editable["tags"])
     editable["updatedAt"] = _now()
@@ -226,6 +237,25 @@ def recent_titles(limit: int = 20) -> list[str]:
         if titulo:
             titulos.append(titulo)
     return titulos
+
+
+def mark_shared(post_id: str, urn: str, now: datetime | None = None) -> dict[str, Any] | None:
+    """Registra que o post foi ao LinkedIn. É o que tira ele da fila."""
+    now = now or _now()
+    _db().collection(POSTS).document(post_id).update(
+        {"linkedinPostedAt": now, "linkedinUrn": urn, "updatedAt": now}
+    )
+    return get_post(post_id)
+
+
+def last_shared_at() -> datetime | None:
+    """Quando o último post foi para o LinkedIn."""
+    latest = None
+    for post in list_posts():
+        when = post.get("linkedinPostedAt")
+        if when and (latest is None or when > latest):
+            latest = when
+    return latest
 
 
 def last_generated_at() -> datetime | None:

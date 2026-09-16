@@ -11,6 +11,7 @@ import '../src/styles/tokens.css'
 import { PostList } from '../src/pages/admin/PostList'
 import { PostEditor } from '../src/pages/admin/PostEditor'
 import { ConfigPanel } from '../src/pages/admin/ConfigPanel'
+import { LinkedInPanel } from '../src/pages/admin/LinkedInPanel'
 import { PostPreview } from '../src/pages/admin/PostPreview'
 import { MediaPage } from '../src/pages/admin/MediaPage'
 import type { BlogConfig, MediaItem, Post } from '../src/blog/types'
@@ -72,15 +73,21 @@ function Bench() {
     <div className="section relative z-10 w-[min(var(--max),94vw)] mx-auto py-8 grid gap-10">
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — LISTA</h1>
       <PostList posts={[post(), post({ id: 'p2', status: 'published', image: null }), post({ id: 'p3', status: 'draft' })]}
-                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} />
+                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} onToggleLinkedin={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — EDITOR</h1>
       <PostEditor post={atual} busy={null} onChange={setAtual} onSave={nada} onRevise={nada} onCover={nada}
                   onPublish={nada} onUnpublish={nada} onSchedule={nada} onDelete={nada} onClose={nada}
-                  onPreview={() => setPreview(atual)} onPickCover={nada} onClearCover={nada} />
+                  onPreview={() => setPreview(atual)} onPickCover={nada} onClearCover={nada} onToggleLinkedin={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — MÍDIA</h1>
       <MediaPage api={mediaApi} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — CONFIG</h1>
       <ConfigPanel config={config} busy={false} onSave={nada} />
+      <LinkedInPanel config={config} busy={false} onSave={nada} onMessage={nada}
+                     api={{
+                       status: async () => ({ connected: true, hasApp: true, daysLeft: 7, personUrn: 'urn:li:person:bancada' }),
+                       connect: async () => '#', disconnect: async () => ({}),
+                       saveApp: async () => ({ connected: false, hasApp: true }), shareNow: async () => null,
+                     }} />
       {preview && <PostPreview post={preview} onClose={() => setPreview(null)} />}
     </div>
   )
