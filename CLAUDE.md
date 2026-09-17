@@ -161,10 +161,15 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 
 ## Currículo: uma fonte, duas saídas
 
-O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta **a home e o PDF**.
-`npm run cv:pdf` (`web/scripts/cv-pdf.mjs`, @react-pdf/renderer) gera
-`public/cv-pt-br.pdf` e `public/cv-en.pdf` a partir desse mesmo JSON — antes eram dois
-documentos com duas fontes, e divergiam. Editou carreira? Rode o script e faça deploy.
+O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta a home.
+
+- **O download em português é o PDF do próprio PO** (`cv.pdf` da raiz, copiado para
+  `web/public/cv-pt-br.pdf`). É diagramado no gerador dele e foi conferido linha a linha;
+  a ferramenta daqui NÃO deve sobrescrevê-lo.
+- **O inglês é gerado** por `npm run cv:pdf` (`web/scripts/cv-pdf.mjs`, @react-pdf/renderer)
+  a partir do i18n, porque não existe versão dele nesse idioma.
+- `node scripts/cv-pdf.mjs pt` existe, mas **sobrescreve o arquivo do PO** — só com pedido
+  explícito. Mudou a carreira no i18n? Atualize também o PDF dele, senão os dois divergem.
 
 - **A prosa do site vira marcadores no PDF**: o i18n guarda um parágrafo por cargo (é o que
   a linha do tempo desenha) e o gerador quebra por frase. Frase que começa com maiúscula

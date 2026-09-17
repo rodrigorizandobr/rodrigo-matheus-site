@@ -15,7 +15,7 @@
     "hero:video": "node scripts/pack-video.mjs",
     "scenes:pack": "node scripts/pack-scenes.mjs",
     "mobile:pack": "node scripts/pack-mobile.mjs",
-    "cv:pdf": "node scripts/cv-pdf.mjs && node scripts/cv-pdf.mjs en"
+    "cv:pdf": "node scripts/cv-pdf.mjs en"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

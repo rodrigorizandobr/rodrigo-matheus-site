@@ -1,12 +1,13 @@
 /**
  * Gera o PDF do currículo a partir do MESMO i18n que alimenta a home.
  *
- * O PDF e o site sempre divergiam porque eram dois documentos com duas fontes.
- * Aqui há uma fonte só: `src/i18n/pt.json`. Corrigiu no site, correu este script,
- * o PDF servido em /cv-pt-br.pdf sai igual.
+ *   node scripts/cv-pdf.mjs en         # → public/cv-en.pdf   (o padrão, e o que roda no npm)
+ *   node scripts/cv-pdf.mjs pt         # → public/cv-pt-br.pdf  ⚠ SOBRESCREVE o arquivo do PO
  *
- *   node scripts/cv-pdf.mjs            # → public/cv-pt-br.pdf (pt)
- *   node scripts/cv-pdf.mjs en         # → public/cv-en.pdf
+ * **O download em português é o PDF do próprio PO**, diagramado no gerador dele e
+ * conferido linha a linha — não o desta ferramenta. Por isso o português só sai com
+ * pedido explícito: rodar sem argumento gera o inglês, que não tem equivalente dele.
+ * Se um dia o português for regerado aqui, o site perde a diagramação original.
  */
 import { createElement as h } from 'react'
 import { Document, Page, Text, View, Link, StyleSheet, renderToFile } from '@react-pdf/renderer'
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const aqui = dirname(fileURLToPath(import.meta.url))
-const lang = process.argv[2] === 'en' ? 'en' : 'pt'
+const lang = process.argv[2] === 'pt' ? 'pt' : 'en'
 const t = JSON.parse(readFileSync(resolve(aqui, `../src/i18n/${lang}.json`), 'utf8'))
 
 const CONTATO = {
