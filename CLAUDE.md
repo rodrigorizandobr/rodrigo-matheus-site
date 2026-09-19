@@ -179,6 +179,19 @@ O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta a home.
 - **O botão do hero segue o idioma da página** (`ActionBar`): em inglês baixa `cv-en.pdf`.
   O rótulo embaixo do botão sempre disse o idioma — antes ele mentia.
 
+## Favicon
+
+A marca do site é a `//` vermelha que abre todo título de seção. O favicon é ela,
+desenhada em polígono (não em texto, para não depender de fonte) sobre a tinta do
+cabeçalho: `python3 web/scripts/gen-favicon.py` regenera o conjunto inteiro —
+16/32 px, apple-touch, os dois do Android e o `.ico` com quatro tamanhos.
+
+- **Fundo escuro de propósito.** A barra de abas costuma ser clara e um desenho claro
+  desaparece nela; o site ser um laboratório branco não ajuda o ícone.
+- O que havia antes era o **emoji de alienígena**, herdado de uma versão antiga e sem
+  relação com nada do site. `site.webmanifest` também estava com a cor escura do v2 —
+  hoje um teste (`src/styles/manifest.test.ts`) quebra se ela divergir do `--bg`.
+
 ## Comandos
 
 ```bash
