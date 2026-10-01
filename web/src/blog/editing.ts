@@ -65,6 +65,38 @@ export function textToSections(text: string): Section[] {
   return sections
 }
 
+export type Edit = { text: string; start: number; end: number }
+
+const HEADING = /^#{1,6}\s*/
+
+/** Alterna `## ` nas linhas tocadas pela seleção. Todas já são título? Tira; senão, põe. */
+export function toggleHeading(text: string, start: number, end: number): Edit {
+  const from = text.lastIndexOf('\n', start - 1) + 1
+  const nl = text.indexOf('\n', Math.max(end, start))
+  const to = nl === -1 ? text.length : nl
+  const lines = text.slice(from, to).split('\n')
+  const allHeadings = lines.every((l) => HEADING.test(l))
+  const next = lines.map((l) => (allHeadings ? l.replace(HEADING, '') : `## ${l.replace(HEADING, '')}`))
+  const out = text.slice(0, from) + next.join('\n') + text.slice(to)
+  const firstDelta = next[0].length - lines[0].length
+  const total = next.join('\n').length - lines.join('\n').length
+  return { text: out, start: Math.max(from, start + firstDelta), end: Math.max(from, end + total) }
+}
+
+/** Abre uma seção nova no cursor, com linha em branco antes e depois. */
+export function insertSection(text: string, pos: number): Edit {
+  const before = text.slice(0, pos).replace(/\s+$/, '')
+  const after = text.slice(pos).replace(/^\s+/, '')
+  const head = before ? `${before}\n\n` : ''
+  const tail = after ? `\n\n${after}` : ''
+  const out = `${head}## ${tail}`
+  const cursor = head.length + 3
+  return { text: out, start: cursor, end: cursor }
+}
+
+export const countWords = (text: string): number =>
+  text.replace(/^#{1,6}\s*/gm, '').split(/\s+/).filter(Boolean).length
+
 /** Mesmas regras do backend (api/blog/model.py): minúsculas, sem repetir, no máximo 6. */
 export function parseTags(raw: string): string[] {
   const seen: string[] = []

@@ -111,6 +111,10 @@ export type BlogConfig = {
 export type LinkedInStatus = {
   connected: boolean
   hasApp: boolean
+  /** Client ID do app cadastrado (o secret nunca sai do servidor) */
+  clientId?: string
+  /** URL de retorno que precisa estar registrada no app do LinkedIn */
+  redirectUri?: string
   personUrn?: string
   daysLeft?: number
   expiresAt?: string

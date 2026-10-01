@@ -257,6 +257,10 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   (`4. LinkedIn`, em configuração) mostra os dias restantes e fica vermelho a 10 dias — é o
   único aviso. Credenciais do app ficam em Firestore `linkedin_auth/app`, o token em
   `linkedin_auth/principal`, e o `state` do OAuth é documento de vida curta em `linkedin_state`.
+- **As credenciais do app têm seção própria e permanente no painel** (`4. LinkedIn` → "Credenciais do app"):
+  mostram a URL de retorno a registrar no LinkedIn, o Client ID salvo e "trocar credenciais". O `status()`
+  devolve `clientId` e `redirectUri`, **nunca o secret** (teste em `TestResumoDasCredenciais`). O formulário
+  antigo só existia com `hasApp == false`, então depois de cadastrar não havia como conferir nem trocar o app.
 - **A régua de avisos mora no documento do token** (`linkedin_auth/principal`, campo `notices`).
   `save_auth` grava com `set()`, então reconectar zera a régua no mesmo gesto — não existe
   limpeza separada para alguém esquecer. `model.expiry_step` dispara a marca MAIS APERTADA entre

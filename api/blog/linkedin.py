@@ -180,16 +180,21 @@ def disconnect() -> None:
 
 
 def status() -> dict[str, Any]:
-    """Resumo para o painel — montado campo a campo, sem o token junto."""
+    """Resumo para o painel — montado campo a campo, sem o token e sem o secret."""
+    cred = credentials()
+    app = {
+        "hasApp": cred is not None,
+        "clientId": cred[0] if cred else "",
+        "redirectUri": REDIRECT_URI,
+    }
     auth = get_auth()
     if not auth:
-        return {"connected": False, "hasApp": credentials() is not None}
-    days = days_left(auth)
+        return {"connected": False, **app}
     return {
         "connected": True,
-        "hasApp": credentials() is not None,
+        **app,
         "personUrn": auth.get("personUrn", ""),
-        "daysLeft": days,
+        "daysLeft": days_left(auth),
         "expiresAt": auth["expiresAt"],
         "alertsOn": notify.configured(),
         "lastNoticeAt": auth.get("lastNoticeAt"),

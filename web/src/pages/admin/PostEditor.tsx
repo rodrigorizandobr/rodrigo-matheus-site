@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { Lang, Post } from '../../blog/types'
 import { coverUrl } from '../../blog/types'
-import { parseTags, sectionsToText, textToSections } from '../../blog/editing'
+import { parseTags } from '../../blog/editing'
+import { BodyEditor } from './BodyEditor'
 
 type Props = {
   post: Post
@@ -23,11 +24,7 @@ type Props = {
 
 /**
  * Editor do post. O corpo é UM campo de texto por idioma (`##` abre seção), e não
- * uma caixa por seção: com 4 seções em 2 línguas eram 8 caixas para mexer. O que
- * se grava continua sendo estrutura — ver blog/editing.ts.
- *
- * `onBlur` (e não `onChange`) para converter: reconstruir as seções a cada tecla
- * remontaria o textarea e jogaria o cursor para o fim.
+ * uma caixa por seção — ver BodyEditor.tsx e blog/editing.ts.
  */
 
 /** Data/hora para o input `datetime-local`, que trabalha em horário LOCAL do navegador. */
@@ -76,17 +73,9 @@ export function PostEditor(p: Props) {
                     onChange={(e) => setBody({ ...body, excerpt: e.target.value })} />
         </div>
 
-        <div>
-          <label className="field-label" htmlFor="ed-body">Conteúdo ({lang})</label>
-          <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
-            Um campo só. Comece uma linha com <code className="font-mono">##</code> para abrir uma seção;
-            deixe uma linha em branco entre parágrafos.
-          </p>
-          <textarea id="ed-body" className="field !min-h-[24rem] leading-[1.7]" disabled={disabled}
-                    key={`${p.post.id}-${lang}`}
-                    defaultValue={sectionsToText(body.sections)}
-                    onBlur={(e) => setBody({ ...body, sections: textToSections(e.target.value) })} />
-        </div>
+        <BodyEditor id="ed-body" lang={lang} sections={body.sections} disabled={disabled}
+                    resetKey={`${p.post.id}-${lang}`} onLang={setLang}
+                    onChange={(sections) => setBody({ ...body, sections })} />
 
         <div>
           <label className="field-label" htmlFor="ed-tags">Tags (separadas por vírgula, até 6)</label>

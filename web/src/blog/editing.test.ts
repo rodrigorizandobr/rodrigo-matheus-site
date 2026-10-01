@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections } from './editing'
+import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords } from './editing'
 import type { Body } from './types'
 
 const body = (): Body => ({
@@ -122,5 +122,52 @@ describe('corpo do post como texto único — um campo só, sem perder estrutura
     expect(textToSections('uma linha\nsegunda linha')).toEqual([
       { heading: '', paragraphs: ['uma linha segunda linha'] },
     ])
+  })
+})
+
+
+describe('barra de formatação — funções puras sobre texto + seleção', () => {
+  it('transforma a linha do cursor em título de seção', () => {
+    const r = toggleHeading('um parágrafo\n\noutro', 3, 3)
+    expect(r.text).toBe('## um parágrafo\n\noutro')
+    expect(r.start).toBe(6)
+  })
+
+  it('numa linha que já é título, tira o ## (alternar)', () => {
+    const r = toggleHeading('## Título\n\ntexto', 4, 4)
+    expect(r.text).toBe('Título\n\ntexto')
+    expect(r.start).toBe(1)
+  })
+
+  it('só mexe na linha onde está o cursor, não no parágrafo vizinho', () => {
+    const r = toggleHeading('primeiro\n\nsegundo', 12, 12)
+    expect(r.text).toBe('primeiro\n\n## segundo')
+  })
+
+  it('seleção cobrindo várias linhas vira título em todas', () => {
+    const r = toggleHeading('a\nb', 0, 3)
+    expect(r.text).toBe('## a\n## b')
+  })
+
+  it('o que a barra produz volta como seção pelo textToSections (ida-e-volta)', () => {
+    const r = toggleHeading('Fatos\n\nO texto da seção.', 0, 0)
+    expect(textToSections(r.text)).toEqual([{ heading: 'Fatos', paragraphs: ['O texto da seção.'] }])
+  })
+
+  it('nova seção entra no cursor, separada por linha em branco, com o cursor depois do ##', () => {
+    const r = insertSection('antes\n\ndepois', 5)
+    expect(r.text).toBe('antes\n\n## \n\ndepois')
+    expect(r.start).toBe(r.text.indexOf('## ') + 3)
+  })
+
+  it('nova seção em texto vazio não deixa linhas em branco sobrando', () => {
+    const r = insertSection('', 0)
+    expect(r.text).toBe('## ')
+    expect(r.start).toBe(3)
+  })
+
+  it('conta palavras ignorando os ##', () => {
+    expect(countWords('## Título aqui\n\ndois três')).toBe(4)
+    expect(countWords('')).toBe(0)
   })
 })

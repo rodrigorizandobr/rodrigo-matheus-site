@@ -113,6 +113,32 @@ class TestToken:
         assert linkedin.status()["connected"] is False
 
 
+class TestResumoDasCredenciais:
+    """O painel precisa VER o app cadastrado (id e URL de retorno), nunca o secret."""
+
+    def test_mostra_o_client_id_e_a_url_de_retorno(self, db):
+        linkedin.save_credentials("meu-client-id", "segredo-do-app")
+        resumo = linkedin.status()
+        assert resumo["clientId"] == "meu-client-id"
+        assert resumo["redirectUri"] == linkedin.REDIRECT_URI
+
+    def test_o_secret_nunca_vai_para_o_painel(self, db):
+        linkedin.save_credentials("meu-client-id", "segredo-do-app")
+        assert "segredo-do-app" not in str(linkedin.status())
+
+    def test_sem_app_ainda_informa_a_url_de_retorno(self, db):
+        resumo = linkedin.status()
+        assert resumo["hasApp"] is False
+        assert resumo["clientId"] == ""
+        assert resumo["redirectUri"] == linkedin.REDIRECT_URI
+
+    def test_conectado_tambem_leva_o_resumo_do_app(self, db, monkeypatch):
+        monkeypatch.setattr(linkedin.requests, "get", lambda *a, **k: Resp({"sub": "x"}))
+        linkedin.save_credentials("meu-client-id", "segredo-do-app")
+        linkedin.save_auth("t0k", 100, now=datetime.now(timezone.utc))
+        assert linkedin.status()["clientId"] == "meu-client-id"
+
+
 class TestPublicacao:
     def _auth(self):
         return {"accessToken": "t0k", "personUrn": "urn:li:person:x"}

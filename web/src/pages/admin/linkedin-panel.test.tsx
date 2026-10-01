@@ -100,4 +100,54 @@ describe('LinkedInPanel', () => {
     await userEvent.click(await screen.findByRole('button', { name: /compartilhar o próximo agora/i }))
     await waitFor(() => expect(onMessage).toHaveBeenCalledWith('erro', 'conecte a conta do LinkedIn no painel'))
   })
+
+  describe('credenciais do app', () => {
+    const REDIRECT = 'https://rodrigomatheus.com.br/api/blog/admin/linkedin/callback'
+
+    it('com app cadastrado, mostra o client id e a URL de retorno — e não o secret', async () => {
+      paint({ connected: false, hasApp: true, clientId: 'abc123', redirectUri: REDIRECT })
+      expect(await screen.findByText('abc123')).toBeInTheDocument()
+      expect(screen.getByText(REDIRECT)).toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('client secret')).toBeNull()
+    })
+
+    it('mesmo sem app, mostra a URL de retorno: é o que se registra no LinkedIn antes de tudo', async () => {
+      paint({ connected: false, hasApp: false, redirectUri: REDIRECT })
+      expect(await screen.findByText(REDIRECT)).toBeInTheDocument()
+    })
+
+    it('conectado, a seção continua lá — é onde se troca o app', async () => {
+      paint({ connected: true, hasApp: true, daysLeft: 40, clientId: 'abc123', redirectUri: REDIRECT })
+      expect(await screen.findByRole('button', { name: /trocar credenciais/i })).toBeInTheDocument()
+    })
+
+    it('"trocar credenciais" abre os campos, com o client id atual preenchido', async () => {
+      paint({ connected: false, hasApp: true, clientId: 'abc123', redirectUri: REDIRECT })
+      await userEvent.click(await screen.findByRole('button', { name: /trocar credenciais/i }))
+      expect(screen.getByPlaceholderText('client id')).toHaveValue('abc123')
+      expect(screen.getByPlaceholderText('client secret')).toHaveValue('')
+    })
+
+    it('salvar manda os dois, limpa o secret e fecha os campos', async () => {
+      const onRefresh = vi.fn()
+      const client = paint({ connected: false, hasApp: true, clientId: 'abc123', redirectUri: REDIRECT }, { onRefresh })
+      await userEvent.click(await screen.findByRole('button', { name: /trocar credenciais/i }))
+      const id = screen.getByPlaceholderText('client id')
+      await userEvent.clear(id)
+      await userEvent.type(id, 'novo-id')
+      await userEvent.type(screen.getByPlaceholderText('client secret'), 'novo-segredo')
+      await userEvent.click(screen.getByRole('button', { name: /salvar app/i }))
+      await waitFor(() => expect(client.saveApp).toHaveBeenCalledWith('novo-id', 'novo-segredo'))
+      await waitFor(() => expect(onRefresh).toHaveBeenCalled())
+      expect(screen.queryByPlaceholderText('client secret')).toBeNull()
+    })
+
+    it('cancelar fecha os campos sem salvar', async () => {
+      const client = paint({ connected: false, hasApp: true, clientId: 'abc123', redirectUri: REDIRECT })
+      await userEvent.click(await screen.findByRole('button', { name: /trocar credenciais/i }))
+      await userEvent.click(screen.getByRole('button', { name: /cancelar/i }))
+      expect(screen.queryByPlaceholderText('client secret')).toBeNull()
+      expect(client.saveApp).not.toHaveBeenCalled()
+    })
+  })
 })

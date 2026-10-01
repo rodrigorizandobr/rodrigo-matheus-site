@@ -33,6 +33,7 @@ export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect,
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [working, setWorking] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   const run = async (fn: () => Promise<void>) => {
     setWorking(true)
@@ -56,23 +57,56 @@ export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect,
         </p>
       </header>
 
-      {status && !status.hasApp && (
-        <div className="grid gap-2 max-w-md">
-          <span className="field-label !mb-0">Cadastre o app do LinkedIn</span>
-          <p className="text-[11.5px] text-muted leading-relaxed">
-            Client ID e secret do app em developers.linkedin.com. Ficam guardados no servidor.
-          </p>
-          <input className="field" placeholder="client id" value={clientId} onChange={(e) => setClientId(e.target.value)} />
-          <input className="field" type="password" placeholder="client secret" value={clientSecret}
-                 onChange={(e) => setClientSecret(e.target.value)} />
-          <button type="button" disabled={working || !clientId.trim() || !clientSecret.trim()}
-                  className="cta !py-2.5 font-display font-semibold text-[11px] uppercase tracking-wider w-fit"
-                  onClick={() => run(async () => {
-                    await api.saveApp(clientId, clientSecret)
-                    setClientId(''); setClientSecret('')
-                    onRefresh()
-                    onMessage('ok', 'App do LinkedIn cadastrado.')
-                  })}>salvar app</button>
+      {status && (
+        <div className="grid gap-3 max-w-xl border border-line p-4">
+          <span className="field-label !mb-0">Credenciais do app</span>
+
+          <div className="grid gap-1">
+            <span className="text-[11.5px] text-muted leading-relaxed">
+              Em developers.linkedin.com, no app, aba Auth, cadastre esta URL em
+              {' '}<em>Authorized redirect URLs</em>:
+            </span>
+            <code className="font-mono text-[11.5px] break-all select-all text-heading">{status.redirectUri}</code>
+          </div>
+
+          {status.hasApp && !editing && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-[11.5px] text-muted">Client ID</span>
+              <code className="font-mono text-[12px] text-heading break-all">{status.clientId}</code>
+              <span className="text-[11.5px] text-muted">· secret guardado no servidor</span>
+              <button type="button" disabled={working}
+                      className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider"
+                      onClick={() => { setClientId(status.clientId ?? ''); setClientSecret(''); setEditing(true) }}>
+                trocar credenciais
+              </button>
+            </div>
+          )}
+
+          {(!status.hasApp || editing) && (
+            <div className="grid gap-2 max-w-md">
+              <p className="text-[11.5px] text-muted leading-relaxed">
+                Client ID e Client Secret do app. O secret fica só no servidor e não volta para esta tela.
+              </p>
+              <input className="field" placeholder="client id" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+              <input className="field" type="password" placeholder="client secret" value={clientSecret}
+                     autoComplete="off" onChange={(e) => setClientSecret(e.target.value)} />
+              <div className="flex gap-2">
+                <button type="button" disabled={working || !clientId.trim() || !clientSecret.trim()}
+                        className="cta cta-primary !py-2.5 font-display font-semibold text-[11px] uppercase tracking-wider w-fit"
+                        onClick={() => run(async () => {
+                          await api.saveApp(clientId, clientSecret)
+                          setClientId(''); setClientSecret(''); setEditing(false)
+                          onRefresh()
+                          onMessage('ok', 'App do LinkedIn cadastrado.')
+                        })}>salvar app</button>
+                {editing && (
+                  <button type="button" disabled={working}
+                          className="chip !h-9 font-display font-semibold text-[11px] uppercase tracking-wider"
+                          onClick={() => { setClientId(''); setClientSecret(''); setEditing(false) }}>cancelar</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
