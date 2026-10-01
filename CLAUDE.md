@@ -122,6 +122,14 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 - **Tamanho se manda em regra concreta, não em total de palavras.** "600 a 900 palavras" produzia posts
   de 286; "4 seções, 3 parágrafos cada, 70 a 110 palavras por parágrafo" produziu 1.149. O modelo executa
   estrutura, não orçamento.
+- **O post gerado cabe INTEIRO no LinkedIn** (`linkedin.POST_BUDGET = 2800`, sob o `MAX_TEXT` de 3000).
+  A medida mora em constantes de `gemini.py` (`SECTIONS=3`, `PARAGRAPHS=2`, 40 a 50 palavras por
+  parágrafo, título 80, resumo 200, `heading` 60 caracteres) e `RULES` é um f-string que as usa — mudar a
+  constante muda o prompt. `TestCabeInteiroNoLinkedIn` monta o PIOR caso permitido (palavra de 7
+  caracteres, mais larga que a média) e exige `share_text` <= 2800 sem "Continua no site": se alguém
+  engordar uma constante, o teste quebra antes do post. Medido em 3 posts reais: 1.916 a 2.230
+  caracteres; o modelo fica ABAIXO dos parágrafos pedidos (31 a 50 palavras) e às vezes estoura o título
+  (104 contra 80), sem consequência para o limite. Antes eram 4 seções x 3 parágrafos, ~5.500.
 - **Termo de notícia REPETE de propósito.** O que muda numa notícia é a notícia, então os termos entram
   em rodízio (`pick_rotating`, o mais antigo primeiro).
 - **A capa não carrega ficha técnica.** `media._jpeg` remonta o arquivo **só a partir dos
@@ -284,8 +292,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   estão em `INTERNAL_FIELDS` — o site público nunca os vê.
 - **O post no LinkedIn leva o TEXTO e a CAPA, não um cartão de link.** `linkedin.share_text` monta
   título, resumo e as seções (título da seção + primeiro parágrafo na mesma unidade) e fecha com
-  hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e um post tem ~5500: o corte é
-  sempre em parágrafo inteiro, a linha vira "Continua no site: url" e **o link nunca é cortado**.
+  hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e o post GERADO já nasce
+  com <= 2800 (ver acima), então o corte só atua em texto editado à mão: é sempre em parágrafo inteiro, a linha vira "Continua no site: url" e **o link nunca é cortado**.
   A imagem vai pela Assets API (`registerUpload` → `PUT` binário → `ugcPosts` com `IMAGE`), lida do
   bucket por `media.read_image`. Política de falha: se o ENVIO da imagem falha, **nada é publicado**
   e o tick seguinte tenta de novo (publicar sem capa por acidente é irreversível); post sem capa, ou
@@ -304,7 +312,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 204 testes
+cd api && source .venv/bin/activate && pytest      # 394 testes
 cd web && npm test                                  # 254 testes
 ```
 

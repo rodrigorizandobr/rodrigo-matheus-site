@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from blog import gemini
+from blog import gemini, linkedin
 
 
 def _resposta(payload: dict) -> dict:
@@ -187,3 +187,38 @@ class TestPostDeNovidade:
         # "Na minha leitura…" abriu o título da seção 3 em 3 de 3 posts
         gemini.generate_post("OpenAI")
         assert "Na minha leitura" not in _sistema(fake)
+
+
+class TestCabeInteiroNoLinkedIn:
+    """O post inteiro tem que caber num post do LinkedIn, sem 'Continua no site'."""
+
+    URL = "https://rodrigomatheus.com.br/blog/um-slug-razoavelmente-comprido-de-exemplo-abc12345"
+
+    def _pior_caso(self) -> dict:
+        # palavra de 6 letras + espaço = 7 caracteres: mais larga que a média do português
+        paragrafo = " ".join(["abcdef"] * gemini.MAX_PARAGRAPH_WORDS)
+        secoes = [
+            {"heading": "h" * gemini.MAX_HEADING_CHARS, "paragraphs": [paragrafo] * gemini.PARAGRAPHS}
+            for _ in range(gemini.SECTIONS)
+        ]
+        pt = {"title": "t" * gemini.MAX_TITLE_CHARS, "excerpt": "e" * gemini.MAX_EXCERPT_CHARS, "sections": secoes}
+        return {"tags": ["inteligencia artificial", "engenharia de software", "arquitetura", "produtividade"],
+                "i18n": {"pt": pt, "en": pt}}
+
+    def test_o_maior_post_que_as_regras_permitem_cabe_sem_corte(self):
+        texto = linkedin.share_text(self._pior_caso(), self.URL)
+        assert len(texto) <= linkedin.POST_BUDGET
+        assert "Continua no site" not in texto
+
+    def test_o_orcamento_deixa_folga_sob_o_limite_do_linkedin(self):
+        assert linkedin.POST_BUDGET < linkedin.MAX_TEXT
+
+    def test_o_prompt_manda_os_numeros_das_constantes(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _sistema(fake)
+        assert f"{gemini.SECTIONS} seções" in regras
+        assert f"{gemini.PARAGRAPHS} parágrafos" in regras
+        assert f"{gemini.MIN_PARAGRAPH_WORDS} a {gemini.MAX_PARAGRAPH_WORDS} palavras" in regras
+        assert f"{gemini.MAX_TITLE_CHARS} caracteres" in regras
+        assert f"{gemini.MAX_EXCERPT_CHARS} caracteres" in regras
+        assert "4 seções" not in regras

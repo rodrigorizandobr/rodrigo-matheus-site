@@ -50,6 +50,9 @@ STATE_RE = re.compile(r"^[a-f0-9]{48}$")
 TIMEOUT = 30
 #: o LinkedIn corta o comentário em 3000 caracteres
 MAX_TEXT = 3000
+# Quanto um post GERADO pode ocupar já montado (título, resumo, corpo, hashtags e link):
+# folga sob o limite real para o texto que o autor editar à mão.
+POST_BUDGET = 2800
 
 
 class LinkedInError(RuntimeError):
