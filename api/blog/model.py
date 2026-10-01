@@ -36,19 +36,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # terça e quinta, às 9h — horário em que post de carreira costuma render
     "linkedin_weekdays": [1, 3],
     "linkedin_hour": 9,
-    # Assuntos vigiados. Medido contra o Serper: termo que é NOME DE PROFISSÃO
-    # ("desenvolvimento de software", "arquitetura de software") devolve anúncio de
-    # vaga e concurso; termo que nomeia um ACONTECIMENTO ou uma PERGUNTA DE NEGÓCIO
-    # devolve jornalismo. Estes foram os que mediram zero ou quase zero de ruído.
+    # Assuntos vigiados. Medido contra o Serper: termo que é NOME PRÓPRIO (empresa,
+    # produto, bicho) devolve a novidade da semana; termo que é CATEGORIA ("inteligência
+    # artificial generativa", "regulação de IA") devolve curso de prefeitura e artigo de
+    # opinião, e o post sai como ensaio. Termos curtos: o buscador estrangula frase longa.
     "news_terms": [
-        "inteligência artificial generativa",
-        "regulação de inteligência artificial",
-        "IA nas empresas",
-        "cibersegurança empresas Brasil",
-        "vazamento de dados",
-        "ataque ransomware empresas",
-        "computação em nuvem mercado",
-        "engenharia de plataforma",
+        "OpenAI",
+        "Anthropic Claude",
+        "Google Gemini",
+        "Nvidia",
+        "hackers inteligência artificial",
+        "SpaceX",
+        "foguete China",
+        "robô humanoide",
+        "Tesla Optimus",
+        "computador quântico",
     ],
 }
 

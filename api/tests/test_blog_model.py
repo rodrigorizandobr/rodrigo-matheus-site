@@ -137,3 +137,31 @@ class TestRodizioDeTermos:
 
     def test_lista_vazia_devolve_None(self):
         assert model.pick_rotating([], ["a"]) is None
+
+
+class TestAssuntosVigiadosPadrao:
+    """Termo que é NOME PRÓPRIO traz a novidade; categoria traz aula de prefeitura."""
+
+    # medidos no Serper: devolveram curso, escola e artigo de opinião em vez de notícia
+    CATEGORIAS_ANTIGAS = {
+        "inteligência artificial generativa", "regulação de inteligência artificial",
+        "IA nas empresas", "cibersegurança empresas Brasil", "vazamento de dados",
+        "ataque ransomware empresas", "computação em nuvem mercado", "engenharia de plataforma",
+    }
+
+    def test_nenhuma_categoria_abstrata_sobrou(self):
+        assert not self.CATEGORIAS_ANTIGAS & set(model.DEFAULT_CONFIG["news_terms"])
+
+    def test_sao_curtos(self):
+        for termo in model.DEFAULT_CONFIG["news_terms"]:
+            assert len(termo.split()) <= 3, f"{termo!r} virou frase — o buscador estrangula"
+
+    def test_nenhum_cai_no_filtro_de_vaga_e_curso(self):
+        from blog import research
+        for termo in model.DEFAULT_CONFIG["news_terms"]:
+            assert not research.is_noise(termo)
+
+    def test_cobre_os_assuntos_que_rendem_conversa(self):
+        termos = " | ".join(model.DEFAULT_CONFIG["news_terms"]).lower()
+        for esperado in ("openai", "anthropic", "foguete", "robô"):
+            assert esperado in termos

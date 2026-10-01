@@ -93,10 +93,22 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   Por isso `search_web` junta páginas lidas E trechos. Lição herdada de monster-jobs/br51.
 - **Serper no endpoint `/news`, com `gl=br` e `hl=pt-br`** — nunca a busca web: ela devolveria página
   institucional e conteúdo antigo bem posicionado em SEO, e o blog fala do que é novidade aqui.
-- **Assunto vigiado nomeia ACONTECIMENTO, não profissão.** Medido contra o Serper: "arquitetura de
-  software" trouxe 3 anúncios de vaga/concurso em 10; "vazamento de dados" e "regulação de IA", 0 em 10.
-  Em português o nome da disciplina é também o nome do cargo, então a busca de notícia cai em
-  recrutamento. Ao sugerir termos novos, prefira o que um jornalista escreveria.
+- **Assunto vigiado é NOME PRÓPRIO, não categoria nem profissão.** Medido contra o Serper com o filtro de
+  semana: "OpenAI", "Anthropic Claude", "foguete China", "robô humanoide" trouxeram a notícia do dia (GPT-6.1
+  Astra cancelado, Sonnet 5.5, Starship em órbita, humanoide lutando boxe); "inteligência artificial generativa"
+  trouxe curso de prefeitura e IA em escola, e o post saía como ensaio de opinião ("A ilusão do perímetro…").
+  Em português o nome da disciplina é também o nome do cargo ("arquitetura de software" → 3 vagas em 10).
+  Termos curtos, até 3 palavras. A configuração SALVA no Firestore vence `DEFAULT_CONFIG`: mudar o padrão no
+  código não muda o blog no ar, é preciso regravar `blog_config/settings`.
+- **A busca pede só a última semana** (`tbs=qdr:w`) e, se o assunto esteve quieto, repete sem o recorte —
+  post de novidade com matéria velha deixa de ser novidade, mas assunto quieto não pode ficar sem pesquisa.
+- **O prompt (`gemini.RULES`) manda contar UMA história, não defender uma tese.** O termo vigiado traz várias
+  matérias do mesmo nome; sem a ordem "escolha UMA, a mais curiosa" o modelo faz sopa. Título é manchete
+  (nome + verbo + detalhe estranho), com os moldes de ensaio PROIBIDOS pelo nome. **Exemplo no prompt é
+  copiado quase palavra por palavra** (o título de exemplo voltou como título do post; "sexta-feira em
+  produção" virou piada de todo texto) — por isso as regras dão fórmula e lista de proibidos, nunca frase
+  pronta. Expressão citada como exemplo ou como proibida também é ecoada ("Na minha leitura…" abriu a
+  seção 3 em 3 de 3 posts até sair do prompt). Ao mexer no prompt, gere 3 posts de verdade e leia.
 - **`research.is_noise()` filtra pelo TÍTULO** (vaga, concurso, edital, curso, bolsa, estágio…), nunca
   pelo trecho — filtrar por trecho derruba notícia legítima. Sem isso, um anúncio de emprego acabava
   citado como fonte em ABNT no fim do post.

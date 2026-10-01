@@ -73,6 +73,31 @@ class TestBusca:
         assert research.search_web(["x"]).context == ""
 
 
+class TestSoOQueSaiuAgora:
+    def test_pede_so_a_ultima_semana(self, monkeypatch):
+        # sem o recorte, o endpoint de notícias devolve matéria de semanas atrás
+        capturado = {}
+        def fake_post(url, **kw):
+            capturado.update(kw)
+            return Resp(serper(["https://a.com"]))
+        monkeypatch.setattr(research.requests, "post", fake_post)
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        research.search_web(["OpenAI"])
+        assert capturado["json"]["tbs"] == "qdr:w"
+
+    def test_semana_vazia_tenta_de_novo_sem_o_recorte(self, monkeypatch):
+        # assunto quieto não pode virar post sem pesquisa só porque a semana foi parada
+        chamadas = []
+        def fake_post(url, **kw):
+            chamadas.append(kw["json"])
+            return Resp({"news": []}) if "tbs" in kw["json"] else Resp(serper(["https://a.com"]))
+        monkeypatch.setattr(research.requests, "post", fake_post)
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        out = research.search_web(["assunto quieto"])
+        assert out.sources == ["https://a.com"]
+        assert "tbs" in chamadas[0] and "tbs" not in chamadas[1]
+
+
 class TestLeituraDePagina:
     def test_extrai_texto_e_descarta_script_e_estilo(self, monkeypatch):
         html = "<html><head><style>p{color:red}</style></head><body><nav>menu</nav><p>Primeiro parágrafo.</p><script>alert(1)</script><p>Segundo.</p></body></html>"

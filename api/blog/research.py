@@ -29,6 +29,8 @@ SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
 #: web devolveria páginas institucionais e conteúdo antigo bem posicionado em SEO.
 SERPER_URL = "https://google.serper.dev/news"
 #: Brasil, em português — o leitor é daqui e a pauta é o mercado brasileiro.
+#: Só o que saiu na última semana: post de novidade com matéria velha deixa de ser novidade.
+RECENT = "qdr:w"
 COUNTRY = "br"
 LOCALE = "pt-br"
 
@@ -99,12 +101,15 @@ def extract_text(raw_html: str) -> str:
     return _SPACES.sub(" ", html_lib.unescape(text)).strip()
 
 
-def _search(query: str) -> list[dict[str, str]]:
+def _search_once(query: str, recent: bool) -> list[dict[str, str]]:
+    body = {"q": query, "num": RESULTS_PER_QUERY, "gl": COUNTRY, "hl": LOCALE}
+    if recent:
+        body["tbs"] = RECENT
     try:
         res = requests.post(
             SERPER_URL,
             headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
-            json={"q": query, "num": RESULTS_PER_QUERY, "gl": COUNTRY, "hl": LOCALE},
+            json=body,
             timeout=SEARCH_TIMEOUT,
         )
         if not res.ok:
@@ -132,6 +137,11 @@ def _search(query: str) -> list[dict[str, str]]:
             "date": str(item.get("date") or ""),
         })
     return out
+
+
+def _search(query: str) -> list[dict[str, str]]:
+    """A semana primeiro; se o assunto esteve quieto, abre o recorte em vez de ficar sem nada."""
+    return _search_once(query, recent=True) or _search_once(query, recent=False)
 
 
 def _read_page(url: str) -> str | None:

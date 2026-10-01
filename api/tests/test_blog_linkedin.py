@@ -104,7 +104,7 @@ class TestToken:
 
     def test_resumo_publico_NAO_carrega_o_token(self, db, monkeypatch):
         monkeypatch.setattr(linkedin.requests, "get", lambda *a, **k: Resp({"sub": "x"}))
-        linkedin.save_auth("token-secreto", 5184000, now=utc(2026, 9, 16))
+        linkedin.save_auth("token-secreto", 5184000, now=datetime.now(timezone.utc))
         resumo = linkedin.status()
         assert "token-secreto" not in str(resumo)
         assert resumo["connected"] is True and resumo["daysLeft"] == 59
