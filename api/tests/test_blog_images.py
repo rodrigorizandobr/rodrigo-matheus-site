@@ -89,7 +89,7 @@ class TestGeracaoComIA:
         monkeypatch.setattr(images, "API_KEY", "k")
         images.build_cover("um robô", "alt")
         texto = str(capturado["json"])
-        assert "um robô" in texto and "sterile" in texto.lower()
+        assert "um robô" in texto and "white" in texto.lower()
 
 
 class TestReservaPixabay:
@@ -207,3 +207,20 @@ class TestSemAssinaturaDeIA:
         item = images.generate_image("uma cena")
         assert item is not None
         assert tentativas == [images.IMAGE_MODEL, "gemini-3-pro-image"]
+
+
+class TestDirecaoDeArte:
+    def test_mantem_a_paleta_e_as_proibicoes(self):
+        d = images.ART_DIRECTION.lower()
+        assert "white" in d and "red" in d
+        assert "no text" in d and "no logos" in d
+
+    def test_nao_proibe_pessoas_nem_rostos(self):
+        # decisão do PO: pessoas liberadas, para histórias de time, demissão e liderança
+        d = images.ART_DIRECTION.lower()
+        assert "no people" not in d and "no faces" not in d
+
+    def test_nao_dita_o_cenario_so_a_paleta(self):
+        # "laboratório com detalhes biomecânicos" colado em todo prompt puxava toda capa ao mesmo lugar
+        d = images.ART_DIRECTION.lower()
+        assert "biomechanical" not in d and "laboratory" not in d

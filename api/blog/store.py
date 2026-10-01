@@ -247,6 +247,11 @@ def recent_titles(limit: int = 20) -> list[str]:
     return titulos
 
 
+def recent_cover_prompts(limit: int = 8) -> list[str]:
+    """Prompts das últimas capas — vão no prompt para a IA não repetir a imagem."""
+    return [p for p in ((post.get("imagePrompt") or "").strip() for post in list_posts()[:limit]) if p]
+
+
 def mark_shared(post_id: str, urn: str, now: datetime | None = None) -> dict[str, Any] | None:
     """Registra que o post foi ao LinkedIn. É o que tira ele da fila."""
     now = now or _now()

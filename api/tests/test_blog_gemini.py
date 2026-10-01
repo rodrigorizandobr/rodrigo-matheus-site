@@ -148,9 +148,10 @@ class TestPostDeNovidade:
         assert "possa ser discordada" not in regras
         assert "PROFUNDO" not in regras
 
-    def test_a_capa_mostra_o_objeto_da_noticia(self, fake):
+    def test_a_capa_nasce_de_uma_imagem_do_proprio_texto(self, fake):
         gemini.generate_post("OpenAI")
-        assert "OBJETO" in _sistema(fake)
+        regras = _sistema(fake)
+        assert "METÁFORA VISUAL" in regras and "já está no seu texto" in regras
 
     def test_nao_oferece_titulo_nem_piada_pronta_para_o_modelo_copiar(self, fake):
         # medido: o modelo devolveu o exemplo do prompt quase palavra por palavra
@@ -222,3 +223,38 @@ class TestCabeInteiroNoLinkedIn:
         assert f"{gemini.MAX_TITLE_CHARS} caracteres" in regras
         assert f"{gemini.MAX_EXCERPT_CHARS} caracteres" in regras
         assert "4 seções" not in regras
+
+
+def _usuario(fake) -> str:
+    return fake.calls[0]["json"]["contents"][0]["parts"][0]["text"]
+
+
+class TestCapaComAnalogia:
+    """A capa é uma metáfora da história, não o cenário genérico de TI de sempre."""
+
+    def test_pede_metafora_visual_e_nao_o_objeto_literal(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _sistema(fake)
+        assert "metáfora" in regras
+        assert "literal e reconhecível" not in regras
+
+    def test_proibe_pelo_nome_o_cenario_que_todo_post_repetia(self, fake):
+        # dois posts seguidos (banco e IA) saíram "laboratório branco com rack de servidor e luz vermelha"
+        gemini.generate_post("OpenAI")
+        regras = _sistema(fake)
+        assert "rack de servidor" in regras
+
+    def test_manda_as_capas_ja_usadas_para_nao_repetir_composicao(self, fake):
+        gemini.generate_post("OpenAI", avoid_covers=["a glowing server rack", "a robot arm over a chessboard"])
+        usuario = _usuario(fake)
+        assert "a glowing server rack" in usuario and "a robot arm over a chessboard" in usuario
+
+    def test_sem_capas_anteriores_nao_inventa_bloco_vazio(self, fake):
+        gemini.generate_post("OpenAI")
+        assert "CAPAS JÁ USADAS" not in _usuario(fake)
+
+    def test_regras_nao_proibem_pessoas_nem_rostos_na_capa(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _sistema(fake)
+        assert "sem pessoas" not in regras and "sem rostos" not in regras
+        assert "sem texto" in regras

@@ -137,11 +137,21 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    conte uma história vivida na carreira do Rodrigo a partir do currículo e evite números
    que não estejam nele. Quando a experiência dele ajudar a entender a notícia, use-a numa
    frase ("já vi time inteiro cair nessa") — sem inventar episódio, empresa ou número.
-11. IMAGEM. `imagePrompt` em INGLÊS, descrevendo uma cena de capa na direção de arte do
-   site: laboratório branco extremamente esterilizado, superfícies brancas, elementos
-   biomecânicos, vermelho como ÚNICO acento, fotorrealista, sem texto e sem pessoas. A cena
-   mostra o OBJETO da notícia (o foguete, o robô, o chip, o servidor) de forma literal e
-   reconhecível, e não uma abstração; um toque de ironia visual é bem-vindo.
+11. IMAGEM. `imagePrompt` em INGLÊS. A capa é uma METÁFORA VISUAL da história, não o retrato
+   do assunto. Fórmula: pegue UMA imagem que já está no seu texto (o detalhe mais estranho,
+   o número, a comparação da seção 2) e transforme-a numa cena física, montada com objetos
+   reais e concretos, em escala de mesa ou de maquete, com um sujeito, uma ação e uma
+   tensão visível: algo prestes a cair, encaixar, escapar, quebrar ou pesar demais. Quem vê a
+   capa tem que sentir a ironia da notícia antes de ler o título. Se a capa coubesse em
+   qualquer notícia de tecnologia, reescreva-a com o objeto e a tensão desta história.
+   O vermelho é o ÚNICO acento saturado e cai sobre o objeto que carrega a ideia (o que
+   escapa, o que quebra, o que pesa), nunca sobre uma luzinha decorativa. O ambiente é limpo,
+   claro, de pesquisa de alta tecnologia, mas é só pano de fundo: o sujeito é a metáfora.
+   PROIBIDO como ideia da capa: rack de servidor, corredor de data center, sala branca vazia
+   com um objeto brilhante no centro, "futuristic glowing", cérebro, rede neural ou placa de
+   circuito genéricos, braço robótico genérico, uma luz vermelha sozinha como conceito.
+   Fotorrealista e sem texto. Escreva 2 a 4 frases: o sujeito, o que
+   ele faz e o enquadramento, que muda de um post para outro.
    `imageAlt` em português, descrevendo a imagem para quem não a vê."""
 
 
@@ -220,17 +230,31 @@ def _avoid_block(titles: list[str]) -> str:
     )
 
 
-def generate_post(topic: str, context: str = "", avoid_titles: list[str] | None = None) -> dict[str, Any]:
+def _avoid_covers_block(prompts: list[str]) -> str:
+    """As capas já no ar: sem memória entre chamadas, o modelo recairia na mesma composição."""
+    limpos = [p.strip() for p in (prompts or []) if (p or "").strip()]
+    if not limpos:
+        return ""
+    lista = "\n".join(f"- {p}" for p in limpos[:8])
+    return (
+        "\nCAPAS JÁ USADAS (o `imagePrompt` novo tem que ser outra ideia, outro sujeito e "
+        f"outro enquadramento, não uma variação destas):\n{lista}\n"
+    )
+
+
+def generate_post(topic: str, context: str = "", avoid_titles: list[str] | None = None,
+                  avoid_covers: list[str] | None = None) -> dict[str, Any]:
     """Escreve um post inteiro (pt+en) sobre `topic`.
 
     `context` é o material de apoio (pesquisa na web ou o currículo) e
-    `avoid_titles` são os títulos já no ar, para não repetir assunto.
+    `avoid_titles` são os títulos já no ar, para não repetir assunto, e `avoid_covers` os
+    prompts das capas já no ar, para não repetir imagem.
     """
     prompt = f"""ASSUNTO VIGIADO: {topic}
 (Este é o assunto que a pauta está de olho, não é o título nem a tese. Quem decide a
 história é o material abaixo.)
 
-{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto. Ele costuma trazer várias notícias sobre o mesmo nome: escolha UMA — a mais curiosa, inusitada ou engraçada, a que alguém contaria num jantar — e conte só ela. As outras servem de contexto. Se a história escolhida já virou post (lista abaixo), escolha outra:{chr(10)}{context}{chr(10)}' if context.strip() else ''}{_avoid_block(avoid_titles or [])}
+{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto. Ele costuma trazer várias notícias sobre o mesmo nome: escolha UMA — a mais curiosa, inusitada ou engraçada, a que alguém contaria num jantar — e conte só ela. As outras servem de contexto. Se a história escolhida já virou post (lista abaixo), escolha outra:{chr(10)}{context}{chr(10)}' if context.strip() else ''}{_avoid_block(avoid_titles or [])}{_avoid_covers_block(avoid_covers or [])}
 Escreva o post completo em português e em inglês, seguindo as regras."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
 

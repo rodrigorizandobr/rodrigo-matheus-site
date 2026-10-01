@@ -25,7 +25,7 @@ def blog(monkeypatch):
     db = FakeDb()
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
-    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None: dict(DRAFT))
+    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None: dict(DRAFT))
     monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: None)
     monkeypatch.setattr(routes, "TICK_KEY", "chave-do-agendador")
     return db

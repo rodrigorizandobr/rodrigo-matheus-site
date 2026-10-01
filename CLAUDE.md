@@ -138,6 +138,21 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   público também não diz `provider`. Capa de IA vai **sem crédito**: crédito existe para dar a
   quem é devido, e banco de imagens tem esse direito, ilustração da casa não. `PostArticle` só
   desenha a legenda quando há crédito. Migração de uso único: `api/migrate_covers.py`.
+- **A capa é uma METÁFORA da história, não o retrato do assunto.** A regra 11 de `gemini.RULES` manda
+  pegar UMA imagem do próprio texto (o detalhe estranho, o número, a comparação) e montá-la como cena
+  física em escala de maquete, com sujeito, ação e tensão; o vermelho cai no objeto que carrega a ideia.
+  Antes pedia "o OBJETO da notícia, literal e reconhecível", e dois posts seguidos (banco, IA) saíram o
+  mesmo "laboratório branco com rack de servidor e luz vermelha". Três causas, as três tratadas:
+  (1) a regra literal; (2) `images.ART_DIRECTION` descrevia o CENÁRIO ("laboratório, detalhes
+  biomecânicos") em todo prompt, puxando toda cena ao mesmo lugar — hoje só dá paleta e proibições, e a
+  cena é do `imagePrompt`; (3) o modelo não tem memória entre chamadas, então `store.recent_cover_prompts()`
+  manda as 8 últimas capas no prompt ("CAPAS JÁ USADAS"). Os clichês estão PROIBIDOS pelo nome (rack de
+  servidor, data center, cérebro/rede neural/placa genéricos, braço robótico genérico, luz vermelha
+  sozinha), nunca com exemplo de cena pronta, que o modelo copiaria. Verificado com 3 imagens reais
+  (carimbo caindo sobre logs, cabo vermelho solto ao lado do notebook, gota de combustível na válvula).
+  **Pessoas e rostos são LIBERADOS** (decisão do PO, 2026-10-01): a proibição vinha do prompt original, sem
+  motivo documentado, e tirava o lado humano de histórias de time e liderança. O que segue proibido é texto,
+  letras e logos. Rostos de modelo de imagem podem sair estranhos: olhe a capa antes de publicar.
 - **A capa é `gemini-3.1-flash-image` em `1K`, 16:9** (`IMAGE_CONFIG`, tamanho em `BLOG_IMAGE_SIZE`).
   Imagem é cobrada por TOKEN DE SAÍDA, e token de saída é resolução — medido neste prompt 16:9, a
   US$ 60 por 1M de tokens de imagem:
@@ -312,7 +327,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 394 testes
+cd api && source .venv/bin/activate && pytest      # 404 testes
 cd web && npm test                                  # 254 testes
 ```
 

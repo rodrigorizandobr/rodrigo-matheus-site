@@ -37,13 +37,15 @@ IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": IMAGE_SIZE}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
 
-# A direção de arte do site inteiro, colada em todo prompt de capa: sem isso o
-# modelo devolve stock genérico colorido, que destoa do laboratório branco.
+# A paleta e as proibições do site, coladas em todo prompt de capa. O CENÁRIO não mora
+# aqui: descrever "laboratório com detalhes biomecânicos" em todo prompt puxava toda capa
+# para o mesmo lugar. Quem decide a cena é o `imagePrompt` de cada post (metáfora da história).
 ART_DIRECTION = (
-    "Editorial cover image, photorealistic, 16:9. Extremely sterile white high-tech "
-    "laboratory: white surfaces, soft diffuse light, biomechanical details in white and "
-    "pale bone, red glow as the ONLY saturated accent. No text, no letters, no logos, "
-    "no people, no faces. Cinematic, shallow depth of field, calm and clinical."
+    "Editorial cover photograph, photorealistic, 16:9. Clean, bright, clinical high-tech "
+    "research look: white and pale-grey surfaces, soft diffuse light, precise real materials. "
+    "Red is the ONLY saturated color, used sparingly on the key object of the scene. No text, "
+    "no letters, no logos. The scene below is a visual metaphor: compose "
+    "it as described, with one clear subject."
 )
 
 

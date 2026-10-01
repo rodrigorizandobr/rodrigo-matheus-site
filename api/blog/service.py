@@ -66,7 +66,8 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
         context = profile.career_context()
         source = f"{source}+curriculo"
 
-    draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles())
+    draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
+                                 avoid_covers=store.recent_cover_prompts())
     draft["topic"] = topic
     draft["generation"] = {
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,

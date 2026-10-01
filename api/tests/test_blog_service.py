@@ -25,7 +25,7 @@ def env(monkeypatch):
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
     chamadas = {"gerou": [], "capa": []}
-    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
+    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
     return chamadas
 
@@ -185,7 +185,7 @@ class TestNaoRepetirAssunto:
     def test_manda_os_titulos_ja_publicados_para_a_ia(self, env, monkeypatch):
         recebidos = {}
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
         service.generate("primeiro", now=utc(2026, 9, 14, 21))
         service.generate("segundo", now=utc(2026, 9, 15, 21))
         assert "T" in (recebidos["titles"] or []), "o título do post anterior precisa chegar no prompt"
@@ -193,7 +193,7 @@ class TestNaoRepetirAssunto:
     def test_primeiro_post_do_blog_manda_lista_vazia(self, env, monkeypatch):
         recebidos = {}
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(titles=avoid_titles) or dict(DRAFT))
         service.generate("único", now=utc(2026, 9, 14, 21))
         assert recebidos["titles"] == []
 
@@ -202,7 +202,7 @@ class TestCurriculoComoBase:
     def test_sem_pesquisa_usa_o_curriculo_como_material(self, env, monkeypatch):
         recebidos = {}
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(ctx=context) or dict(DRAFT))
         store.save_config({"research_enabled": False})
         post = service.generate("liderança", now=utc(2026, 9, 14, 21))
         assert "EXPERIÊNCIA" in recebidos["ctx"], "o post sem pesquisa se ancora na carreira real"
@@ -212,7 +212,7 @@ class TestCurriculoComoBase:
         recebidos = {}
         monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(ctx=context) or dict(DRAFT))
         service.generate("tema", now=utc(2026, 9, 14, 21))
         assert "EXPERIÊNCIA" in recebidos["ctx"]
 
@@ -221,7 +221,7 @@ class TestCurriculoComoBase:
         monkeypatch.setattr(service.research, "search_web",
                             lambda q: service.research.Research(context="notícia de hoje", sources=["https://a"]))
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(ctx=context) or dict(DRAFT))
         service.generate("tema", now=utc(2026, 9, 14, 21))
         assert recebidos["ctx"] == "notícia de hoje"
 
@@ -242,7 +242,7 @@ class TestAPartirDeUmaNoticia:
         monkeypatch.setattr(service.research, "from_url", lambda u: service.research.Research())
         recebidos = {}
         monkeypatch.setattr(service.gemini, "generate_post",
-                            lambda topic, context="", avoid_titles=None: recebidos.update(ctx=context) or dict(DRAFT))
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None: recebidos.update(ctx=context) or dict(DRAFT))
         post = service.generate("https://bloqueia.com/x", now=utc(2026, 9, 14, 21))
         assert "EXPERIÊNCIA" in recebidos["ctx"]
         assert post["status"] == "scheduled"
@@ -403,3 +403,22 @@ class TestCompartilharUmPost:
             service.share_post(post["id"])
         assert store.get_post(post["id"]).get("linkedinPostedAt") is None
 
+
+
+class TestNaoRepetirCapa:
+    def test_manda_as_capas_ja_usadas_para_a_ia(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None:
+                            recebidos.update(covers=avoid_covers) or dict(DRAFT))
+        service.generate("primeiro", now=utc(2026, 9, 14, 21))
+        service.generate("segundo", now=utc(2026, 9, 15, 21))
+        assert "cena" in (recebidos["covers"] or []), "o prompt da capa anterior precisa chegar no prompt"
+
+    def test_primeiro_post_manda_lista_vazia(self, env, monkeypatch):
+        recebidos = {}
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda topic, context="", avoid_titles=None, avoid_covers=None:
+                            recebidos.update(covers=avoid_covers) or dict(DRAFT))
+        service.generate("único", now=utc(2026, 9, 14, 21))
+        assert recebidos["covers"] == []
