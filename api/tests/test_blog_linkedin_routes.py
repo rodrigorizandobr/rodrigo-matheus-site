@@ -107,7 +107,7 @@ class TestCompartilharAgora:
     def test_compartilha_o_proximo_da_fila(self, client, blog, admin, monkeypatch):
         post = self._publicado()
         monkeypatch.setattr(linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
-        monkeypatch.setattr(linkedin, "publish", lambda *a: "urn:li:share:9")
+        monkeypatch.setattr(linkedin, "publish", lambda *a, **k: "urn:li:share:9")
         dados = client.post("/api/blog/admin/linkedin/share", headers=AUTH).get_json()
         assert dados["post"]["linkedinUrn"] == "urn:li:share:9"
         assert store.get_post(post["id"])["linkedinPostedAt"] is not None
@@ -125,7 +125,7 @@ class TestCompartilharAgora:
     def test_recusa_do_linkedin_vira_502(self, client, blog, admin, monkeypatch):
         self._publicado()
         monkeypatch.setattr(linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
-        monkeypatch.setattr(linkedin, "publish", lambda *a: (_ for _ in ()).throw(linkedin.LinkedInError("422")))
+        monkeypatch.setattr(linkedin, "publish", lambda *a, **k: (_ for _ in ()).throw(linkedin.LinkedInError("422")))
         assert client.post("/api/blog/admin/linkedin/share", headers=AUTH).status_code == 502
 
 

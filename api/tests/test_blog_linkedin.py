@@ -143,25 +143,72 @@ class TestPublicacao:
     def _auth(self):
         return {"accessToken": "t0k", "personUrn": "urn:li:person:x"}
 
-    def test_manda_o_link_como_ARTICLE_para_gerar_previa(self, db, monkeypatch):
-        capturado = {}
+    def _rede(self, monkeypatch, upload_status=201):
+        """Grava as chamadas em ordem; responde como o LinkedIn responderia."""
+        chamadas = []
+        mecanismo = "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+
         def fake_post(url, **kw):
-            capturado.update({"url": url, **kw})
+            chamadas.append(("POST", url, kw))
+            if "registerUpload" in url:
+                return Resp({"value": {"asset": "urn:li:digitalmediaAsset:ABC",
+                                       "uploadMechanism": {mecanismo: {"uploadUrl": "https://upload.li/x"}}}})
             return Resp({}, headers={"x-restli-id": "urn:li:share:123"})
+
+        def fake_put(url, **kw):
+            chamadas.append(("PUT", url, kw))
+            return Resp({}, status=upload_status)
+
         monkeypatch.setattr(linkedin.requests, "post", fake_post)
-        urn = linkedin.publish(self._auth(), "texto do post", "https://rodrigomatheus.com.br/blog/x")
+        monkeypatch.setattr(linkedin.requests, "put", fake_put)
+        return chamadas
+
+    def _conteudo(self, chamadas):
+        post = [c for c in chamadas if c[0] == "POST" and "ugcPosts" in c[1]][0]
+        return post[2]["json"], post[2]["json"]["specificContent"]["com.linkedin.ugc.ShareContent"], post[2]
+
+    def test_com_imagem_registra_envia_os_bytes_e_publica_como_IMAGE(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch)
+        urn = linkedin.publish(self._auth(), "texto completo", b"JPEGBYTES", alt="a capa")
         assert urn == "urn:li:share:123"
-        corpo = capturado["json"]
+        assert [c[0] for c in chamadas] == ["POST", "PUT", "POST"], "registrar → enviar → publicar"
+
+        registro = chamadas[0][2]["json"]["registerUploadRequest"]
+        assert registro["owner"] == "urn:li:person:x"
+        assert "feedshare-image" in registro["recipes"][0]
+
+        envio = chamadas[1]
+        assert envio[1] == "https://upload.li/x"
+        assert envio[2]["data"] == b"JPEGBYTES"
+        assert envio[2]["headers"]["Authorization"] == "Bearer t0k"
+
+        corpo, conteudo, kw = self._conteudo(chamadas)
         assert corpo["author"] == "urn:li:person:x"
-        conteudo = corpo["specificContent"]["com.linkedin.ugc.ShareContent"]
-        assert conteudo["shareMediaCategory"] == "ARTICLE"
-        assert conteudo["media"][0]["originalUrl"].endswith("/blog/x")
-        assert capturado["headers"]["Authorization"] == "Bearer t0k"
+        assert conteudo["shareMediaCategory"] == "IMAGE"
+        assert conteudo["shareCommentary"]["text"] == "texto completo"
+        media = conteudo["media"][0]
+        assert media["media"] == "urn:li:digitalmediaAsset:ABC" and media["status"] == "READY"
+        assert media["description"]["text"] == "a capa"
+        assert kw["headers"]["Authorization"] == "Bearer t0k"
+
+    def test_sem_imagem_publica_so_o_texto(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch)
+        linkedin.publish(self._auth(), "só texto")
+        assert [c[0] for c in chamadas] == ["POST"]
+        _, conteudo, _ = self._conteudo(chamadas)
+        assert conteudo["shareMediaCategory"] == "NONE"
+        assert "media" not in conteudo
+
+    def test_falha_no_envio_da_imagem_NAO_publica_o_post(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch, upload_status=500)
+        with pytest.raises(linkedin.LinkedInError, match="imagem"):
+            linkedin.publish(self._auth(), "t", b"JPEG")
+        assert not [c for c in chamadas if "ugcPosts" in c[1]], "post sem a imagem prometida seria pior que nenhum"
 
     def test_erro_do_linkedin_vira_LinkedInError_com_o_corpo(self, db, monkeypatch):
         monkeypatch.setattr(linkedin.requests, "post", lambda *a, **k: Resp({}, status=422, text="union inválido"))
         with pytest.raises(linkedin.LinkedInError, match="422"):
-            linkedin.publish(self._auth(), "t", "u")
+            linkedin.publish(self._auth(), "t")
 
 
 class TestTextoDoPost:
@@ -184,3 +231,40 @@ class TestTextoDoPost:
     def test_cai_para_o_ingles_se_faltar_portugues(self):
         post = {"tags": [], "i18n": {"en": {"title": "The title", "excerpt": "Summary."}}}
         assert "The title" in linkedin.share_text(post)
+
+
+class TestPostCompleto:
+    URL = "https://rodrigomatheus.com.br/blog/o-post"
+
+    def _post(self, paragrafos=("Primeiro parágrafo.", "Segundo parágrafo."), secoes=2):
+        return {"tags": ["ia"], "i18n": {"pt": {
+            "title": "O título", "excerpt": "O gancho.",
+            "sections": [{"heading": f"Seção {i}", "paragraphs": list(paragrafos)} for i in range(1, secoes + 1)]}}}
+
+    def test_leva_o_texto_inteiro_nao_so_o_resumo(self):
+        texto = linkedin.share_text(self._post(), self.URL)
+        assert texto.startswith("O título")
+        assert "O gancho." in texto
+        assert "Seção 1" in texto and "Seção 2" in texto
+        assert texto.count("Primeiro parágrafo.") == 2
+
+    def test_termina_com_hashtags_e_o_link_do_post(self):
+        texto = linkedin.share_text(self._post(), self.URL)
+        assert "#ia" in texto
+        assert texto.rstrip().endswith(self.URL)
+
+    def test_cabendo_tudo_nao_promete_continuacao(self):
+        assert "continua" not in linkedin.share_text(self._post(), self.URL).lower()
+
+    def test_longo_demais_corta_em_paragrafo_inteiro_e_avisa_que_continua(self):
+        longo = self._post(paragrafos=("palavra " * 120,) * 3, secoes=4)
+        texto = linkedin.share_text(longo, self.URL)
+        assert len(texto) <= linkedin.MAX_TEXT
+        assert texto.rstrip().endswith(self.URL), "o link nunca pode ser o que se corta"
+        assert "continua" in texto.lower()
+        assert "Seção 4" not in texto
+        assert not any(p.rstrip().endswith("palavr") for p in texto.split("\n\n")), "não corta no meio de palavra"
+
+    def test_sem_secoes_ainda_monta_titulo_e_resumo(self):
+        post = {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": []}}}
+        assert linkedin.share_text(post, self.URL).startswith("T\n\nR")

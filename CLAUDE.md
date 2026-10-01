@@ -282,6 +282,15 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 - **A fila do LinkedIn anda do post mais ANTIGO para o mais novo**, um por dia agendado, e só
   pega `status == published` com `linkedinEnabled != false`. `linkedinEnabled`/`linkedinPostedAt`
   estão em `INTERNAL_FIELDS` — o site público nunca os vê.
+- **O post no LinkedIn leva o TEXTO e a CAPA, não um cartão de link.** `linkedin.share_text` monta
+  título, resumo e as seções (título da seção + primeiro parágrafo na mesma unidade) e fecha com
+  hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e um post tem ~5500: o corte é
+  sempre em parágrafo inteiro, a linha vira "Continua no site: url" e **o link nunca é cortado**.
+  A imagem vai pela Assets API (`registerUpload` → `PUT` binário → `ugcPosts` com `IMAGE`), lida do
+  bucket por `media.read_image`. Política de falha: se o ENVIO da imagem falha, **nada é publicado**
+  e o tick seguinte tenta de novo (publicar sem capa por acidente é irreversível); post sem capa, ou
+  com capa ilegível no bucket, sai só com texto. Fluxo da Assets API **não foi validado contra o
+  LinkedIn de verdade** — conferir no primeiro compartilhamento.
 
 ## Testes
 

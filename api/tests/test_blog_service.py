@@ -259,7 +259,9 @@ class TestCompartilharNoLinkedIn:
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
         enviados = []
         monkeypatch.setattr(service.linkedin, "publish",
-                            lambda auth, texto, url: enviados.append({"texto": texto, "url": url}) or urn)
+                            lambda auth, texto, imagem=None, alt="": enviados.append(
+                                {"texto": texto, "imagem": imagem, "alt": alt}) or urn)
+        monkeypatch.setattr(service.media, "read_image", lambda digest: b"JPEG:" + digest[:4].encode())
         return enviados
 
     def test_manda_o_MAIS_ANTIGO_primeiro(self, env, monkeypatch):
@@ -268,7 +270,28 @@ class TestCompartilharNoLinkedIn:
         novo = service.generate("t2", now=utc(2026, 9, 14, 21)); store.publish_post(novo["id"], now=utc(2026, 9, 14, 22))
         compartilhado = service.share_next(now=utc(2026, 9, 15, 12))
         assert compartilhado["id"] == velho["id"]
-        assert enviados[0]["url"].endswith(f"/blog/{velho['slug']}")
+        assert enviados[0]["texto"].rstrip().endswith(f"/blog/{velho['slug']}")
+
+    def test_leva_a_capa_do_post_anexada_com_o_alt(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["imagem"] == b"JPEG:hhhh"
+        assert enviados[0]["alt"]
+
+    def test_post_sem_capa_sai_so_com_o_texto(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: None)
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["imagem"] is None
+
+    def test_capa_que_sumiu_do_bucket_nao_trava_a_fila(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        monkeypatch.setattr(service.media, "read_image", lambda digest: None)
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["imagem"] is None, "sem os bytes, vai o texto: melhor que a fila parada"
 
     def test_marca_e_nao_repete(self, env, monkeypatch):
         self._com_token(monkeypatch)
@@ -280,7 +303,7 @@ class TestCompartilharNoLinkedIn:
     def test_falha_do_linkedin_NAO_marca_o_post(self, env, monkeypatch):
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
         monkeypatch.setattr(service.linkedin, "publish",
-                            lambda *a: (_ for _ in ()).throw(service.linkedin.LinkedInError("422")))
+                            lambda *a, **k: (_ for _ in ()).throw(service.linkedin.LinkedInError("422")))
         post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
         with pytest.raises(service.linkedin.LinkedInError):
             service.share_next(now=utc(2026, 9, 15, 12))

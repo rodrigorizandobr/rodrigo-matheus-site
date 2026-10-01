@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, images, linkedin, model, notify, profile, research, store
+from . import gemini, images, linkedin, media, model, notify, profile, research, store
 
 
 class NoTopicError(RuntimeError):
@@ -125,7 +125,10 @@ def share_next(now: datetime | None = None) -> dict[str, Any] | None:
         return None
 
     post = fila[0]
-    urn = linkedin.publish(auth, linkedin.share_text(post), f"{linkedin.SITE}/blog/{post['slug']}")
+    cover = post.get("image") or {}
+    image = media.read_image(cover["hash"]) if cover.get("hash") else None
+    texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
+    urn = linkedin.publish(auth, texto, image, alt=cover.get("alt") or post.get("imageAlt") or "")
     return store.mark_shared(post["id"], urn, now=now)
 
 

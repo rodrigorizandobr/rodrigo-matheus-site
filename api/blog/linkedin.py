@@ -203,37 +203,96 @@ def status() -> dict[str, Any]:
 
 # ── publicação ──────────────────────────────────────────────────────────────
 
-def share_text(post: dict[str, Any]) -> str:
-    """Comentário do post: título, resumo e as tags como hashtags."""
+def share_text(post: dict[str, Any], url: str = "") -> str:
+    """Comentário do post: o texto INTEIRO, hashtags e o link no fim.
+
+    O LinkedIn corta em MAX_TEXT. Quando não cabe, o corte é em parágrafo inteiro
+    (nunca no meio de uma palavra) e o rodapé — hashtags e link — é reservado antes,
+    porque o link é o que leva o leitor ao resto.
+    """
     i18n = post.get("i18n") or {}
     body = i18n.get("pt") or i18n.get("en") or {}
     title = (body.get("title") or "").strip()
     excerpt = (body.get("excerpt") or "").strip()
-    tags = ["#" + re.sub(r"[^0-9a-zA-ZÀ-ÿ]", "", t) for t in (post.get("tags") or [])[:4]]
+    tags = " ".join("#" + re.sub(r"[^0-9a-zA-ZÀ-ÿ]", "", t) for t in (post.get("tags") or [])[:4]).strip()
 
-    partes = [p for p in (title, excerpt, " ".join(tags).strip()) if p]
-    return "\n\n".join(partes)[:MAX_TEXT]
+    # Título de seção cola no primeiro parágrafo: o corte nunca o deixa órfão.
+    unidades = [title, excerpt]
+    for sec in body.get("sections") or []:
+        heading = (sec.get("heading") or "").strip()
+        for i, par in enumerate(p.strip() for p in sec.get("paragraphs") or []):
+            if par:
+                unidades.append(f"{heading}\n{par}" if i == 0 and heading else par)
+    unidades = [u for u in unidades if u]
+
+    def montar(n: int, cortado: bool) -> str:
+        link = (f"{'Continua' if cortado else 'Post completo'} no site: {url}") if url else ""
+        return "\n\n".join(p for p in (*unidades[:n], tags, link) if p)
+
+    inteiro = montar(len(unidades), False)
+    if len(inteiro) <= MAX_TEXT:
+        return inteiro
+    n = len(unidades) - 1
+    while n > 1 and len(montar(n, True)) > MAX_TEXT:
+        n -= 1
+    return montar(n, True)[:MAX_TEXT]
 
 
-def publish(auth: dict[str, Any], text: str, url: str) -> str:
-    """Publica no perfil da pessoa e devolve o URN do share."""
+def _headers(auth: dict[str, Any]) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {auth['accessToken']}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
+    }
+
+
+def upload_image(auth: dict[str, Any], image: bytes) -> str:
+    """Registra e envia o JPEG; devolve o URN do asset para anexar ao post."""
+    res = requests.post(
+        "https://api.linkedin.com/v2/assets?action=registerUpload",
+        headers=_headers(auth),
+        json={"registerUploadRequest": {
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+            "owner": auth["personUrn"],
+            "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}],
+        }},
+        timeout=TIMEOUT,
+    )
+    if not res.ok:
+        raise LinkedInError(f"registro da imagem falhou ({res.status_code}): {res.text[:300]}")
+    try:
+        value = res.json()["value"]
+        mecanismo = value["uploadMechanism"]["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]
+        upload_url, asset = mecanismo["uploadUrl"], value["asset"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise LinkedInError(f"resposta inesperada ao registrar a imagem: {res.text[:300]}") from exc
+
+    sent = requests.put(upload_url, data=image,
+                        headers={"Authorization": f"Bearer {auth['accessToken']}"}, timeout=TIMEOUT)
+    if not sent.ok:
+        raise LinkedInError(f"envio da imagem falhou ({sent.status_code}): {sent.text[:300]}")
+    return asset
+
+
+def publish(auth: dict[str, Any], text: str, image: bytes | None = None, alt: str = "") -> str:
+    """Publica no perfil da pessoa e devolve o URN do share.
+
+    Com `image`, o post sai com a imagem anexada (e o texto vai inteiro no comentário);
+    se o envio da imagem falhar, nada é publicado — o chamador tenta de novo depois.
+    """
+    content: dict[str, Any] = {"shareCommentary": {"text": text}, "shareMediaCategory": "NONE"}
+    if image:
+        asset = upload_image(auth, image)
+        content["shareMediaCategory"] = "IMAGE"
+        content["media"] = [{"status": "READY", "media": asset, "description": {"text": alt[:200]}}]
+
     res = requests.post(
         "https://api.linkedin.com/v2/ugcPosts",
-        headers={
-            "Authorization": f"Bearer {auth['accessToken']}",
-            "Content-Type": "application/json",
-            "X-Restli-Protocol-Version": "2.0.0",
-        },
+        headers=_headers(auth),
         json={
             "author": auth["personUrn"],
             "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {"text": text},
-                    "shareMediaCategory": "ARTICLE",
-                    "media": [{"status": "READY", "originalUrl": url}],
-                },
-            },
+            "specificContent": {"com.linkedin.ugc.ShareContent": content},
             # A chave é do namespace ugc — o 422 do LinkedIn lista o union exato.
             "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
         },
