@@ -74,7 +74,7 @@ function Bench() {
     <div className="section relative z-10 w-[min(var(--max),94vw)] mx-auto py-8 grid gap-10">
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — LISTA</h1>
       <PostList posts={[post(), post({ id: 'p2', status: 'published', image: null }), post({ id: 'p3', status: 'draft' })]}
-                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} onToggleLinkedin={nada} />
+                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} onToggleLinkedin={nada} onShareLinkedin={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — EDITOR</h1>
       <PostEditor post={atual} busy={null} onChange={setAtual} onSave={nada} onRevise={nada} onCover={nada}
                   onPublish={nada} onUnpublish={nada} onSchedule={nada} onDelete={nada} onClose={nada}

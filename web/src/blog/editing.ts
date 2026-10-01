@@ -120,3 +120,16 @@ export function nextRunHint(cfg: { generate_weekdays: number[]; generate_hour: n
   const dias = cfg.generate_weekdays.map((d) => weekdayLabels()[d]).join(', ')
   return `Escreve sozinho em ${dias}, a partir das ${cfg.generate_hour}h.`
 }
+
+/** Pergunta de confirmação do "publicar no LinkedIn": avisa do que não dá para desfazer pelo painel. */
+export function linkedinShareQuestion(post: { status: string; linkedinPostedAt?: string | null }): string {
+  const avisos: string[] = []
+  if (post.status !== 'published') {
+    avisos.push('Este post ainda não está no ar: o link no LinkedIn vai levar a uma página que não existe até você publicá-lo.')
+  }
+  if (post.linkedinPostedAt) {
+    avisos.push(`Este post já foi ao LinkedIn em ${post.linkedinPostedAt.slice(0, 10)}: publicar de novo cria um post repetido.`)
+  }
+  return ['Publicar este post no LinkedIn agora? Não dá para desfazer pelo painel.', ...avisos].join('\n\n')
+}
+

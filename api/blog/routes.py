@@ -405,6 +405,21 @@ def linkedin_share_now():
     return jsonify({"post": _json(post)})
 
 
+@bp.post("/api/blog/admin/posts/<post_id>/linkedin/share")
+@admin_only
+def linkedin_share_post(post_id: str):
+    """Manda este post ao LinkedIn agora, fora da ordem da fila."""
+    try:
+        post = service.share_post(post_id)
+    except service.PostNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except service.NotConnectedError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except linkedin.LinkedInError as exc:
+        return jsonify({"error": str(exc)}), 502
+    return jsonify({"post": _json(post)})
+
+
 # ── agendador ───────────────────────────────────────────────────────────────
 
 @bp.post("/api/blog/tick")

@@ -10,7 +10,7 @@ import { LinkedInPanel } from './admin/LinkedInPanel'
 import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
-
+import { linkedinShareQuestion } from '../blog/editing'
 type Tab = 'posts' | 'media' | 'config'
 type Session = { email: string } | null
 
@@ -262,6 +262,14 @@ export function AdminPage() {
                         setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
                       }, post.status === 'published' ? 'Post fora do ar.' : 'Post no ar.')
                         .finally(() => setTogglingId(null))
+                    }}
+                    onShareLinkedin={(post) => {
+                      if (!confirm(linkedinShareQuestion(post))) return
+                      setTogglingId(post.id)
+                      void run('linkedin', async () => {
+                        const saved = await api.shareToLinkedin(post.id)
+                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
+                      }, 'Publicado no LinkedIn.').finally(() => setTogglingId(null))
                     }}
                     onToggleLinkedin={(post) => {
                       setTogglingId(post.id)

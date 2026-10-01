@@ -291,6 +291,15 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   e o tick seguinte tenta de novo (publicar sem capa por acidente é irreversível); post sem capa, ou
   com capa ilegível no bucket, sai só com texto. Fluxo da Assets API **não foi validado contra o
   LinkedIn de verdade** — conferir no primeiro compartilhamento.
+- **"publicar no LinkedIn" na lista de posts** (`service.share_post`, rota
+  `POST /api/blog/admin/posts/<id>/linkedin/share`) manda UM post escolhido e aparece em TODO post,
+  qualquer status, inclusive já compartilhado — decisão do PO. O servidor não trava por fila,
+  `linkedinEnabled`, status nem `linkedinPostedAt`; só 404 (id inexistente), 409 (sem conta) e 502
+  (LinkedIn recusou). A trava é o `confirm()` do painel, e o texto dele muda conforme o caso
+  (`linkedinShareQuestion` em `blog/editing.ts`, testado): **rascunho/agendado avisa que o link vai
+  cair numa página inexistente** (o site nunca serve post não publicado), e **já compartilhado avisa
+  que duplica**. Reenviar sobrescreve `linkedinPostedAt`; a fila automática continua só com
+  `published` ainda não enviado.
 
 ## Testes
 

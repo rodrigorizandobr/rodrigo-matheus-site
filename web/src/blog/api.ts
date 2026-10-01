@@ -87,6 +87,10 @@ export const blogApi = {
         shareNow: async () => (await call<{ post: Post | null }>('/api/blog/admin/linkedin/share', 'POST')).post,
       },
 
+      /** manda ESTE post ao LinkedIn agora; o servidor recusa rascunho e post já compartilhado */
+      shareToLinkedin: async (id: string) =>
+        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/linkedin/share`, 'POST')).post,
+
       media: {
         list: async () => (await call<{ items: MediaItem[] }>('/api/blog/admin/media')).items,
         generate: async (prompt: string, alt = '') =>

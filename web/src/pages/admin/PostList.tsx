@@ -10,7 +10,7 @@ const titleOf = (post: Post) => post.i18n?.pt?.title || post.i18n?.en?.title || 
  * cima, botões embaixo ocupando a largura — botão de 11px espremido ao lado de
  * um título truncado é impossível de acertar com o dedo.
  */
-export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLinkedin, busyId = null }: {
+export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLinkedin, onShareLinkedin, busyId = null }: {
   posts: Post[]
   onPreview: (post: Post) => void
   onEdit: (post: Post) => void
@@ -18,6 +18,8 @@ export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLi
   onTogglePublish: (post: Post) => void
   /** habilitar ou não este post para o compartilhamento no LinkedIn */
   onToggleLinkedin: (post: Post) => void
+  /** manda ESTE post ao LinkedIn agora, fora da fila */
+  onShareLinkedin: (post: Post) => void
   busyId?: string | null
 }) {
   return (
@@ -70,6 +72,10 @@ export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLi
                   no site <IconArrowUpRight width={10} height={10} />
                 </a>
               )}
+              <button type="button" onClick={() => onShareLinkedin(post)} disabled={busyId === post.id}
+                      className="chip !h-9 flex-1 sm:flex-none justify-center font-display font-semibold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                publicar no LinkedIn
+              </button>
               <button type="button" onClick={() => onTogglePublish(post)} disabled={busyId === post.id}
                       className={`${post.status === 'published' ? 'chip' : 'cta cta-primary'} !h-9 !py-2 !px-4 flex-1 sm:flex-none justify-center font-display font-semibold text-[11px] uppercase tracking-wider whitespace-nowrap`}>
                 {post.status === 'published' ? 'despublicar' : 'publicar'}

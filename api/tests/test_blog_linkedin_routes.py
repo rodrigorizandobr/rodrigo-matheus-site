@@ -129,6 +129,57 @@ class TestCompartilharAgora:
         assert client.post("/api/blog/admin/linkedin/share", headers=AUTH).status_code == 502
 
 
+class TestCompartilharUmPostPelaRota:
+    URL = "/api/blog/admin/posts/{}/linkedin/share"
+
+    def _publicado(self, base="p"):
+        post = store.create_post({"slugBase": base, "i18n": {
+            l: {"title": "T", "excerpt": "R", "sections": [{"heading": "h", "paragraphs": ["p"]}]}
+            for l in ("pt", "en")}})
+        store.publish_post(post["id"])
+        return post
+
+    def _conectado(self, monkeypatch):
+        monkeypatch.setattr(linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        monkeypatch.setattr(linkedin, "publish", lambda *a, **k: "urn:li:share:5")
+
+    def test_compartilha_o_post_escolhido(self, client, blog, admin, monkeypatch):
+        self._conectado(monkeypatch)
+        antigo = self._publicado("antigo")
+        alvo = self._publicado("alvo")
+        res = client.post(self.URL.format(alvo["id"]), headers=AUTH)
+        assert res.status_code == 200 and res.get_json()["post"]["linkedinUrn"] == "urn:li:share:5"
+        assert store.get_post(antigo["id"]).get("linkedinPostedAt") is None
+
+    def test_sem_login_devolve_401_e_nao_publica(self, client, blog, anon, monkeypatch):
+        self._conectado(monkeypatch)
+        post = self._publicado()
+        assert client.post(self.URL.format(post["id"])).status_code == 401
+        assert store.get_post(post["id"]).get("linkedinPostedAt") is None
+
+    def test_rascunho_e_post_ja_compartilhado_tambem_vao(self, client, blog, admin, monkeypatch):
+        self._conectado(monkeypatch)
+        rascunho = store.create_post({"slugBase": "r", "i18n": {}})
+        assert client.post(self.URL.format(rascunho["id"]), headers=AUTH).status_code == 200
+        assert client.post(self.URL.format(rascunho["id"]), headers=AUTH).status_code == 200
+
+    def test_post_inexistente_e_404(self, client, blog, admin, monkeypatch):
+        self._conectado(monkeypatch)
+        assert client.post(self.URL.format("nao-existe"), headers=AUTH).status_code == 404
+
+    def test_sem_conta_conectada_e_409(self, client, blog, admin, monkeypatch):
+        monkeypatch.setattr(linkedin, "get_auth", lambda: None)
+        post = self._publicado()
+        assert client.post(self.URL.format(post["id"]), headers=AUTH).status_code == 409
+
+    def test_recusa_do_linkedin_vira_502(self, client, blog, admin, monkeypatch):
+        self._conectado(monkeypatch)
+        monkeypatch.setattr(linkedin, "publish",
+                            lambda *a, **k: (_ for _ in ()).throw(linkedin.LinkedInError("422")))
+        post = self._publicado()
+        assert client.post(self.URL.format(post["id"]), headers=AUTH).status_code == 502
+
+
 class TestMarcarPost:
     def test_desligar_o_post_para_o_linkedin(self, client, blog, admin):
         post = store.create_post({"slugBase": "p", "i18n": {}})

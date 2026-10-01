@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords } from './editing'
+import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords, linkedinShareQuestion } from './editing'
 import type { Body } from './types'
 
 const body = (): Body => ({
@@ -169,5 +169,31 @@ describe('barra de formatação — funções puras sobre texto + seleção', ()
   it('conta palavras ignorando os ##', () => {
     expect(countWords('## Título aqui\n\ndois três')).toBe(4)
     expect(countWords('')).toBe(0)
+  })
+})
+
+describe('linkedinShareQuestion — o que o autor lê antes de confirmar', () => {
+  const base = { status: 'published', linkedinPostedAt: null } as const
+
+  it('post no ar e inédito: só a pergunta', () => {
+    const q = linkedinShareQuestion(base)
+    expect(q).toMatch(/publicar este post no linkedin/i)
+    expect(q).not.toMatch(/ainda não está no ar|já foi/i)
+  })
+
+  it.each(['draft', 'scheduled'] as const)('post %s avisa que o link vai levar a uma página que não existe', (status) => {
+    expect(linkedinShareQuestion({ ...base, status })).toMatch(/ainda não está no ar/i)
+  })
+
+  it('post já compartilhado avisa a data e que vai duplicar', () => {
+    const q = linkedinShareQuestion({ ...base, linkedinPostedAt: '2026-09-15T12:00:00Z' })
+    expect(q).toMatch(/2026-09-15/)
+    expect(q).toMatch(/repetid|duplic/i)
+  })
+
+  it('rascunho já compartilhado junta os dois avisos', () => {
+    const q = linkedinShareQuestion({ status: 'draft', linkedinPostedAt: '2026-09-15T12:00:00Z' })
+    expect(q).toMatch(/ainda não está no ar/i)
+    expect(q).toMatch(/2026-09-15/)
   })
 })

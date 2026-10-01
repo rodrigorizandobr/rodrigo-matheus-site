@@ -108,6 +108,18 @@ class NotConnectedError(RuntimeError):
     """Sem token do LinkedIn — o autor precisa conectar a conta no painel."""
 
 
+class PostNotFoundError(RuntimeError):
+    """Não existe post com esse id."""
+
+
+def _send_to_linkedin(auth: dict[str, Any], post: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    cover = post.get("image") or {}
+    image = media.read_image(cover["hash"]) if cover.get("hash") else None
+    texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
+    urn = linkedin.publish(auth, texto, image, alt=cover.get("alt") or post.get("imageAlt") or "")
+    return store.mark_shared(post["id"], urn, now=now)
+
+
 def share_next(now: datetime | None = None) -> dict[str, Any] | None:
     """Manda para o LinkedIn o post mais antigo que ainda não foi.
 
@@ -123,13 +135,24 @@ def share_next(now: datetime | None = None) -> dict[str, Any] | None:
     fila = model.linkedin_queue(store.list_posts())
     if not fila:
         return None
+    return _send_to_linkedin(auth, fila[0], now)
 
-    post = fila[0]
-    cover = post.get("image") or {}
-    image = media.read_image(cover["hash"]) if cover.get("hash") else None
-    texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
-    urn = linkedin.publish(auth, texto, image, alt=cover.get("alt") or post.get("imageAlt") or "")
-    return store.mark_shared(post["id"], urn, now=now)
+
+def share_post(post_id: str, now: datetime | None = None) -> dict[str, Any] | None:
+    """Manda ESTE post ao LinkedIn, por decisão do autor.
+
+    Ignora a fila, o interruptor `linkedinEnabled`, o status e o `linkedinPostedAt`:
+    o clique é a decisão, inclusive repetir um post ou mandar um rascunho.
+    """
+    now = now or _now()
+    auth = linkedin.get_auth()
+    if not auth:
+        raise NotConnectedError("conecte a conta do LinkedIn no painel")
+
+    post = store.get_post(post_id)
+    if not post:
+        raise PostNotFoundError("post não encontrado")
+    return _send_to_linkedin(auth, post, now)
 
 
 def check_expiry(now: datetime | None = None) -> int | None:

@@ -337,3 +337,69 @@ class TestCompartilharNoLinkedIn:
         resultado = service.tick(now=utc(2026, 9, 15, 13))
         assert resultado["published"] == 1
         assert "linkedin" in resultado["error"]
+
+
+class TestCompartilharUmPost:
+    def _com_token(self, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        enviados = []
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda auth, texto, imagem=None, alt="": enviados.append(texto) or "urn:li:share:7")
+        monkeypatch.setattr(service.media, "read_image", lambda digest: b"JPEG")
+        return enviados
+
+    def _publicado(self, titulo, dia):
+        post = service.generate(titulo, now=utc(2026, 9, dia, 21))
+        store.publish_post(post["id"], now=utc(2026, 9, dia, 22))
+        return post
+
+    def test_manda_o_post_escolhido_e_nao_o_primeiro_da_fila(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        velho = self._publicado("t1", 10)
+        novo = self._publicado("t2", 14)
+        feito = service.share_post(novo["id"], now=utc(2026, 9, 15, 12))
+        assert feito["id"] == novo["id"] and feito["linkedinPostedAt"] is not None
+        assert enviados[0].rstrip().endswith(f"/blog/{novo['slug']}")
+        assert store.get_post(velho["id"]).get("linkedinPostedAt") is None
+
+    def test_vale_mesmo_com_o_post_fora_da_fila_automatica(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        post = self._publicado("t", 10)
+        store.update_post(post["id"], {"linkedinEnabled": False})
+        assert service.share_post(post["id"])["linkedinPostedAt"] is not None
+
+    def test_rascunho_tambem_vai_quando_o_autor_pede(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        rascunho = service.generate("t", now=utc(2026, 9, 10, 21))
+        assert rascunho["status"] != "published"
+        feito = service.share_post(rascunho["id"])
+        assert feito["linkedinPostedAt"] is not None and len(enviados) == 1
+
+    def test_post_ja_compartilhado_pode_ir_de_novo(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        post = self._publicado("t", 10)
+        service.share_post(post["id"], now=utc(2026, 9, 11, 12))
+        service.share_post(post["id"], now=utc(2026, 9, 12, 12))
+        assert len(enviados) == 2
+        assert store.get_post(post["id"])["linkedinPostedAt"] == utc(2026, 9, 12, 12)
+
+    def test_post_inexistente(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        with pytest.raises(service.PostNotFoundError):
+            service.share_post("nao-existe")
+
+    def test_sem_conta_conectada(self, env, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: None)
+        post = self._publicado("t", 10)
+        with pytest.raises(service.NotConnectedError):
+            service.share_post(post["id"])
+
+    def test_falha_do_linkedin_nao_marca_o_post(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda *a, **k: (_ for _ in ()).throw(service.linkedin.LinkedInError("422")))
+        post = self._publicado("t", 10)
+        with pytest.raises(service.linkedin.LinkedInError):
+            service.share_post(post["id"])
+        assert store.get_post(post["id"]).get("linkedinPostedAt") is None
+
