@@ -341,3 +341,42 @@ class TestLinguagemDidatica:
         gemini.generate_post("OpenAI")
         regras = _corrido(fake)
         assert "inclusive os títulos das seções" in regras and "material estiver em inglês" in regras
+
+
+class TestFormatoDeArtigo:
+    """O post virou noticiário "o que aconteceu, como funciona"; o pedido do PO é artigo que comenta."""
+
+    def test_regra_1_vira_artigo_que_comenta_em_vez_de_noticiario_que_reconta(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "ARTIGO" in regras
+        assert "não é um noticiário" in regras
+
+    def test_primeiro_paragrafo_ainda_ancora_o_fato_mas_resumido_sem_reconstruir_a_noticia(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "resumido" in regras
+        assert "a notícia contada do começo ao fim" not in regras
+
+    def test_segunda_secao_vira_analise_com_pros_contras_e_efeito_colateral(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "ANÁLISE" in regras
+        assert "prós" in regras and "contras" in regras
+        assert "efeito colateral" in regras
+
+    def test_analise_nao_pode_ser_so_elogio(self, fake):
+        gemini.generate_post("OpenAI")
+        assert "nunca só elogio" in _corrido(fake)
+
+    def test_terceira_secao_continua_sendo_a_opiniao_do_rodrigo_com_previsao_ou_pergunta(self, fake):
+        # regra que já existia e não pode se perder na reescrita
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "a leitura do Rodrigo" in regras
+        assert "previsão com ousadia" in regras
+
+    def test_fechos_de_carimbo_continuam_proibidos(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "O tempo dirá" in regras and "Resta saber" in regras

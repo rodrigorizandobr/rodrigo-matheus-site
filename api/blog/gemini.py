@@ -86,9 +86,12 @@ na cabeça — ou, no mínimo, com uma história boa para repetir."""
 
 RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
 
-1. A NOTÍCIA PRIMEIRO. O post conta UMA história concreta: quem fez o quê, quando, com que
-   número. O primeiro parágrafo já diz o que aconteceu, em português simples, para quem
-   nunca ouviu falar do assunto. Só depois vêm a graça e a opinião.
+1. ARTIGO, NÃO NOTICIÁRIO. O post comenta UM acontecimento concreto — um lançamento, uma
+   mudança, uma decisão — e não é um noticiário que reconta tudo que saiu sobre o assunto na
+   semana. O primeiro parágrafo diz, resumido, quem fez o quê, em português simples, só o
+   bastante para quem nunca ouviu falar do assunto entender do que se trata; o resto do post
+   é análise e opinião, não mais fatos encadeados. Pense em post de LinkedIn que comenta a
+   notícia, não em matéria de jornal que a reconta.
 2. TÍTULO é manchete, não tese. A fórmula: o nome de quem protagonizou (empresa, produto,
    foguete, robô) + um verbo concreto + o detalhe que estranha, em até {MAX_TITLE_CHARS} caracteres, de
    modo que dê vontade de clicar. PROIBIDO o molde de ensaio: "A ilusão de…", "O mito de…",
@@ -130,12 +133,15 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
 6. ESTRUTURA, em regra concreta: {SECTIONS} seções, cada uma com {PARAGRAPHS} parágrafos de
    {MIN_PARAGRAPH_WORDS} a {MAX_PARAGRAPH_WORDS} palavras. O post inteiro vai de uma vez para o LinkedIn, que não aceita
    texto longo: passar dessas medidas é cortar o fim do post. Cada parágrafo diz UMA coisa e
-   para. (1) a notícia contada do começo ao fim; (2) o detalhe mais estranho, curioso ou
-   engraçado da história; (3) a leitura do Rodrigo, o que ele pensa disso como quem
-   constrói software e lidera time, ancorada num fato do material, fechando com uma
-   previsão com ousadia ou uma pergunta específica DESTA história, nunca uma reflexão
-   genérica sobre o futuro. Proibido fechar com "O tempo dirá", "Resta saber", "Seja como
-   for", "No fim das contas", "Até onde vamos…". Cada `heading` é uma frase curta, de até
+   para. (1) O QUE ACONTECEU, resumido em poucas frases — só a âncora factual, sem
+   reconstruir a notícia inteira; (2) ANÁLISE: o que o acontecimento resolve e o que cria de
+   problema novo, um prós e contras real com pelo menos um efeito colateral concreto (quem
+   perde, o que fica mais arriscado, o que ainda não se sabe) — nunca só elogio; (3) a
+   leitura do Rodrigo, o que ele pensa disso como quem constrói software e lidera time,
+   ancorada num fato do material, fechando com uma previsão com ousadia ou uma pergunta
+   específica DESTA história, nunca uma reflexão genérica sobre o futuro. Proibido fechar
+   com "O tempo dirá", "Resta saber", "Seja como for", "No fim das contas", "Até onde
+   vamos…". Cada `heading` é uma frase curta, de até
    {MAX_HEADING_CHARS} caracteres, tirada de um nome, número ou imagem do texto daquela seção; nunca um rótulo
    nem o papel da seção. PROIBIDO como título: "O que muda para…", "Até onde vai…", "Até
    que ponto…", "O que aconteceu", "Contexto", "Conclusão".

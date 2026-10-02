@@ -121,6 +121,14 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   português, inclusive `heading`, mesmo com material em inglês: um post saiu com título de seção em inglês
   copiado do Serper. Resíduo conhecido: o flash-lite ainda ecoa clichês proibidos (café, "Resta saber") e
   deixa passar sigla curta como "API".
+- **O blog é artigo que comenta, não noticiário que reconta** (regras 1 e 6 de `gemini.RULES`,
+  `TestFormatoDeArtigo`). A estrutura de 3 seções continua, mas o papel de cada uma mudou: (1) o que
+  aconteceu, resumido em poucas frases, sem reconstruir a notícia inteira; (2) ANÁLISE — o que o
+  acontecimento resolve e o que cria de problema novo, com pelo menos um efeito colateral concreto
+  (quem perde, o que fica mais arriscado), nunca só elogio; (3) a leitura do Rodrigo, como antes.
+  Pedido do PO, 2026-10-02: "não quero um noticiário… quero artigos que avaliam, dão prós e contras,
+  comentam os efeitos colaterais — mais post de LinkedIn". A seleção da notícia (uma só, a mais
+  curiosa) e a pesquisa por palavra-chave não mudaram, só o que o texto faz com o material.
 - **`research.is_noise()` filtra pelo TÍTULO** (vaga, concurso, edital, curso, bolsa, estágio…), nunca
   pelo trecho — filtrar por trecho derruba notícia legítima. Sem isso, um anúncio de emprego acabava
   citado como fonte em ABNT no fim do post.
@@ -365,7 +373,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 436 testes
+cd api && source .venv/bin/activate && pytest      # 443 testes
 cd web && npm test                                  # 390 testes
 ```
 
