@@ -9,6 +9,7 @@ import { MediaPage } from './admin/MediaPage'
 import { LinkedInPanel } from './admin/LinkedInPanel'
 import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
+import { TopicComposer } from './admin/TopicComposer'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 import { linkedinShareQuestion } from '../blog/editing'
 type Tab = 'posts' | 'media' | 'config'
@@ -194,7 +195,7 @@ export function AdminPage() {
       {tab === 'posts' && !editing && (
         <>
           <div className="panel p-5 grid gap-5 mb-6">
-            {/* Dois caminhos: deixar o robô escolher a notícia da vez, ou apontar uma. */}
+            {/* Três caminhos: o robô escolhe a notícia da vez, o autor escolhe o tema, ou o autor aponta uma notícia. */}
             <div className="grid gap-2">
               <div>
                 <span className="field-label !mb-0">Escrever a partir das últimas notícias</span>
@@ -212,12 +213,20 @@ export function AdminPage() {
               </button>
             </div>
 
+            <div className="pt-4 border-t border-line">
+              <TopicComposer busy={busy === 'generate'}
+                             onWrite={(tema) => void run('generate', async () => {
+                               const post = await api.generateFromTopic(tema)
+                               setPosts((all) => [post, ...all]); setEditing(post)
+                             }, 'Post escrito a partir da pesquisa.')} />
+            </div>
+
             <div className="grid gap-2 pt-4 border-t border-line">
               <div>
                 <label className="field-label !mb-0" htmlFor="novo-tema">A partir de uma notícia específica</label>
                 <p className="text-[11.5px] text-muted mt-1 leading-relaxed">
-                  Cole o <strong>link</strong> da matéria — ela vira a fonte, e só ela — ou descreva o assunto,
-                  que o robô procura na internet.
+                  Cole o <strong>link</strong> da matéria — ela vira a fonte, e só ela — ou descreva a notícia,
+                  que o robô procura entre as últimas da semana.
                 </p>
               </div>
               <input id="novo-tema" className="field" value={topic} onChange={(e) => setTopic(e.target.value)}

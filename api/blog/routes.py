@@ -296,9 +296,12 @@ def admin_generate():
     research_flag = body.get("research")
     try:
         post = service.generate(body.get("topic"), context=body.get("context", ""),
-                                use_research=research_flag if isinstance(research_flag, bool) else None)
+                                use_research=research_flag if isinstance(research_flag, bool) else None,
+                                from_topic=body.get("mode") == "topic")
     except service.NoTopicError as exc:
         return jsonify({"error": str(exc)}), 409
+    except service.NoResearchError as exc:
+        return jsonify({"error": str(exc)}), 422
     except service.gemini.GeminiError as exc:
         return jsonify({"error": str(exc)}), 502
     return jsonify({"post": _json(post)}), 201

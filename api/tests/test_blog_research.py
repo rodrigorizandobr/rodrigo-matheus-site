@@ -269,3 +269,66 @@ class TestPartirDeUmaNoticia:
         monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(text="<body>só texto</body>", content_type="text/html"))
         out = research.from_url("https://www1.folha.uol.com.br/x")
         assert out.references[0]["site"] == "folha.uol.com.br"
+
+
+def organico(links):
+    return {"organic": [{"link": l, "title": f"Guia {i}",
+                         "snippet": f"Explicação razoavelmente longa número {i} sobre o assunto, com conteúdo suficiente para passar do corte."}
+                        for i, l in enumerate(links)]}
+
+
+class TestPesquisaPorTema:
+    """Tema escolhido pelo autor: busca geral + notícias, sem o recorte de uma semana."""
+
+    def _espiona(self, monkeypatch, por_url=None):
+        chamadas = []
+        def fake_post(url, **kw):
+            chamadas.append((url, kw["json"]))
+            return Resp((por_url or {}).get(url, {"news": []}))
+        monkeypatch.setattr(research.requests, "post", fake_post)
+        monkeypatch.setattr(research.requests, "get", lambda *a, **k: Resp(status=403))
+        return chamadas
+
+    def test_consulta_a_busca_geral_e_as_noticias(self, monkeypatch):
+        chamadas = self._espiona(monkeypatch)
+        research.search_topic(["RAG em produção"])
+        urls = {u for u, _ in chamadas}
+        assert "https://google.serper.dev/search" in urls
+        assert "https://google.serper.dev/news" in urls
+
+    def test_nao_recorta_pela_ultima_semana(self, monkeypatch):
+        # tema não é novidade: um guia de dois anos atrás serve
+        chamadas = self._espiona(monkeypatch)
+        research.search_topic(["RAG em produção"])
+        assert all("tbs" not in corpo for _, corpo in chamadas)
+
+    def test_usa_os_resultados_organicos_da_busca_geral(self, monkeypatch):
+        self._espiona(monkeypatch, {"https://google.serper.dev/search": organico(["https://guia.com/rag"])})
+        out = research.search_topic(["RAG em produção"])
+        assert out.sources == ["https://guia.com/rag"]
+        assert "Explicação razoavelmente longa" in out.context
+
+    def test_nao_filtra_curso_nem_vaga_pelo_titulo(self, monkeypatch):
+        # o filtro existe para o termo vigiado; aqui quem escolheu o assunto foi o autor
+        payload = {"organic": [{"link": "https://x.com", "title": "Curso completo de RAG",
+                                "snippet": "Trecho longo o bastante para entrar no material de apoio do post, sem filtro."}]}
+        self._espiona(monkeypatch, {"https://google.serper.dev/search": payload})
+        assert research.search_topic(["RAG"]).sources == ["https://x.com"]
+
+    def test_sem_chave_devolve_vazio_sem_rede(self, monkeypatch):
+        monkeypatch.setattr(research, "SERPER_KEY", "")
+        monkeypatch.setattr(research.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("rede")))
+        assert research.search_topic(["x"]).context == ""
+
+    def test_o_modo_noticia_continua_so_nas_noticias_da_semana(self, monkeypatch):
+        chamadas = self._espiona(monkeypatch)
+        research.search_web(["OpenAI"])
+        assert {u for u, _ in chamadas} == {"https://google.serper.dev/news"}
+
+
+class TestConsultasDeTema:
+    def test_o_tema_puro_vem_primeiro(self):
+        assert research.topic_queries("  RAG em produção ")[0] == "RAG em produção"
+
+    def test_tema_vazio_nao_gera_consulta(self):
+        assert research.topic_queries("  ") == []

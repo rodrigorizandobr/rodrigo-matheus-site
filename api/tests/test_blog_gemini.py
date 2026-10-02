@@ -258,3 +258,26 @@ class TestCapaComAnalogia:
         regras = _sistema(fake)
         assert "sem pessoas" not in regras and "sem rostos" not in regras
         assert "sem texto" in regras
+
+
+class TestTemaDoAutor:
+    """Quando o autor escolhe o tema, o post é sobre ELE — não sobre a notícia mais curiosa do resultado."""
+
+    def test_o_tema_do_autor_manda_e_nao_troca_de_assunto(self, fake):
+        gemini.generate_post("RAG em produção", context="material", author_topic=True)
+        usuario = _usuario(fake)
+        assert "TEMA DO AUTOR: RAG em produção" in usuario
+        assert "ASSUNTO VIGIADO" not in usuario
+
+    def test_nao_manda_escolher_uma_noticia_entre_varias(self, fake):
+        gemini.generate_post("RAG em produção", context="material", author_topic=True)
+        assert "escolha UMA" not in _usuario(fake)
+
+    def test_o_material_de_apoio_continua_indo_no_prompt(self, fake):
+        gemini.generate_post("RAG em produção", context="fato do material", author_topic=True)
+        assert "fato do material" in _usuario(fake)
+
+    def test_o_modo_vigia_nao_mudou(self, fake):
+        gemini.generate_post("OpenAI", context="material")
+        usuario = _usuario(fake)
+        assert "ASSUNTO VIGIADO: OpenAI" in usuario and "escolha UMA" in usuario

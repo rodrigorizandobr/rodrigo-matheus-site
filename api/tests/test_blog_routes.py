@@ -25,7 +25,7 @@ def blog(monkeypatch):
     db = FakeDb()
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
-    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None: dict(DRAFT))
+    monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: dict(DRAFT))
     monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: None)
     monkeypatch.setattr(routes, "TICK_KEY", "chave-do-agendador")
     return db
@@ -179,3 +179,23 @@ class TestAgendador:
     def test_chave_vazia_no_servidor_nao_libera(self, client, blog, monkeypatch):
         monkeypatch.setattr(routes, "TICK_KEY", "")
         assert client.post("/api/blog/tick?key=").status_code == 403
+
+
+class TestGerarPorTema:
+    def test_modo_tema_pesquisa_e_devolve_201(self, client, blog, admin, monkeypatch):
+        monkeypatch.setattr(service.research, "search_topic",
+                            lambda q: service.research.Research(context="material", sources=["https://a"]))
+        res = client.post("/api/blog/admin/generate", json={"topic": "RAG", "mode": "topic"}, headers=AUTH)
+        assert res.status_code == 201
+        assert res.get_json()["post"]["generation"]["source"] == "tema"
+
+    def test_sem_material_devolve_422_com_o_motivo(self, client, blog, admin, monkeypatch):
+        monkeypatch.setattr(service.research, "SERPER_KEY", "chave")
+        monkeypatch.setattr(service.research, "search_topic", lambda q: service.research.Research())
+        res = client.post("/api/blog/admin/generate", json={"topic": "RAG", "mode": "topic"}, headers=AUTH)
+        assert res.status_code == 422
+        assert "RAG" in res.get_json()["error"]
+
+    def test_modo_tema_sem_tema_devolve_409(self, client, blog, admin):
+        res = client.post("/api/blog/admin/generate", json={"topic": "", "mode": "topic"}, headers=AUTH)
+        assert res.status_code == 409

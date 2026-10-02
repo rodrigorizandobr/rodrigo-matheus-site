@@ -21,6 +21,10 @@ class NoTopicError(RuntimeError):
     """Não há termo vigiado cadastrado — sem assunto, não há post."""
 
 
+class NoResearchError(RuntimeError):
+    """O tema do autor não trouxe material da internet — melhor não escrever que escrever do nada."""
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -34,15 +38,30 @@ def _pick_subject(cfg: dict[str, Any]) -> str:
 
 
 def generate(topic: str | None, now: datetime | None = None, context: str = "",
-             use_research: bool | None = None) -> dict[str, Any]:
+             use_research: bool | None = None, from_topic: bool = False) -> dict[str, Any]:
     """Escreve um post inteiro e grava conforme a configuração (agendado ou publicado).
 
     `use_research` sobrepõe a configuração para esta geração — é o que permite ao
     painel oferecer "escrever com pesquisa" como escolha por post.
+
+    `from_topic` é o modo "escreva sobre ESTE tema": o autor escolheu o assunto, a busca
+    é geral (não só notícia da semana) e, sem material, o post NÃO sai — cair no
+    currículo daria um texto que não é sobre o que ele pediu.
     """
     now = now or _now()
     cfg = store.get_config()
     source = "manual"
+
+    if from_topic:
+        topic = (topic or "").strip()
+        if not topic:
+            raise NoTopicError("escreva o tema do post")
+        found = research.search_topic(research.topic_queries(topic))
+        if not found.context.strip():
+            motivo = ("a chave SERPER_API_KEY não está configurada no servidor" if not research.SERPER_KEY
+                      else f"a busca não trouxe material sobre «{topic}»")
+            raise NoResearchError(f"Nada escrito: {motivo}. Reformule o tema ou use outro modo.")
+        return _save_generated(topic, found.context, found, "tema", now, cfg, author_topic=True)
 
     if not (topic or "").strip():
         topic = _pick_subject(cfg)
@@ -66,8 +85,14 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
         context = profile.career_context()
         source = f"{source}+curriculo"
 
+    return _save_generated(topic, context, found, source, now, cfg)
+
+
+def _save_generated(topic: str, context: str, found: research.Research, source: str,
+                    now: datetime, cfg: dict[str, Any], author_topic: bool = False) -> dict[str, Any]:
+    """Texto → capa → gravação, igual para os dois caminhos de geração."""
     draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
-                                 avoid_covers=store.recent_cover_prompts())
+                                 avoid_covers=store.recent_cover_prompts(), author_topic=author_topic)
     draft["topic"] = topic
     draft["generation"] = {
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,

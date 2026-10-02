@@ -130,6 +130,16 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   engordar uma constante, o teste quebra antes do post. Medido em 3 posts reais: 1.916 a 2.230
   caracteres; o modelo fica ABAIXO dos parágrafos pedidos (31 a 50 palavras) e às vezes estoura o título
   (104 contra 80), sem consequência para o limite. Antes eram 4 seções x 3 parágrafos, ~5.500.
+- **Três jeitos de pedir um post no painel, três pesquisas diferentes.** (1) "últimas notícias": termo
+  vigiado em rodízio, Serper `/news`, Brasil, última semana. (2) "notícia específica": link (a página é a
+  única fonte) ou texto, mesma busca de notícias. (3) **"tema que eu escolho"** (`generate(..., from_topic=True)`,
+  `mode: "topic"` na rota, `TopicComposer.tsx`): `research.search_topic` junta Serper `/search` (organic) E
+  `/news`, **sem** `tbs` e **sem** `is_noise` — tema atemporal ("RAG em produção") não tem notícia da semana,
+  e o autor que escolheu o assunto pode querer justamente o "curso de RAG". O prompt troca `ASSUNTO VIGIADO`
+  por `TEMA DO AUTOR` (`author_topic=True`): escreve SOBRE o tema, com UM ângulo, e não manda "escolha a
+  notícia mais curiosa". **Sem material não há post** (`NoResearchError` → 422, dizendo se faltou a chave
+  `SERPER_API_KEY` ou a busca veio vazia): nos outros modos o fallback é o currículo, mas aqui o texto sairia
+  sobre outra coisa que não o pedido. Ignora o interruptor `research_enabled`, que é do piloto automático.
 - **Termo de notícia REPETE de propósito.** O que muda numa notícia é a notícia, então os termos entram
   em rodízio (`pick_rotating`, o mais antigo primeiro).
 - **A capa não carrega ficha técnica.** `media._jpeg` remonta o arquivo **só a partir dos
@@ -327,8 +337,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 404 testes
-cd web && npm test                                  # 254 testes
+cd api && source .venv/bin/activate && pytest      # 426 testes
+cd web && npm test                                  # 342 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

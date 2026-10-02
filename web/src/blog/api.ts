@@ -61,6 +61,9 @@ export const blogApi = {
 
       generate: async (topic = '', research?: boolean) =>
         (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, context: '', research })).post,
+      /** o autor escolhe o tema; o servidor pesquisa na internet e escreve sobre ELE */
+      generateFromTopic: async (topic: string) =>
+        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'topic' })).post,
       create: async (draft: NewPost) =>
         (await call<{ post: Post }>('/api/blog/admin/posts', 'POST', draft)).post,
       update: async (id: string, patch: Partial<Post>) =>

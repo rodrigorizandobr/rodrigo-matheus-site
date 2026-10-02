@@ -142,6 +142,23 @@ describe('biblioteca de mídia', () => {
   })
 })
 
+describe('escrever sobre um tema', () => {
+  const token = async () => 'jwt-123'
+
+  it('manda o tema no modo "topic", que pesquisa na internet', async () => {
+    const f = fetchOk({ post: post() }, 201)
+    vi.stubGlobal('fetch', f)
+    await blogApi.admin(token).generateFromTopic('RAG em produção')
+    expect(f.mock.calls[0][0]).toBe('/api/blog/admin/generate')
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ topic: 'RAG em produção', mode: 'topic' })
+  })
+
+  it('busca sem material (422) chega com a explicação do servidor', async () => {
+    vi.stubGlobal('fetch', fetchOk({ error: 'Nada escrito: a busca não trouxe material' }, 422))
+    await expect(blogApi.admin(token).generateFromTopic('x')).rejects.toThrow(/Nada escrito/)
+  })
+})
+
 describe('LinkedIn', () => {
   const token = async () => 'jwt-123'
 

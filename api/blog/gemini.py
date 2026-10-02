@@ -243,18 +243,30 @@ def _avoid_covers_block(prompts: list[str]) -> str:
 
 
 def generate_post(topic: str, context: str = "", avoid_titles: list[str] | None = None,
-                  avoid_covers: list[str] | None = None) -> dict[str, Any]:
+                  avoid_covers: list[str] | None = None, author_topic: bool = False) -> dict[str, Any]:
     """Escreve um post inteiro (pt+en) sobre `topic`.
 
     `context` é o material de apoio (pesquisa na web ou o currículo) e
     `avoid_titles` são os títulos já no ar, para não repetir assunto, e `avoid_covers` os
-    prompts das capas já no ar, para não repetir imagem.
+    prompts das capas já no ar, para não repetir imagem. `author_topic` marca o tema
+    escolhido pelo autor: o post é sobre ELE, e o material só fundamenta.
     """
-    prompt = f"""ASSUNTO VIGIADO: {topic}
+    if author_topic:
+        cabecalho = f"""TEMA DO AUTOR: {topic}
+(O autor escolheu este tema: o post é sobre ELE, não troque de assunto. Se o tema for amplo,
+escolha UM ângulo concreto dentro dele e conte esse, com os nomes, datas e números do material.
+Não é título nem tese pronta.)"""
+        material = (f'MATERIAL DE APOIO — pesquisa feita agora na internet sobre o tema. Apoie os fatos nele, não copie o texto, e não afirme nada que ele não sustente. Se o ângulo escolhido já virou post (lista abaixo), escolha outro:{chr(10)}{context}{chr(10)}'
+                    if context.strip() else '')
+    else:
+        cabecalho = f"""ASSUNTO VIGIADO: {topic}
 (Este é o assunto que a pauta está de olho, não é o título nem a tese. Quem decide a
-história é o material abaixo.)
+história é o material abaixo.)"""
+        material = (f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto. Ele costuma trazer várias notícias sobre o mesmo nome: escolha UMA — a mais curiosa, inusitada ou engraçada, a que alguém contaria num jantar — e conte só ela. As outras servem de contexto. Se a história escolhida já virou post (lista abaixo), escolha outra:{chr(10)}{context}{chr(10)}'
+                    if context.strip() else '')
+    prompt = f"""{cabecalho}
 
-{f'MATERIAL DE APOIO — apoie os fatos nele, não copie o texto. Ele costuma trazer várias notícias sobre o mesmo nome: escolha UMA — a mais curiosa, inusitada ou engraçada, a que alguém contaria num jantar — e conte só ela. As outras servem de contexto. Se a história escolhida já virou post (lista abaixo), escolha outra:{chr(10)}{context}{chr(10)}' if context.strip() else ''}{_avoid_block(avoid_titles or [])}{_avoid_covers_block(avoid_covers or [])}
+{material}{_avoid_block(avoid_titles or [])}{_avoid_covers_block(avoid_covers or [])}
 Escreva o post completo em português e em inglês, seguindo as regras."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
 

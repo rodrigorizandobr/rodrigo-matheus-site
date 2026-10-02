@@ -28,6 +28,9 @@ SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
 #: Endpoint de NOTÍCIAS, não a busca geral: o blog fala do que é novidade, e a busca
 #: web devolveria páginas institucionais e conteúdo antigo bem posicionado em SEO.
 SERPER_URL = "https://google.serper.dev/news"
+#: Busca geral, só para o tema que o AUTOR escolhe: um assunto atemporal ("como funciona
+#: RAG") não tem notícia da semana, e o guia bem feito de dois anos atrás serve.
+SERPER_WEB_URL = "https://google.serper.dev/search"
 #: Brasil, em português — o leitor é daqui e a pauta é o mercado brasileiro.
 #: Só o que saiu na última semana: post de novidade com matéria velha deixa de ser novidade.
 RECENT = "qdr:w"
@@ -101,13 +104,14 @@ def extract_text(raw_html: str) -> str:
     return _SPACES.sub(" ", html_lib.unescape(text)).strip()
 
 
-def _search_once(query: str, recent: bool) -> list[dict[str, str]]:
+def _search_once(query: str, recent: bool, url: str = SERPER_URL,
+                 filter_noise: bool = True) -> list[dict[str, str]]:
     body = {"q": query, "num": RESULTS_PER_QUERY, "gl": COUNTRY, "hl": LOCALE}
     if recent:
         body["tbs"] = RECENT
     try:
         res = requests.post(
-            SERPER_URL,
+            url,
             headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
             json=body,
             timeout=SEARCH_TIMEOUT,
@@ -126,7 +130,7 @@ def _search_once(query: str, recent: bool) -> list[dict[str, str]]:
         link = (item or {}).get("link")
         if not isinstance(link, str) or not link:
             continue
-        if is_noise(str(item.get("title") or "")):
+        if filter_noise and is_noise(str(item.get("title") or "")):
             continue
         out.append({
             "link": link,
@@ -155,14 +159,25 @@ def _read_page(url: str) -> str | None:
         return None  # bloqueado, fora do ar ou não é HTML — segue com os outros
 
 
-def search_web(queries: list[str]) -> Research:
+def _search_topic(query: str) -> list[dict[str, str]]:
+    """Busca geral + notícias, sem recorte de data e sem o filtro de vaga/curso.
+
+    O filtro de ruído existe para o termo vigiado, cujo nome é também nome de
+    profissão; aqui quem escolheu o assunto foi o autor, e "curso de RAG" pode ser
+    exatamente o que ele quer ler.
+    """
+    return (_search_once(query, recent=False, url=SERPER_WEB_URL, filter_noise=False)
+            + _search_once(query, recent=False, filter_noise=False))
+
+
+def search_web(queries: list[str], searcher=_search) -> Research:
     """Contexto de pesquisa para as consultas dadas. Nunca levanta exceção."""
     if not SERPER_KEY:
         return Research()
 
     found: dict[str, dict[str, str]] = {}
     for query in queries:
-        for item in _search(query):
+        for item in searcher(query):
             found.setdefault(item["link"], item)
 
     if not found:
@@ -185,6 +200,11 @@ def search_web(queries: list[str]) -> Research:
                    "published": i.get("date", "")} for i in lidos]
     return Research(context=context, sources=[i["link"] for i in items], references=references,
                     pages_read=len(pages), snippets=len(snippets))
+
+
+def search_topic(queries: list[str]) -> Research:
+    """Pesquisa para um tema escolhido pelo autor (ver `_search_topic`)."""
+    return search_web(queries, searcher=_search_topic)
 
 
 _URL_RE = re.compile(r"^https?://\S+$", re.I)
@@ -237,3 +257,11 @@ def news_queries(term: str, year: int | None = None) -> list[str]:
         return []
     year = year or datetime.now(timezone.utc).year
     return [term, f"{term} {year}"]
+
+
+def topic_queries(topic: str) -> list[str]:
+    """Consultas para um tema: o texto do autor, curto, e a mesma coisa com o ano."""
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    return [topic, f"{topic} {datetime.now(timezone.utc).year}"]
