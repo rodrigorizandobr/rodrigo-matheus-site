@@ -1,4 +1,4 @@
-import type { Body, Section } from './types'
+import type { Body, Post, PostStatus, Section } from './types'
 
 /**
  * Manipulações puras do editor. Ficam fora do componente porque é aqui que se
@@ -133,3 +133,30 @@ export function linkedinShareQuestion(post: { status: string; linkedinPostedAt?:
   return ['Publicar este post no LinkedIn agora? Não dá para desfazer pelo painel.', ...avisos].join('\n\n')
 }
 
+export const statusLabel = (status: PostStatus): string =>
+  ({ draft: 'rascunho', scheduled: 'agendado', published: 'no ar' })[status]
+
+/** `2026-09-15T12:00:00Z` → `15/09/2026`. Só a parte da data: não depende do fuso de quem olha. */
+export const formatDay = (iso: string | null | undefined): string => {
+  const [y, m, d] = (iso || '').slice(0, 10).split('-')
+  return y && m && d ? `${d}/${m}/${y}` : '—'
+}
+
+/** Pergunta de confirmação do "excluir": diz o que sai do ar e o que NÃO se desfaz por aqui. */
+export function deleteQuestion(post: Pick<Post, 'status' | 'linkedinPostedAt' | 'i18n'>): string {
+  const title = post.i18n?.pt?.title || post.i18n?.en?.title || ''
+  const avisos: string[] = []
+  if (post.status === 'published') avisos.push('Ele está no ar: sai do site na hora, e o link deixa de funcionar.')
+  if (post.status === 'scheduled') avisos.push('Ele está agendado e não será publicado.')
+  if (post.linkedinPostedAt) {
+    avisos.push(`O post de ${formatDay(post.linkedinPostedAt)} continua no LinkedIn: apagar aqui não o remove de lá.`)
+  }
+  const nome = title ? `“${title}”` : 'este post sem título'
+  return [`Excluir ${nome} para sempre? Não dá para desfazer.`, ...avisos].join('\n\n')
+}
+
+/** Só o que o botão "salvar" grava: texto e tags. Estado, capa e LinkedIn têm ação própria. */
+export const hasUnsavedChanges = (current: Pick<Post, 'i18n' | 'tags'>, saved: Pick<Post, 'i18n' | 'tags'>): boolean =>
+  JSON.stringify([current.i18n, current.tags]) !== JSON.stringify([saved.i18n, saved.tags])
+
+export const DISCARD_QUESTION = 'Há alterações que ainda não foram salvas. Sair e perdê-las?'

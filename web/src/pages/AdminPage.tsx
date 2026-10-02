@@ -11,7 +11,7 @@ import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { TopicComposer } from './admin/TopicComposer'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
-import { linkedinShareQuestion } from '../blog/editing'
+import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
 type Tab = 'posts' | 'media' | 'config'
 type Session = { email: string } | null
 
@@ -29,6 +29,7 @@ export function AdminPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [config, setConfig] = useState<BlogConfig | null>(null)
   const [editing, setEditing] = useState<Post | null>(null)
+  const [saved, setSaved] = useState<Post | null>(null)
   const [previewing, setPreviewing] = useState<Post | null>(null)
   const [pickingCover, setPickingCover] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -39,6 +40,16 @@ export function AdminPage() {
   const [linkedin, setLinkedin] = useState<LinkedInStatus | null>(null)
 
   const api = useMemo(() => blogApi.admin(idToken), [])
+
+  // `editing` é a cópia de trabalho; `saved`, a última versão que o servidor confirmou.
+  const dirty = !!editing && !!saved && hasUnsavedChanges(editing, saved)
+
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   useEffect(() => {
     document.title = 'Painel do blog — Rodrigo Matheus'
@@ -113,9 +124,57 @@ export function AdminPage() {
     )
   }
 
-  const update = (post: Post) => {
-    setEditing(post)
-    setPosts((all) => all.map((p) => (p.id === post.id ? post : p)))
+  const open = (post: Post) => { setEditing(post); setSaved(post) }
+  const closeEditor = () => { setEditing(null); setSaved(null) }
+
+  /**
+   * Resposta do servidor entra na lista e na base do editor. `keepDraft` preserva o texto
+   * ainda não salvo: capa, fila do LinkedIn e afins não mexem no texto, então não podem
+   * apagar o que o autor está digitando.
+   */
+  const applyServer = (server: Post, keepDraft = false) => {
+    setPosts((all) => all.map((p) => (p.id === server.id ? server : p)))
+    setSaved((s) => (s && s.id === server.id ? server : s))
+    setEditing((cur) => {
+      if (!cur || cur.id !== server.id) return cur
+      return keepDraft ? { ...server, i18n: cur.i18n, tags: cur.tags } : server
+    })
+  }
+
+  const persist = async () => {
+    if (!editing) return
+    applyServer(await api.update(editing.id, { i18n: editing.i18n, tags: editing.tags }))
+  }
+
+  /** Ação que mexe no que vai ao ar: grava o texto antes, para o leitor ver o que o autor vê. */
+  const afterSaving = (fn: (id: string) => Promise<Post>) => async () => {
+    if (!editing) return
+    if (dirty) await persist()
+    applyServer(await fn(editing.id))
+  }
+
+  const shareLinkedin = (post: Post) => {
+    if (!confirm(linkedinShareQuestion(post))) return
+    setTogglingId(post.id)
+    void run('linkedin', async () => {
+      if (editing?.id === post.id && dirty) await persist()
+      applyServer(await api.shareToLinkedin(post.id))
+    }, 'Publicado no LinkedIn.').finally(() => setTogglingId(null))
+  }
+
+  const removePost = (post: Post) => {
+    if (!confirm(deleteQuestion(post))) return
+    setTogglingId(post.id)
+    void run('delete', async () => {
+      await api.remove(post.id)
+      setPosts((all) => all.filter((p) => p.id !== post.id))
+      if (editing?.id === post.id) closeEditor()
+    }, 'Post excluído.').finally(() => setTogglingId(null))
+  }
+
+  const switchTab = (t: Tab) => {
+    if (dirty && !confirm(DISCARD_QUESTION)) return
+    setTab(t); closeEditor()
   }
 
   return (
@@ -123,7 +182,7 @@ export function AdminPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div className="flex gap-1">
           {(['posts', 'media', 'config'] as Tab[]).map((t) => (
-            <button key={t} type="button" onClick={() => { setTab(t); setEditing(null) }} aria-pressed={tab === t}
+            <button key={t} type="button" onClick={() => switchTab(t)} aria-pressed={tab === t}
                     className="toggle-chip !h-9 !px-4 uppercase font-display font-semibold tracking-wider">
               {t === 'posts' ? 'posts' : t === 'media' ? 'mídia' : 'configuração'}
             </button>
@@ -165,30 +224,23 @@ export function AdminPage() {
         <PostEditor
           post={editing}
           busy={busy}
-          onChange={update}
-          onClose={() => setEditing(null)}
+          dirty={dirty}
+          onChange={setEditing}
+          onClose={closeEditor}
           onPreview={() => setPreviewing(editing)}
-          onSave={() => run('save', async () => {
-            update(await api.update(editing.id, { i18n: editing.i18n, tags: editing.tags }))
-          }, 'Post salvo.')}
-          onRevise={(instruction) => run('revise', async () => { update(await api.revise(editing.id, instruction)) }, 'Post reescrito pela IA.')}
-          onCover={(prompt) => run('cover', async () => { update(await api.cover(editing.id, prompt)) }, 'Capa nova gerada.')}
+          onSave={() => run('save', persist, 'Post salvo.')}
+          onRevise={(instruction) => run('revise', afterSaving((id) => api.revise(id, instruction)), 'Post reescrito pela IA.')}
+          onCover={(prompt) => run('cover', async () => { applyServer(await api.cover(editing.id, prompt), true) }, 'Capa nova gerada.')}
           onToggleLinkedin={() => run('linkedin', async () => {
-            update(await api.update(editing.id, { linkedinEnabled: editing.linkedinEnabled === false }))
+            applyServer(await api.update(editing.id, { linkedinEnabled: editing.linkedinEnabled === false }), true)
           })}
+          onShareLinkedin={() => shareLinkedin(editing)}
           onPickCover={() => setPickingCover(true)}
-          onClearCover={() => run('cover', async () => { update(await api.setCover(editing.id, null)) }, 'Capa removida.')}
-          onPublish={() => run('publish', async () => { update(await api.publish(editing.id)) }, 'No ar.')}
-          onUnpublish={() => run('publish', async () => { update(await api.unpublish(editing.id)) }, 'Fora do ar.')}
-          onSchedule={(when) => run('schedule', async () => { update(await api.schedule(editing.id, when)) }, 'Agendado.')}
-          onDelete={() => {
-            if (!confirm('Apagar este post para sempre?')) return
-            void run('delete', async () => {
-              await api.remove(editing.id)
-              setPosts((all) => all.filter((p) => p.id !== editing.id))
-              setEditing(null)
-            }, 'Post apagado.')
-          }}
+          onClearCover={() => run('cover', async () => { applyServer(await api.setCover(editing.id, null), true) }, 'Capa removida.')}
+          onPublish={() => run('publish', afterSaving((id) => api.publish(id)), 'No ar.')}
+          onUnpublish={() => run('publish', afterSaving((id) => api.unpublish(id)), 'Fora do ar.')}
+          onSchedule={(when) => run('schedule', afterSaving((id) => api.schedule(id, when)), 'Agendado.')}
+          onDelete={() => removePost(editing)}
         />
       )}
 
@@ -207,7 +259,7 @@ export function AdminPage() {
                       className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider w-full sm:w-fit"
                       onClick={() => run('generate', async () => {
                         const post = await api.generate('', true)
-                        setPosts((all) => [post, ...all]); setEditing(post)
+                        setPosts((all) => [post, ...all]); open(post)
                       }, 'Post escrito a partir das notícias.')}>
                 {busy === 'generate' ? 'escrevendo…' : 'gerar das últimas notícias'}
               </button>
@@ -217,7 +269,7 @@ export function AdminPage() {
               <TopicComposer busy={busy === 'generate'}
                              onWrite={(tema) => void run('generate', async () => {
                                const post = await api.generateFromTopic(tema)
-                               setPosts((all) => [post, ...all]); setEditing(post)
+                               setPosts((all) => [post, ...all]); open(post)
                              }, 'Post escrito a partir da pesquisa.')} />
             </div>
 
@@ -240,7 +292,7 @@ export function AdminPage() {
                         className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider"
                         onClick={() => run('generate', async () => {
                           const post = await api.generate(topic, research)
-                          setPosts((all) => [post, ...all]); setEditing(post); setTopic('')
+                          setPosts((all) => [post, ...all]); open(post); setTopic('')
                         }, 'Post escrito.')}>
                   {busy === 'generate' ? 'escrevendo…' : 'escrever sobre isto'}
                 </button>
@@ -252,7 +304,7 @@ export function AdminPage() {
                             i18n: { pt: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] },
                                     en: { title: '', excerpt: '', sections: [{ heading: '', paragraphs: [''] }] } },
                           })
-                          setPosts((all) => [post, ...all]); setEditing(post)
+                          setPosts((all) => [post, ...all]); open(post)
                         })}>
                   em branco
                 </button>
@@ -263,28 +315,20 @@ export function AdminPage() {
           {busy === 'load' && <p className="text-muted text-[13px]">Carregando…</p>}
           {busy !== 'load' && posts.length === 0 && <p className="panel p-8 text-center text-muted text-[14px]">Nenhum post ainda.</p>}
 
-          <PostList posts={posts} onPreview={setPreviewing} onEdit={setEditing} busyId={togglingId}
+          <PostList posts={posts} onPreview={setPreviewing} onEdit={open} busyId={togglingId}
                     onTogglePublish={(post) => {
                       setTogglingId(post.id)
                       void run('publish', async () => {
-                        const saved = post.status === 'published' ? await api.unpublish(post.id) : await api.publish(post.id)
-                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
+                        applyServer(post.status === 'published' ? await api.unpublish(post.id) : await api.publish(post.id))
                       }, post.status === 'published' ? 'Post fora do ar.' : 'Post no ar.')
                         .finally(() => setTogglingId(null))
                     }}
-                    onShareLinkedin={(post) => {
-                      if (!confirm(linkedinShareQuestion(post))) return
-                      setTogglingId(post.id)
-                      void run('linkedin', async () => {
-                        const saved = await api.shareToLinkedin(post.id)
-                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
-                      }, 'Publicado no LinkedIn.').finally(() => setTogglingId(null))
-                    }}
+                    onShareLinkedin={shareLinkedin}
+                    onDelete={removePost}
                     onToggleLinkedin={(post) => {
                       setTogglingId(post.id)
                       void run('linkedin', async () => {
-                        const saved = await api.update(post.id, { linkedinEnabled: post.linkedinEnabled === false })
-                        setPosts((all) => all.map((p) => (p.id === saved.id ? saved : p)))
+                        applyServer(await api.update(post.id, { linkedinEnabled: post.linkedinEnabled === false }))
                       }).finally(() => setTogglingId(null))
                     }} />
         </>
@@ -294,7 +338,7 @@ export function AdminPage() {
         <ImagePicker api={api.media} onClose={() => setPickingCover(false)}
                      onPick={(item) => {
                        setPickingCover(false)
-                       void run('cover', async () => { update(await api.setCover(editing.id, item.hash)) }, 'Capa escolhida.')
+                       void run('cover', async () => { applyServer(await api.setCover(editing.id, item.hash), true) }, 'Capa escolhida.')
                      }} />
       )}
     </Shell>

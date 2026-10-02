@@ -14,6 +14,7 @@ import { ConfigPanel } from '../src/pages/admin/ConfigPanel'
 import { LinkedInPanel } from '../src/pages/admin/LinkedInPanel'
 import { PostPreview } from '../src/pages/admin/PostPreview'
 import { MediaPage } from '../src/pages/admin/MediaPage'
+import { hasUnsavedChanges } from '../src/blog/editing'
 import type { BlogConfig, MediaItem, Post } from '../src/blog/types'
 
 const midia = (n: number): MediaItem[] =>
@@ -68,15 +69,28 @@ const config: BlogConfig = {
 
 function Bench() {
   const [atual, setAtual] = useState(post())
+  const [base, setBase] = useState(atual)
+  const variantes: Record<string, Partial<Post>> = {
+    agendado: { status: 'scheduled' },
+    rascunho: { status: 'draft', scheduledFor: null },
+    'no ar': { status: 'published', publishedAt: '2026-09-16T11:00:00Z' },
+    'no ar + LinkedIn': { status: 'published', publishedAt: '2026-09-16T11:00:00Z', linkedinPostedAt: '2026-09-17T12:00:00Z' },
+  }
+  const trocar = (v: string) => { const p = post(variantes[v]); setAtual(p); setBase(p) }
   const [preview, setPreview] = useState<Post | null>(null)
   const nada = () => {}
   return (
     <div className="section relative z-10 w-[min(var(--max),94vw)] mx-auto py-8 grid gap-10">
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — LISTA</h1>
       <PostList posts={[post(), post({ id: 'p2', status: 'published', image: null }), post({ id: 'p3', status: 'draft' })]}
-                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} onToggleLinkedin={nada} onShareLinkedin={nada} />
+                onPreview={setPreview} onEdit={nada} onTogglePublish={nada} onToggleLinkedin={nada} onShareLinkedin={nada} onDelete={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — EDITOR</h1>
-      <PostEditor post={atual} busy={null} onChange={setAtual} onSave={nada} onRevise={nada} onCover={nada}
+      <div className="flex gap-1 flex-wrap">
+        {Object.keys(variantes).map((v) => (
+          <button key={v} type="button" className="toggle-chip" onClick={() => trocar(v)}>{v}</button>
+        ))}
+      </div>
+      <PostEditor post={atual} busy={null} dirty={hasUnsavedChanges(atual, base)} onShareLinkedin={nada} onChange={setAtual} onSave={() => setBase(atual)} onRevise={nada} onCover={nada}
                   onPublish={nada} onUnpublish={nada} onSchedule={nada} onDelete={nada} onClose={nada}
                   onPreview={() => setPreview(atual)} onPickCover={nada} onClearCover={nada} onToggleLinkedin={nada} />
       <h1 className="font-display font-bold text-heading text-[13px] tracking-[.2em]">BANCADA — MÍDIA</h1>

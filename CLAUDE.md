@@ -200,6 +200,22 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
 - **Título de seção do post é FRASE, não rótulo** — por isso `.post-body h2` desliga o `uppercase`
   herdado de `.prose-log h2` e usa a marca `//` vermelha. Em caixa alta, uma frase de três linhas
   deixa de se distinguir do parágrafo e o post vira "texto corrido".
+- **O editor de post tem barra fixa, estado sujo e salva antes de agir.** A barra do topo (`PostEditor`) fica
+  `sticky` e opaca com voltar, PT/EN, selo, "alterações não salvas", visualizar e salvar. `dirty` vem de
+  `hasUnsavedChanges(editing, saved)` (só texto i18n e tags); sair, trocar de aba ou fechar a janela com
+  alterações pergunta (`DISCARD_QUESTION`). Publicar, despublicar, agendar, revisar por IA e compartilhar no
+  LinkedIn gravam o texto ANTES (`afterSaving`/`persist` em `AdminPage`) — senão publicava a versão velha
+  do que o autor via na tela. Capa e fila do LinkedIn não mexem no rascunho (`keepDraft`).
+- **Título do post é `<textarea rows=1>` que cresce** (`fitTitle`: mede de novo em `resize` e quando as
+  fontes terminam de carregar) e bloqueia Enter. Um `<input>` cortava título comprido, e foi isso que o PO
+  chamou de "título quebrado". No jsdom `scrollHeight` é 0, então a altura só é aplicada quando há medida.
+- **LinkedIn tem UMA marca por estado**, na lista e no editor: já compartilhado mostra "no LinkedIn · dd/mm/aaaa"
+  (e só oferece "publicar de novo"); não compartilhado mostra a fila (alternável, só post no ar) e
+  "publicar no LinkedIn". Antes os dois botões e o seletor apareciam juntos e se contradiziam.
+- **Excluir**: botão "excluir post" na zona de perigo do editor e item "excluir" no menu "⋯" da lista
+  (`RowMenu`: Escape e clique fora fecham). Os dois passam por `removePost`, que confirma com `deleteQuestion`
+  citando o título e avisando se o post está no ar, agendado ou já foi ao LinkedIn (o post do LinkedIn não
+  some). Estados aparecem em português (`statusLabel`), nunca `draft`/`scheduled`.
 - **Bancada de layout do painel**: `npm run dev` → `/dev-admin.html` monta lista, editor, config e
   prévia com dados de exemplo. O painel real exige login com Google, o que impede conferir telas
   estreitas durante o desenvolvimento. Não entra no build (o Vite só empacota o `index.html`).
@@ -338,7 +354,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 426 testes
-cd web && npm test                                  # 342 testes
+cd web && npm test                                  # 390 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

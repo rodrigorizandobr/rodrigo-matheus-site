@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords, linkedinShareQuestion } from './editing'
+import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords, linkedinShareQuestion, deleteQuestion, statusLabel, hasUnsavedChanges, formatDay } from './editing'
 import type { Body } from './types'
 
 const body = (): Body => ({
@@ -195,5 +195,73 @@ describe('linkedinShareQuestion — o que o autor lê antes de confirmar', () =>
     const q = linkedinShareQuestion({ status: 'draft', linkedinPostedAt: '2026-09-15T12:00:00Z' })
     expect(q).toMatch(/ainda não está no ar/i)
     expect(q).toMatch(/2026-09-15/)
+  })
+})
+
+describe('deleteQuestion — o que o autor lê antes de apagar para sempre', () => {
+  const base = {
+    status: 'draft', linkedinPostedAt: null,
+    i18n: { pt: { title: 'Meu título' }, en: { title: 'My title' } },
+  } as never
+
+  it('cita o título do post e diz que não tem volta', () => {
+    const q = deleteQuestion(base)
+    expect(q).toMatch(/Meu título/)
+    expect(q).toMatch(/não dá para desfazer/i)
+  })
+
+  it('sem título em português usa o inglês; sem nenhum, diz que é sem título', () => {
+    expect(deleteQuestion({ ...(base as object), i18n: { pt: { title: '' }, en: { title: 'Only EN' } } } as never)).toMatch(/Only EN/)
+    expect(deleteQuestion({ ...(base as object), i18n: { pt: { title: '' }, en: { title: '' } } } as never)).toMatch(/sem título/i)
+  })
+
+  it('post no ar avisa que sai do site na hora', () => {
+    expect(deleteQuestion({ ...(base as object), status: 'published' } as never)).toMatch(/está no ar.*sai do site/i)
+  })
+
+  it('post agendado avisa que não vai mais ao ar', () => {
+    expect(deleteQuestion({ ...(base as object), status: 'scheduled' } as never)).toMatch(/agendado.*não será publicado/i)
+  })
+
+  it('rascunho não traz aviso de site', () => {
+    expect(deleteQuestion(base)).not.toMatch(/no ar|agendado/i)
+  })
+
+  it('post que já foi ao LinkedIn avisa que lá ele continua', () => {
+    const q = deleteQuestion({ ...(base as object), status: 'published', linkedinPostedAt: '2026-09-15T12:00:00Z' } as never)
+    expect(q).toMatch(/continua no linkedin/i)
+    expect(q).toMatch(/15\/09\/2026/)
+  })
+})
+
+describe('statusLabel — o estado em português, como o autor fala', () => {
+  it.each([['draft', 'rascunho'], ['scheduled', 'agendado'], ['published', 'no ar']])('%s → %s', (status, label) => {
+    expect(statusLabel(status as never)).toBe(label)
+  })
+})
+
+describe('formatDay — dia no formato brasileiro', () => {
+  it('ISO vira dd/mm/aaaa', () => expect(formatDay('2026-09-15T12:00:00Z')).toBe('15/09/2026'))
+  it('vazio vira traço', () => expect(formatDay(null)).toBe('—'))
+})
+
+describe('hasUnsavedChanges — só texto e tags contam como "não salvo"', () => {
+  const post = (over = {}) => ({
+    id: '1', tags: ['ia'], status: 'draft',
+    i18n: { pt: { title: 'A', excerpt: '', sections: [] }, en: { title: 'B', excerpt: '', sections: [] } },
+    ...over,
+  }) as never
+
+  it('igual ao salvo: limpo', () => expect(hasUnsavedChanges(post(), post())).toBe(false))
+
+  it('título diferente: sujo', () => {
+    const edited = post({ i18n: { pt: { title: 'A!', excerpt: '', sections: [] }, en: { title: 'B', excerpt: '', sections: [] } } })
+    expect(hasUnsavedChanges(edited, post())).toBe(true)
+  })
+
+  it('tag nova: sujo', () => expect(hasUnsavedChanges(post({ tags: ['ia', 'x'] }), post())).toBe(true))
+
+  it('mudar estado ou capa não é edição de texto', () => {
+    expect(hasUnsavedChanges(post({ status: 'published', image: { hash: 'x' } }), post())).toBe(false)
   })
 })
