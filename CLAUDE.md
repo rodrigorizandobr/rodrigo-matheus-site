@@ -109,6 +109,18 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   produção" virou piada de todo texto) — por isso as regras dão fórmula e lista de proibidos, nunca frase
   pronta. Expressão citada como exemplo ou como proibida também é ecoada ("Na minha leitura…" abriu a
   seção 3 em 3 de 3 posts até sair do prompt). Ao mexer no prompt, gere 3 posts de verdade e leia.
+- **O leitor NÃO é do nicho** (regra 5 de `gemini.RULES`, `TestLinguagemDidatica`). O post saía escrito para
+  quem já sabe tudo: "Gemini 4 Argon", "Fairwind", "tokens", "linha de base" sem uma palavra de explicação.
+  "Explique o jargão em meia frase" sozinho não bastou — o modelo ignorava. O que funcionou, medido em posts
+  reais: (1) definir o leitor ("trabalha com tecnologia, mas não acompanha este assunto") e o tom (colega
+  de outra área, no café); (2) **limitar nomes próprios a 2 por parágrafo**, porque o orçamento de 40 a 50
+  palavras não comporta explicar quatro nomes — o que não ajuda a entender sai; (3) nomear as categorias que
+  escapavam (unidade de medida técnica, nome de programa/versão, termo de programação); (4) "releia cada
+  parágrafo como o leitor"; (5) termo que o modelo não saiba explicar com segurança não é citado, em vez de
+  ganhar explicação inventada. Sem exemplo de explicação pronta no prompt (seria copiada). `pt` sai todo em
+  português, inclusive `heading`, mesmo com material em inglês: um post saiu com título de seção em inglês
+  copiado do Serper. Resíduo conhecido: o flash-lite ainda ecoa clichês proibidos (café, "Resta saber") e
+  deixa passar sigla curta como "API".
 - **`research.is_noise()` filtra pelo TÍTULO** (vaga, concurso, edital, curso, bolsa, estágio…), nunca
   pelo trecho — filtrar por trecho derruba notícia legítima. Sem isso, um anúncio de emprego acabava
   citado como fonte em ABNT no fim do post.
@@ -353,7 +365,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 426 testes
+cd api && source .venv/bin/activate && pytest      # 436 testes
 cd web && npm test                                  # 390 testes
 ```
 

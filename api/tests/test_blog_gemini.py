@@ -281,3 +281,63 @@ class TestTemaDoAutor:
         gemini.generate_post("OpenAI", context="material")
         usuario = _usuario(fake)
         assert "ASSUNTO VIGIADO: OpenAI" in usuario and "escolha UMA" in usuario
+
+
+def _corrido(fake) -> str:
+    """As regras com a quebra de linha achatada: a frase não pode depender de onde a linha quebra."""
+    return " ".join(_sistema(fake).split())
+
+
+class TestLinguagemDidatica:
+    """O texto saía como se o leitor já soubesse tudo: nome de empresa, sigla e jargão sem explicação."""
+
+    def test_define_quem_e_o_leitor_e_que_ele_nao_e_do_nicho(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "LEITOR" in regras and "não acompanha" in regras
+
+    def test_todo_nome_estranho_ganha_uma_explicacao_na_primeira_vez(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "primeira vez" in regras and "nome de empresa" in regras and "sigla" in regras
+
+    def test_limita_nomes_por_paragrafo_porque_o_orcamento_de_palavras_e_curto(self, fake):
+        # explicar tudo não cabe em 40-50 palavras: o que não ajuda a entender a história sai
+        gemini.generate_post("OpenAI")
+        assert "no máximo" in _corrido(fake) and "nomes próprios por parágrafo" in _corrido(fake)
+
+    def test_nao_sabe_o_que_e_nao_cita_em_vez_de_inventar_a_explicacao(self, fake):
+        gemini.generate_post("OpenAI")
+        assert "não saiba explicar" in _corrido(fake)
+
+    def test_tom_de_conversa_e_nao_de_relatorio(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "como se explicasse a um colega" in regras
+
+    def test_o_ingles_segue_a_mesma_regra(self, fake):
+        gemini.generate_post("OpenAI")
+        assert "nos dois idiomas" in _corrido(fake)
+
+    def test_nao_planta_exemplo_de_explicacao_pronto_para_o_modelo_copiar(self, fake):
+        # exemplo no prompt é copiado quase palavra por palavra (ver CLAUDE.md)
+        gemini.generate_post("OpenAI")
+        assert "que é uma" not in _corrido(fake)
+        assert "ou seja," not in _corrido(fake)
+
+    def test_medida_tecnica_e_nome_de_programa_tambem_entram_na_regra(self, fake):
+        # medido: "tokens", "Fairwind" e "linha de base" saíam sem explicação, e quatro nomes por parágrafo
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "unidade de medida" in regras and "token" in regras
+        assert "programa" in regras and "pessoas, empresas, produtos" in regras
+
+    def test_manda_reler_cada_paragrafo_como_o_leitor_antes_de_entregar(self, fake):
+        gemini.generate_post("OpenAI")
+        assert "releia cada parágrafo" in _corrido(fake)
+
+    def test_o_texto_em_portugues_sai_inteiro_em_portugues_mesmo_com_fonte_em_ingles(self, fake):
+        # medido: título de seção do `pt` saiu em inglês, copiado do material de busca
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "inclusive os títulos das seções" in regras and "material estiver em inglês" in regras

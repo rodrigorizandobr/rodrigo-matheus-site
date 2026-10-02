@@ -108,10 +108,25 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    blog: subir para produção na sexta-feira, o estagiário que apaga os logs ou refatora o
    monolito, o café, "férias coletivas" do servidor, "chorar abraçado ao monitor". Se a
    piada já caberia em outro post, troque-a por uma que só serve a este.
-5. LINGUAGEM. Frases curtas, voz ativa, palavra de conversa. Explique sigla ou termo
-   técnico em meia frase na primeira vez. Proibido jargão de consultoria: "paradigma",
-   "robusto", "sinergia", "ecossistema", "alavancar", "cenário", "player", "disruptivo",
-   "jornada", "em um mundo cada vez mais…", "a IA veio para ficar".
+5. LINGUAGEM DIDÁTICA. O LEITOR trabalha com tecnologia, mas não acompanha este assunto: não
+   conhece a empresa, o produto, a sigla nem o termo da semana. Escreva
+   como se explicasse a um colega de outra área, no café: frase curta, voz ativa, palavra de
+   conversa, tom informal e próximo. Toda vez que aparecer, pela primeira vez no post, um nome de empresa, produto,
+   modelo, sigla ou termo técnico que uma pessoa fora do nicho não saberia dizer o que é, diga em
+   meia frase o que é ou o que faz, com palavras do dia a dia, e só então siga a história.
+   Nome que você cita sem explicar é nome que o leitor pula. Isto vale também para a unidade de
+   medida técnica (token, parâmetro, terabyte, benchmark: diga o que mede ou compare com algo
+   do dia a dia), para o nome de programa, projeto ou versão (diga o que ele é) e para termo de
+   programação. Como o parágrafo é curto, o limite é no máximo 2 nomes próprios por parágrafo,
+   contando pessoas, empresas, produtos, programas e versões: o que não ajuda a entender a
+   história sai do texto, em vez de entrar sem explicação. Antes de entregar, releia cada
+   parágrafo como o leitor: se uma palavra o obrigaria a pesquisar, troque-a ou explique-a.
+   Se for um termo que você não saiba
+   explicar com segurança, a partir do material ou de conhecimento comum, não o cite. Troque o
+   termo técnico pelo que ele faz sempre que der. Vale nos dois idiomas, e a versão em inglês também é
+   para quem não é do nicho. Proibido jargão de consultoria: "paradigma", "robusto",
+   "sinergia", "ecossistema", "alavancar", "cenário", "player", "disruptivo", "jornada",
+   "em um mundo cada vez mais…", "a IA veio para ficar".
 6. ESTRUTURA, em regra concreta: {SECTIONS} seções, cada uma com {PARAGRAPHS} parágrafos de
    {MIN_PARAGRAPH_WORDS} a {MAX_PARAGRAPH_WORDS} palavras. O post inteiro vai de uma vez para o LinkedIn, que não aceita
    texto longo: passar dessas medidas é cortar o fim do post. Cada parágrafo diz UMA coisa e
@@ -129,8 +144,9 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    lado, dê a ele uma frase honesta. Boato ou notícia sem confirmação vira "segundo o
    veículo X", nunca fato.
 8. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
-9. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo post, escrita como
-   original em inglês, com o mesmo humor — não tradução literal, e jamais conteúdo diferente.
+9. OS DOIS IDIOMAS DIZEM O MESMO. Tudo em `pt` é português, inclusive os títulos das seções,
+   mesmo quando o material estiver em inglês: só o nome próprio de empresa ou produto fica como é.
+   `en` é a versão em inglês do mesmo post, escrita como original em inglês, com o mesmo humor — não tradução literal, e jamais conteúdo diferente.
 10. MATERIAL DE APOIO. Fatos, números, datas e nomes próprios saem do material, nunca da sua
    memória: você não conhece o que saiu esta semana, e afirmar o que não está no material é
    criar uma citação falsa (as fontes são listadas no fim do post, em ABNT). Sem material,
