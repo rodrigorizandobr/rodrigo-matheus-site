@@ -79,6 +79,31 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   gerar depende do Gemini estar de pé. Se inverter a ordem, uma cota estourada segura a fila.
 - **Uma geração por dia local.** O agendador bate de hora em hora; a guarda `last_generated_at`
   é o que evita uma enxurrada de posts.
+- **LinkedIn usa a MESMA agenda da geração** (`generate_weekdays`/`generate_hour`) — pedido do PO,
+  2026-10-03: não existe mais `linkedin_weekdays`/`linkedin_hour` separados. `should_share` só
+  olha `linkedin_enabled` a mais. O painel (`LinkedInPanel`) perdeu os campos de dia/hora: só o
+  interruptor liga/desliga, e o texto aponta para "3. Quando escrever e publicar".
+- **Nunca publica, compartilha ou gera no minuto exato configurado.** Pedido do PO: um robô que
+  age toda vez no mesmo segundo se denuncia como robô. A tentação óbvia — somar um atraso
+  aleatório ao horário-alvo e comparar contra `now` em `should_generate`/`should_share`/
+  `scheduled_for` — **não funciona**: o Cloud Scheduler (`blog-tick`) bate exatamente de hora em
+  hora (`0 * * * *`), então um alvo tipo "6h12" nunca é visto por um `now` que só existe às 6h00
+  e às 7h00 — a ação simplesmente sai sempre às 7h00 em ponto, todo dia, tão robótico quanto
+  antes (só que uma hora mais tarde). A solução que ficou: `should_generate`/`should_share`/
+  `scheduled_for` continuam PURAS e sem atraso algum (só decidem SE é hora); quem espera de
+  verdade é `service.tick()` — um `time.sleep(random.uniform(1, 15) * 60)` de verdade, dentro da
+  própria chamada HTTP, chamado NO MÁXIMO uma vez por batida (`_delay_a_few_minutes`), mesmo
+  quando publicar e gerar caem no mesmo tick — nenhuma das duas espera a outra. Os testes
+  (`TestAtrasoAoAgir`) nunca esperam de verdade: a fixture `isolate`, em `conftest.py`, zera
+  `service.time.sleep` para TODO teste; só quem quer inspecionar a espera sobrescreve.
+  **Isso exige dois ajustes de infraestrutura, já aplicados:** o timeout do Cloud Run subiu de
+  300s para 1000s em `deploy.sh` (senão o maior atraso possível, 15 min, estoura o limite antes
+  de publicar) e o `attemptDeadline` do job `blog-tick` subiu de 300s para 1020s via
+  `gcloud scheduler jobs update http blog-tick --attempt-deadline=1020s` (senão o Scheduler
+  acha que a chamada travou no meio do sleep e DISPARA DE NOVO — gerando ou compartilhando em
+  dobro). O `attemptDeadline` não é gerenciado por código, só por este comando manual; se o job
+  for recriado do zero, refaça os dois ajustes juntos. `JITTER_MIN_MINUTES`/`JITTER_MAX_MINUTES`
+  moram em `model.py` (são os mesmos números para as três ações), o sorteio em si é do `service`.
 - **Pauta esgotada não gera.** Repetir tema produz post quase igual ao anterior — pior que não publicar.
 - **A página do post é servida pelo Cloud Run**, não por HTML estático: um post que entra no ar
   sozinho precisa da prévia de link certa na hora. O shell vem do `spa-shell.html` que o `deploy.sh`
@@ -373,8 +398,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 443 testes
-cd web && npm test                                  # 390 testes
+cd api && source .venv/bin/activate && pytest      # 447 testes
+cd web && npm test                                  # 391 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

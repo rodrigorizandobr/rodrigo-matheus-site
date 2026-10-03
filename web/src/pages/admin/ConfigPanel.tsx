@@ -77,20 +77,26 @@ export function ConfigPanel({ config, busy, onSave }: {
         </header>
 
         <div>
-          <span className="field-label">Dias em que escreve</span>
+          <span className="field-label">Dias em que escreve e compartilha no LinkedIn</span>
           <div className="flex gap-1.5 flex-wrap">
             {weekdayLabels().map((label, day) => (
               <button key={day} type="button" className="toggle-chip"
                       aria-pressed={draft.generate_weekdays.includes(day)} onClick={() => toggleDay(day)}>{label}</button>
             ))}
           </div>
-          <p className="text-[11.5px] text-muted mt-2">Nenhum dia marcado desliga a escrita automática.</p>
+          <p className="text-[11.5px] text-muted mt-2">
+            Nenhum dia marcado desliga a escrita automática — e, com ela, o compartilhamento no LinkedIn, que usa a
+            mesma agenda (ligado ou não em "4. LinkedIn").
+          </p>
         </div>
 
         <div className="max-w-[10rem]">
-          <label className="field-label" htmlFor="cfg-ghour">Escreve a partir das</label>
+          <label className="field-label" htmlFor="cfg-ghour">A partir das</label>
           <input id="cfg-ghour" type="number" min={0} max={23} className="field" value={draft.generate_hour}
                  onChange={(e) => set('generate_hour', Number(e.target.value))} />
+          <p className="text-[11.5px] text-muted mt-2">
+            Com um atraso aleatório de 1 a 15 min, para nunca escrever ou compartilhar no minuto exato.
+          </p>
         </div>
 
         <div className="pt-4 border-t border-line grid gap-4">

@@ -55,7 +55,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 2 \
-  --timeout 300 \
+  --timeout 1000 \
   --quiet
 
 # Set env vars separately (--source deploy resets them; special chars like @ break inline)

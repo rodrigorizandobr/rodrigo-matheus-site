@@ -52,7 +52,6 @@ def _now() -> datetime:
 _LIMITS = {
     "publish_hour": (0, 23),
     "generate_hour": (0, 23),
-    "linkedin_hour": (0, 23),
     "delay_days": (0, 60),
 }
 
@@ -216,13 +215,21 @@ def delete_post(post_id: str) -> None:
     _db().collection(POSTS).document(post_id).delete()
 
 
-def publish_due(now: datetime | None = None) -> list[dict[str, Any]]:
-    """Publica o que venceu. Chamado pelo agendador, de hora em hora."""
+def due_posts(now: datetime | None = None) -> list[dict[str, Any]]:
+    """Agendados cuja hora já chegou — a mesma consulta que `publish_due` usa antes de
+    publicar, exposta para quem precisa SABER se há algo vencido sem publicar ainda
+    (o `tick` espera um pouco antes de agir, mas só quando há o que fazer)."""
     now = now or _now()
     scheduled = _db().collection(POSTS).where(filter=FieldFilter("status", "==", "scheduled")).stream()
     posts = [p for p in (_doc_to_post(s) for s in scheduled) if p]
+    return model.due_for_publishing(posts, now)
+
+
+def publish_due(now: datetime | None = None) -> list[dict[str, Any]]:
+    """Publica o que venceu. Chamado pelo agendador, de hora em hora."""
+    now = now or _now()
     published = []
-    for post in model.due_for_publishing(posts, now):
+    for post in due_posts(now):
         try:
             published.append(publish_post(post["id"], now=now))
         except ValueError:

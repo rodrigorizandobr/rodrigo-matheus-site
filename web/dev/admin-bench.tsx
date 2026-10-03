@@ -64,7 +64,7 @@ const config: BlogConfig = {
   generate_hour: 6, generate_weekdays: [0, 3],
   research_enabled: true,
   news_terms: ['OpenAI', 'Anthropic Claude', 'SpaceX'],
-  linkedin_enabled: true, linkedin_weekdays: [1, 3], linkedin_hour: 9,
+  linkedin_enabled: true,
 }
 
 function Bench() {

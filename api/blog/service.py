@@ -11,6 +11,8 @@ primeira é a que tem hora marcada.
 """
 from __future__ import annotations
 
+import random
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -202,10 +204,30 @@ def check_expiry(now: datetime | None = None) -> int | None:
     return marca
 
 
+def _delay_a_few_minutes() -> None:
+    """Espera de verdade, de 1 a 15 min, antes de publicar, compartilhar ou gerar.
+
+    O Cloud Scheduler bate de hora em hora: comparar horários não basta para nunca
+    agir no minuto exato (ver CLAUDE.md), então o `tick` precisa literalmente esperar
+    dentro da própria chamada HTTP — por isso o timeout do Cloud Run é maior que o
+    atraso máximo. Uma espera só por batida: as três ações elegíveis no mesmo tick
+    não ficam uma esperando a outra.
+    """
+    time.sleep(random.uniform(model.JITTER_MIN_MINUTES, model.JITTER_MAX_MINUTES) * 60)
+
+
 def tick(now: datetime | None = None) -> dict[str, Any]:
     """Batida do agendador: publica o que venceu e, se for a hora, gera o próximo."""
     now = now or _now()
     result: dict[str, Any] = {"published": 0, "generated": 0, "shared": 0, "notified": None, "error": ""}
+
+    cfg = store.get_config()
+    ha_para_publicar = bool(store.due_posts(now))
+    deve_compartilhar = model.should_share(now, cfg, store.last_shared_at())
+    deve_gerar = model.should_generate(now, cfg, store.last_generated_at())
+
+    if ha_para_publicar or deve_compartilhar or deve_gerar:
+        _delay_a_few_minutes()
 
     # Primeiro o que tem hora marcada — não pode depender do Gemini estar de pé.
     try:
@@ -213,11 +235,9 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
     except Exception as exc:
         result["error"] = f"publicação: {exc}"
 
-    cfg = store.get_config()
-
     # LinkedIn antes da geração, pela mesma razão que publicar vem antes: tem hora
     # marcada e não pode depender do Gemini estar de pé.
-    if model.should_share(now, cfg, store.last_shared_at()):
+    if deve_compartilhar:
         try:
             compartilhado = share_next(now=now)
             result["shared"] = 1 if compartilhado else 0
@@ -230,7 +250,7 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
     except Exception as exc:
         result["error"] = (result["error"] + " | " if result["error"] else "") + f"aviso: {exc}"
 
-    if model.should_generate(now, cfg, store.last_generated_at()):
+    if deve_gerar:
         try:
             generate(None, now=now)
             result["generated"] = 1

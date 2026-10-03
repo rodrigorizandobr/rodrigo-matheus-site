@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from blog import model
 
 
-def utc(y, m, d, h=0):
-    return datetime(y, m, d, h, tzinfo=timezone.utc)
+def utc(y, m, d, h=0, mi=0):
+    return datetime(y, m, d, h, mi, tzinfo=timezone.utc)
 
 
 def post(**over):
@@ -47,8 +47,9 @@ class TestFila:
 
 
 class TestAgenda:
+    """Mesma agenda da geração — não existe mais horário separado para o LinkedIn (pedido do PO)."""
     cfg = {"timezone": "America/Sao_Paulo", "linkedin_enabled": True,
-           "linkedin_weekdays": [1, 3], "linkedin_hour": 9}  # terça e quinta
+           "generate_weekdays": [1, 3], "generate_hour": 9}  # terça e quinta
 
     def test_publica_no_dia_e_depois_da_hora(self):
         # 2026-09-15 é terça; 13:00 UTC = 10:00 em SP
@@ -72,5 +73,5 @@ class TestAgenda:
         assert model.should_share(utc(2026, 9, 15, 13), cfg, None) is False
 
     def test_sem_dia_marcado_nao_publica(self):
-        cfg = {**self.cfg, "linkedin_weekdays": []}
+        cfg = {**self.cfg, "generate_weekdays": []}
         assert model.should_share(utc(2026, 9, 15, 13), cfg, None) is False

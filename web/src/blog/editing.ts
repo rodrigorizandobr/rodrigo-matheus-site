@@ -115,10 +115,12 @@ export function describeSchedule(cfg: { auto_publish: boolean; delay_days: numbe
   return `Fica agendado e entra no ar ${quando}, às ${cfg.publish_hour}h.`
 }
 
+/** Mesma agenda para escrever e para compartilhar no LinkedIn — não existe mais horário separado. */
 export function nextRunHint(cfg: { generate_weekdays: number[]; generate_hour: number }): string {
   if (!cfg.generate_weekdays?.length) return 'Geração automática desligada — só gera quando você pedir.'
   const dias = cfg.generate_weekdays.map((d) => weekdayLabels()[d]).join(', ')
-  return `Escreve sozinho em ${dias}, a partir das ${cfg.generate_hour}h.`
+  return `Escreve e compartilha no LinkedIn em ${dias}, a partir das ${cfg.generate_hour}h ` +
+    '(com um atraso aleatório de alguns minutos, para nunca cair no minuto exato).'
 }
 
 /** Pergunta de confirmação do "publicar no LinkedIn": avisa do que não dá para desfazer pelo painel. */

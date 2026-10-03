@@ -34,7 +34,7 @@ const post = (over: Partial<Post> = {}): Post => ({
 const config = {
   timezone: 'America/Sao_Paulo', auto_publish: false, delay_days: 2, publish_hour: 8,
   generate_hour: 6, generate_weekdays: [], research_enabled: true, news_terms: [],
-  linkedin_enabled: true, linkedin_weekdays: [], linkedin_hour: 9,
+  linkedin_enabled: true,
 }
 
 beforeEach(() => {

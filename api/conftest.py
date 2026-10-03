@@ -14,6 +14,7 @@ os.environ.setdefault("GITHUB_TOKEN", "test-token")
 sys.path.insert(0, str(Path(__file__).parent))
 
 import server  # noqa: E402
+from blog import service  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -23,6 +24,10 @@ def isolate(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "CACHE_FILE", tmp_path / "github_cache.json")
     monkeypatch.setattr(server, "REFRESH_KEY", "test-refresh-key")
     monkeypatch.setattr(server, "_i18n_cache", {})
+    # service.tick() espera de verdade (1-15 min) antes de agir — sem isso, um teste
+    # que bate o tick real travaria o suite por minutos. Um teste que precisa checar
+    # a espera sobrescreve isto com seu próprio monkeypatch.
+    monkeypatch.setattr(service.time, "sleep", lambda *_: None)
 
 
 @pytest.fixture

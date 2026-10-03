@@ -96,6 +96,51 @@ class TestTickDoAgendador:
         assert "cota" in resultado["error"]
 
 
+class TestAtrasoAoAgir:
+    """Pedido do PO: nunca publicar, gerar ou compartilhar exatamente na hora configurada.
+
+    O agendador (Cloud Scheduler) bate de hora em hora, então o atraso de 1 a 15 min
+    é uma espera DE VERDADE (`time.sleep`) dentro da própria chamada do tick — não dá
+    para alcançar isso só comparando horários, com um agendador que só bate uma vez
+    por hora (ver CLAUDE.md).
+    """
+
+    def _espera(self, monkeypatch):
+        chamadas = []
+        monkeypatch.setattr(service.time, "sleep", lambda s: chamadas.append(s))
+        return chamadas
+
+    def test_espera_antes_de_publicar_o_que_venceu(self, env, monkeypatch):
+        chamadas = self._espera(monkeypatch)
+        store.save_config({"delay_days": 0, "publish_hour": 8, "generate_weekdays": []})
+        service.generate("t", now=utc(2026, 9, 14, 21))  # agenda 15/09 11:00 UTC
+        service.tick(now=utc(2026, 9, 15, 12))
+        assert len(chamadas) == 1
+        assert 60 <= chamadas[0] <= 15 * 60
+
+    def test_espera_antes_de_gerar(self, env, monkeypatch):
+        chamadas = self._espera(monkeypatch)
+        store.save_config({"generate_weekdays": [0], "generate_hour": 6, "news_terms": ["t1"]})
+        service.tick(now=utc(2026, 9, 14, 12))
+        assert len(chamadas) == 1
+        assert 60 <= chamadas[0] <= 15 * 60
+
+    def test_nao_espera_quando_nao_ha_nada_para_fazer(self, env, monkeypatch):
+        chamadas = self._espera(monkeypatch)
+        store.save_config({"generate_weekdays": [], "linkedin_enabled": False})
+        service.tick(now=utc(2026, 9, 14, 12))
+        assert chamadas == []
+
+    def test_uma_so_espera_mesmo_quando_publicar_e_gerar_caem_no_mesmo_tick(self, env, monkeypatch):
+        store.save_config({"delay_days": 0, "publish_hour": 6, "generate_weekdays": [0], "generate_hour": 6, "news_terms": ["t"]})
+        service.generate("t", now=utc(2026, 9, 12, 9))  # agenda 12/09 09:00 UTC (6h SP, delay 0)
+        chamadas = self._espera(monkeypatch)
+        resultado = service.tick(now=utc(2026, 9, 14, 9))  # segunda, 6h SP: publica E gera
+        assert resultado["published"] == 1
+        assert resultado["generated"] == 1
+        assert len(chamadas) == 1
+
+
 class TestRevisaoPorPrompt:
     def test_mantem_id_e_status_e_troca_so_o_conteudo(self, env, monkeypatch):
         post = service.generate("t", now=utc(2026, 9, 14, 21))
@@ -323,17 +368,18 @@ class TestCompartilharNoLinkedIn:
 
     def test_tick_compartilha_no_dia_e_hora_marcados(self, env, monkeypatch):
         self._com_token(monkeypatch)
-        store.save_config({"linkedin_enabled": True, "linkedin_weekdays": [1], "linkedin_hour": 9,
-                           "generate_weekdays": []})
+        # Mesma agenda da geração — não existe mais horário separado para o LinkedIn.
+        store.save_config({"linkedin_enabled": True, "generate_weekdays": [1], "generate_hour": 9,
+                           "news_terms": []})
         post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
-        # 2026-09-15 é terça; 13:00 UTC = 10:00 SP
+        # 2026-09-15 é terça; 13:00 UTC = 10:00 SP, bem depois do maior atraso possível
         assert service.tick(now=utc(2026, 9, 15, 13))["shared"] == 1
 
     def test_falha_no_linkedin_nao_impede_a_publicacao_agendada(self, env, monkeypatch):
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: None)
-        store.save_config({"linkedin_enabled": True, "linkedin_weekdays": [1], "linkedin_hour": 9,
-                           "delay_days": 0, "publish_hour": 8, "generate_weekdays": []})
-        service.generate("t", now=utc(2026, 9, 14, 21))  # agenda 15/09 11:00 UTC
+        store.save_config({"linkedin_enabled": True, "generate_weekdays": [1], "generate_hour": 9,
+                           "delay_days": 0, "publish_hour": 8, "news_terms": []})
+        service.generate("t", now=utc(2026, 9, 14, 21))  # agenda 15/09, por volta de 11h UTC
         resultado = service.tick(now=utc(2026, 9, 15, 13))
         assert resultado["published"] == 1
         assert "linkedin" in resultado["error"]

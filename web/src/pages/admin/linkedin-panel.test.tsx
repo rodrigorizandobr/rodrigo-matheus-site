@@ -7,7 +7,7 @@ import type { BlogConfig, LinkedInStatus } from '../../blog/types'
 const config = (over: Partial<BlogConfig> = {}): BlogConfig => ({
   timezone: 'America/Sao_Paulo', auto_publish: false, delay_days: 2, publish_hour: 8,
   generate_hour: 6, generate_weekdays: [0, 3], research_enabled: true, news_terms: ['ia'],
-  linkedin_enabled: true, linkedin_weekdays: [1, 3], linkedin_hour: 9, ...over,
+  linkedin_enabled: true, ...over,
 })
 
 const api = (status: LinkedInStatus, over: Partial<Parameters<typeof LinkedInPanel>[0]['api']> = {}) => ({
@@ -54,14 +54,19 @@ describe('LinkedInPanel', () => {
     expect(aviso.className).not.toContain('text-red')
   })
 
-  it('salvar agenda manda só os campos do LinkedIn, com os dias que foram clicados', async () => {
+  it('não tem mais dia ou hora próprios: a agenda é a mesma da geração, só o interruptor fica aqui', async () => {
+    paint({ connected: true, hasApp: true, daysLeft: 50 })
+    expect(screen.queryByRole('button', { name: 'sex' })).toBeNull()
+    expect(screen.queryByLabelText(/a partir das.*hora/i)).toBeNull()
+    expect(screen.getByText(/mesma agenda/i)).toBeInTheDocument()
+  })
+
+  it('salvar manda só o interruptor do LinkedIn', async () => {
     const onSave = vi.fn()
     paint({ connected: true, hasApp: true, daysLeft: 50 }, { onSave })
-    await userEvent.click(await screen.findByRole('button', { name: 'sex' }))
-    await userEvent.click(screen.getByRole('button', { name: /salvar agenda/i }))
-    expect(onSave).toHaveBeenCalledWith({
-      linkedin_enabled: true, linkedin_weekdays: [1, 3, 4], linkedin_hour: 9,
-    })
+    await userEvent.click(await screen.findByRole('checkbox', { name: /compartilhar automaticamente/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^salvar$/i }))
+    expect(onSave).toHaveBeenCalledWith({ linkedin_enabled: false })
   })
 
   it('o aviso de teste diz o que aconteceu, inclusive quando não sai', async () => {

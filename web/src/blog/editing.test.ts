@@ -70,9 +70,11 @@ describe('textos da configuração', () => {
       .toMatch(/3 dias/i)
   })
 
-  it('explica quando o robô escreve, ou que está desligado', () => {
+  it('explica quando o robô escreve e compartilha no LinkedIn — é a mesma agenda — ou que está desligado', () => {
     expect(nextRunHint({ generate_weekdays: [], generate_hour: 6 })).toMatch(/desligad/i)
-    expect(nextRunHint({ generate_weekdays: [0, 3], generate_hour: 6 })).toMatch(/seg.*qui.*6h/i)
+    const dica = nextRunHint({ generate_weekdays: [0, 3], generate_hour: 6 })
+    expect(dica).toMatch(/seg.*qui.*6h/i)
+    expect(dica).toMatch(/linkedin/i)
   })
 })
 

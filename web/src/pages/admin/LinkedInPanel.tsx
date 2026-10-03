@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { BlogConfig, LinkedInStatus, Post } from '../../blog/types'
-import { weekdayLabels } from '../../blog/editing'
 
 type Api = {
   status: () => Promise<LinkedInStatus>
@@ -39,11 +38,6 @@ export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect,
     setWorking(true)
     try { await fn() } catch (err) { onMessage('erro', (err as Error).message) } finally { setWorking(false) }
   }
-
-  const toggleDay = (day: number) =>
-    setDraft({ ...draft, linkedin_weekdays: draft.linkedin_weekdays.includes(day)
-      ? draft.linkedin_weekdays.filter((d) => d !== day)
-      : [...draft.linkedin_weekdays, day].sort((a, b) => a - b) })
 
   const expirando = (status?.daysLeft ?? 99) <= 10
 
@@ -166,35 +160,19 @@ export function LinkedInPanel({ config, api, busy, status, onRefresh, onConnect,
                  onChange={(e) => setDraft({ ...draft, linkedin_enabled: e.target.checked })} />
           <span>
             <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Compartilhar automaticamente</span>
-            <span className="block text-[12px] text-muted mt-0.5">Desligado, a fila fica parada e você compartilha quando quiser.</span>
+            <span className="block text-[12px] text-muted mt-0.5">
+              Desligado, a fila fica parada e você compartilha quando quiser. Ligado, segue a <strong>mesma agenda</strong> configurada
+              em "3. Quando escrever e publicar" — não há dia nem hora próprios do LinkedIn — com um atraso aleatório de
+              alguns minutos para nunca compartilhar no minuto exato.
+            </span>
           </span>
         </label>
-
-        <div>
-          <span className="field-label">Dias da semana</span>
-          <div className="flex gap-1.5 flex-wrap">
-            {weekdayLabels().map((label, day) => (
-              <button key={day} type="button" className="toggle-chip"
-                      aria-pressed={draft.linkedin_weekdays.includes(day)} onClick={() => toggleDay(day)}>{label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div className="max-w-[10rem]">
-          <label className="field-label" htmlFor="li-hour">A partir das (hora)</label>
-          <input id="li-hour" type="number" min={0} max={23} className="field" value={draft.linkedin_hour}
-                 onChange={(e) => setDraft({ ...draft, linkedin_hour: Number(e.target.value) })} />
-        </div>
 
         <div className="flex gap-2 flex-wrap">
           <button type="button" disabled={busy}
                   className="cta cta-primary !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider"
-                  onClick={() => onSave({
-                    linkedin_enabled: draft.linkedin_enabled,
-                    linkedin_weekdays: draft.linkedin_weekdays,
-                    linkedin_hour: draft.linkedin_hour,
-                  })}>
-            {busy ? 'salvando…' : 'salvar agenda'}
+                  onClick={() => onSave({ linkedin_enabled: draft.linkedin_enabled })}>
+            {busy ? 'salvando…' : 'salvar'}
           </button>
           <button type="button" disabled={working}
                   className="cta !py-3 !px-5 font-display font-semibold text-[12px] uppercase tracking-wider"

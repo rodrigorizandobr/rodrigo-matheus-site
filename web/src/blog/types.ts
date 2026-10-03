@@ -94,17 +94,14 @@ export type BlogConfig = {
   delay_days: number
   publish_hour: number
   generate_hour: number
-  /** 0 = segunda … 6 = domingo */
+  /** 0 = segunda … 6 = domingo — mesma agenda usada para escrever E para compartilhar no LinkedIn */
   generate_weekdays: number[]
   /** busca notícias (Serper, Brasil) e lê as páginas antes de escrever */
   research_enabled: boolean
   /** assuntos vigiados; o robô passa por todos em rodízio antes de repetir */
   news_terms: string[]
-  /** compartilhar os posts no LinkedIn automaticamente */
+  /** compartilhar os posts no LinkedIn automaticamente, na mesma agenda de `generate_weekdays`/`generate_hour` */
   linkedin_enabled: boolean
-  /** 0 = segunda … 6 = domingo */
-  linkedin_weekdays: number[]
-  linkedin_hour: number
 }
 
 /** Resumo da conexão com o LinkedIn. Nunca carrega o token. */

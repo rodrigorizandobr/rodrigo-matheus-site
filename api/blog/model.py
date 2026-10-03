@@ -27,15 +27,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "delay_days": 2,
     "publish_hour": 8,
     "generate_hour": 6,
-    # segunda e quinta; lista vazia desliga a geração automática
+    # segunda e quinta; lista vazia desliga a geração automática E o compartilhamento no
+    # LinkedIn, que usa a MESMA agenda — não há mais horário separado para o LinkedIn.
     "generate_weekdays": [0, 3],
     # Pesquisa na web (Serper + leitura das páginas) ao escrever. Opcional.
     "research_enabled": True,
     # Compartilhamento automático no LinkedIn. Desligado até o autor conectar a conta.
     "linkedin_enabled": False,
-    # terça e quinta, às 9h — horário em que post de carreira costuma render
-    "linkedin_weekdays": [1, 3],
-    "linkedin_hour": 9,
     # Assuntos vigiados. Medido contra o Serper: termo que é NOME PRÓPRIO (empresa,
     # produto, bicho) devolve a novidade da semana; termo que é CATEGORIA ("inteligência
     # artificial generativa", "regulação de IA") devolve curso de prefeitura e artigo de
@@ -59,6 +57,15 @@ def _tz(cfg: dict[str, Any]) -> ZoneInfo:
     return ZoneInfo(cfg.get("timezone") or DEFAULT_TZ)
 
 
+#: Atraso de 1 a 15 min que o `service.tick()` espera antes de publicar, compartilhar
+#: ou gerar — um robô que age no minuto exato da hora configurada, toda vez, denuncia
+#: que é robô. Mora aqui (não em `service`) por ser o mesmo número que rege as três
+#: ações, mas o sorteio em si é responsabilidade do `service` (`should_*` daqui são
+#: funções puras: decidem SE é hora, não QUANTO esperar antes de agir).
+JITTER_MIN_MINUTES = 1
+JITTER_MAX_MINUTES = 15
+
+
 def slugify(text: str) -> str:
     """Slug ASCII, estável e nunca vazio (o slug é a URL pública do post)."""
     normalized = unicodedata.normalize("NFKD", text or "")
@@ -73,6 +80,10 @@ def scheduled_for(generated_at: datetime, cfg: dict[str, Any]) -> datetime:
     Conta os dias no calendário LOCAL: o dia de referência é o dia em São Paulo,
     não em UTC. Com `delay_days: 0` publica hoje se ainda não passou da hora, e
     no dia seguinte se já passou — nunca no passado.
+
+    A hora aqui é só o ALVO que `due_for_publishing` compara contra `now`; o atraso
+    de 1 a 15 min que faz a publicação de verdade não cair na hora cheia é aplicado
+    ao vivo pelo `service.tick()`, não neste cálculo (ver `JITTER_MIN_MINUTES`).
     """
     tz = _tz(cfg)
     local = generated_at.astimezone(tz)
@@ -100,7 +111,9 @@ def should_generate(now: datetime, cfg: dict[str, Any], last_generated_at: datet
 
     Verdadeiro só no dia da semana escolhido, depois da hora escolhida e no
     máximo uma vez por dia local — o agendador bate de hora em hora, então a
-    guarda "já gerei hoje" é o que evita uma enxurrada de posts.
+    guarda "já gerei hoje" é o que evita uma enxurrada de posts. O atraso de 1
+    a 15 min que evita gerar bem no minuto exato é aplicado pelo `service.tick()`
+    ao redor da chamada, não aqui.
     """
     weekdays = cfg.get("generate_weekdays", DEFAULT_CONFIG["generate_weekdays"]) or []
     if not weekdays:
@@ -159,12 +172,12 @@ def linkedin_queue(posts: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | None) -> bool:
     """É hora de mandar um post para o LinkedIn?
 
-    Mesma forma de `should_generate`: dia da semana, hora local e no máximo uma vez
-    por dia — o agendador bate de hora em hora.
+    MESMA agenda de `should_generate` — `generate_weekdays`/`generate_hour`, sem
+    configuração própria para o LinkedIn (pedido do PO: um horário só).
     """
     if not cfg.get("linkedin_enabled"):
         return False
-    weekdays = cfg.get("linkedin_weekdays") or []
+    weekdays = cfg.get("generate_weekdays", DEFAULT_CONFIG["generate_weekdays"]) or []
     if not weekdays:
         return False
 
@@ -172,7 +185,7 @@ def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | 
     local = now.astimezone(tz)
     if local.weekday() not in weekdays:
         return False
-    if local.hour < int(cfg.get("linkedin_hour", DEFAULT_CONFIG["linkedin_hour"])):
+    if local.hour < int(cfg.get("generate_hour", DEFAULT_CONFIG["generate_hour"])):
         return False
     if last_shared_at is not None and last_shared_at.astimezone(tz).date() == local.date():
         return False
