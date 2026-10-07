@@ -79,3 +79,9 @@ class TestBuscaDeVideo:
         corpo = fake.calls[0]["json"]
         assert "liderança" in corpo["q"]
         assert "youtube.com" in corpo["q"]
+
+    def test_busca_ancorada_em_tecnologia_para_nao_pegar_sentido_ambiguo(self, fake):
+        # medido: "arquitetura" sozinho trouxe vídeo de construção civil, não de software
+        videos.search_youtube("arquitetura quando o time cresce")
+        corpo = fake.calls[0]["json"]
+        assert "engenharia de software" in corpo["q"]

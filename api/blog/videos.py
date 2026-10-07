@@ -44,11 +44,14 @@ def search_youtube(query: str) -> VideoResult:
     """
     if not SERPER_KEY:
         return VideoResult()
+    # Âncora de domínio: medido que "arquitetura" sozinho trazia vídeo de construção
+    # civil, não de software — tema de reflexão é curto e vive de palavra ambígua
+    # (arquitetura, escala, time) fora de contexto.
     try:
         res = requests.post(
             SERPER_VIDEO_URL,
             headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
-            json={"q": f"{query} site:youtube.com"},
+            json={"q": f"{query} engenharia de software site:youtube.com"},
             timeout=SEARCH_TIMEOUT,
         )
         if not res.ok:
