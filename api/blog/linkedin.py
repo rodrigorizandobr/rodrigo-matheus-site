@@ -219,8 +219,13 @@ def share_text(post: dict[str, Any], url: str = "") -> str:
     excerpt = (body.get("excerpt") or "").strip()
     tags = " ".join("#" + re.sub(r"[^0-9a-zA-ZÀ-ÿ]", "", t) for t in (post.get("tags") or [])[:4]).strip()
 
+    # O link do vídeo vem logo no início, perto do título — é o que faz o LinkedIn
+    # desenhar o cartão de prévia (ler a própria página do YouTube; nunca baixamos o
+    # arquivo, ver blog/videos.py). Cedo na lista: a truncagem corta do fim, não daqui.
+    video_url = (post.get("video") or {}).get("url") or ""
+
     # Título de seção cola no primeiro parágrafo: o corte nunca o deixa órfão.
-    unidades = [title, excerpt]
+    unidades = [title, excerpt, video_url]
     for sec in body.get("sections") or []:
         heading = (sec.get("heading") or "").strip()
         for i, par in enumerate(p.strip() for p in sec.get("paragraphs") or []):

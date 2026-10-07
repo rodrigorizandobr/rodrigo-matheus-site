@@ -50,6 +50,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "Tesla Optimus",
         "computador quântico",
     ],
+    # Temas do modo "reflexão" (gemini.generate_reflection) — sem notícia, a partir da
+    # carreira real de Rodrigo. Em rodízio, igual aos assuntos vigiados; lista vazia
+    # desliga o modo (sem tema explícito, não há sobre o que refletir).
+    "reflection_topics": [
+        "o que muda na arquitetura quando o time passa de 10 para 40 pessoas",
+        "onde IA generativa realmente reduz custo em engenharia, e onde só parece",
+        "por que a maioria das métricas de produtividade de dev mede a coisa errada",
+        "migrar para Cloud Run: o que compensou e o que eu faria diferente",
+        "liderar quem sabe mais do que você sobre o assunto",
+        "o custo escondido de manter dois provedores de nuvem",
+        "code review que encontra defeito de verdade, não estilo",
+        "quando reescrever um sistema é a decisão barata",
+        "contratar sênior em mercado aquecido sem baixar a régua",
+        "observabilidade que paga a conta: o mínimo que todo time precisa",
+    ],
 }
 
 

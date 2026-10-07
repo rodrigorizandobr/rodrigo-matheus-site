@@ -146,6 +146,57 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   português, inclusive `heading`, mesmo com material em inglês: um post saiu com título de seção em inglês
   copiado do Serper. Resíduo conhecido: o flash-lite ainda ecoa clichês proibidos (café, "Resta saber") e
   deixa passar sigla curta como "API".
+- **O título e o fechamento existem para gerar engajamento, não só para informar**
+  (regra 2 e item 3 da regra 6 de `gemini.RULES`, `TestGanchoDeEngajamento`). Pedido do PO,
+  2026-10-07, depois de mostrar um post gerado e perguntar "isso chama atenção de quem vê
+  o título? desperta vontade de curtir ou compartilhar?" — a resposta foi não, e a causa
+  virou pesquisa de padrão de LinkedIn top voice (Ricardo Amorim e outros): vídeo nativo
+  engaja 2,8× mais que texto puro, fechar em pergunta aberta puxa comentário (o sinal mais
+  forte do algoritmo), e o storytelling de alto desempenho generaliza para uma LIÇÃO
+  universal, não só a opinião do autor sobre o fato. Três mudanças no prompt: (1) título
+  pode ser pergunta direta ou afirmação ousada, sempre amarrada ao fato (nunca genérica);
+  (2) a leitura final SEMPRE fecha em pergunta aberta de verdade, dirigida ao leitor,
+  específica desta história; (3) título e `heading` em caixa de frase, nunca Title Case
+  (medido num post real: "A Nvidia Lançou a Vera Para Cuidar dos Seus Agentes" — o modelo
+  tinha escorregado pro inglês sem avisar).
+- **Modo "reflexão" — sem notícia, curto, formato top voice** (`gemini.generate_reflection`,
+  `gemini.RULES_REFLECTION`, `TestReflexaoPessoal`). Não é o artigo de 3 seções: é
+  1 seção, 1 parágrafo de 60 a 120 palavras (`REFLECTION_SECTIONS`/`REFLECTION_PARAGRAPHS`) —
+  uma afirmação/pergunta que abre, UMA cena real e pequena da carreira de Rodrigo (nunca
+  inventada; sai só do currículo, igual ao modo sem-pesquisa) e fecha em pergunta aberta.
+  `service.generate(..., reflection=True)`: tema explícito ou rodízio em
+  `cfg["reflection_topics"]` (mesma mecânica de `news_terms`/`pick_rotating`, história
+  compartilhada via `store.recent_topics()`); material é SEMPRE `profile.career_context()`,
+  nunca pesquisa a internet — a pesquisa é o que diferencia "notícia comentada" de
+  "reflexão", então misturar os dois apagaria a diferença. Gatilho manual no painel:
+  `ReflectionComposer.tsx`, tema opcional (vazio gira o rodízio). `reflection_topics` tem
+  default em `model.DEFAULT_CONFIG` — são os 10 temas que já estavam soltos num campo
+  `topics` órfão no Firestore (sobra de um recurso de "pauta" removido antes, mencionado
+  abaixo); republicados aqui porque eram exatamente o material certo para este uso.
+  **`heading` nunca repete o título ao pé da letra** — bug medido num post real (heading
+  == título, duplicado no texto final do LinkedIn); a regra original deixava isso passar
+  ("pode repetir a ideia do título"), hoje é proibido copiar literalmente.
+- **Vídeo é só LINK, nunca upload — decisão de escopo, não falta de ambição**
+  (`blog/videos.py`, `TestVideoNaReflexao`, `TestVideoNoTexto`, `TestVideoNoCompartilhamento`).
+  "Vídeo nativo" de verdade (upload no LinkedIn, que é o que mais engaja) exigiria BAIXAR
+  o vídeo de algum lugar — de banco de imagem tipo Pixabay (recusado pelo PO: "zoados") ou
+  do YouTube (recusado por mim: baixar vídeo do YouTube viola os TERMOS DE USO deles, uma
+  restrição contratual separada de direito autoral, que o PO não pode simplesmente dispensar
+  como fez com a citação de trecho curto). A solução que ficou: `videos.search_youtube(tema)`
+  busca no Serper (`POST /videos`, filtrando `youtube.com`/`youtu.be` no link devolvido, com
+  `site:youtube.com` no termo) um vídeo real sobre o tema da reflexão, e o post do LinkedIn
+  **linka** a URL — o LinkedIn desenha o cartão de prévia sozinho, lendo a página pública do
+  YouTube, sem nenhum arquivo passar pelo nosso servidor. Opcional em toda a cadeia: sem
+  `SERPER_API_KEY`, sem resultado do YouTube, ou se o Serper cair, a reflexão sai sem vídeo
+  — nunca trava a geração (mesmo padrão de `research.py`). Só o modo reflexão busca vídeo;
+  a notícia comentada não muda. Quando o post TEM vídeo, `service._send_to_linkedin` não
+  anexa a capa gerada por IA — os dois juntos (imagem nativa + link que o LinkedIn tenta
+  desenrolar sozinho) nunca foram testados contra o LinkedIn de verdade, e um post só
+  desenha UM cartão de prévia por vez; o vídeo vence. **A primeira reflexão com vídeo real
+  nunca foi postada no LinkedIn de verdade** — o fluxo foi validado ponta a ponta localmente
+  (geração real + busca real do Serper + `share_text` montado), mas falta confirmar com o
+  PO antes do primeiro envio ao vivo, pelo mesmo motivo que vale para a Assets API de
+  imagem: ação pública, nova, sem precedente neste projeto.
 - **O blog é artigo que comenta, não noticiário que reconta** (regras 1 e 6 de `gemini.RULES`,
   `TestFormatoDeArtigo`). A estrutura de 3 seções continua, mas o papel de cada uma mudou: (1) o que
   aconteceu, resumido em poucas frases, sem reconstruir a notícia inteira; (2) ANÁLISE — o que o
@@ -398,8 +449,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 447 testes
-cd web && npm test                                  # 391 testes
+cd api && source .venv/bin/activate && pytest      # 485 testes
+cd web && npm test                                  # 397 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

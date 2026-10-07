@@ -6,7 +6,7 @@ import type { BlogConfig, LinkedInStatus } from '../../blog/types'
 
 const config = (over: Partial<BlogConfig> = {}): BlogConfig => ({
   timezone: 'America/Sao_Paulo', auto_publish: false, delay_days: 2, publish_hour: 8,
-  generate_hour: 6, generate_weekdays: [0, 3], research_enabled: true, news_terms: ['ia'],
+  generate_hour: 6, generate_weekdays: [0, 3], research_enabled: true, news_terms: ['ia'], reflection_topics: [],
   linkedin_enabled: true, ...over,
 })
 

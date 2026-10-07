@@ -64,6 +64,9 @@ export const blogApi = {
       /** o autor escolhe o tema; o servidor pesquisa na internet e escreve sobre ELE */
       generateFromTopic: async (topic: string) =>
         (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'topic' })).post,
+      /** reflexão curta, sem notícia; tema vazio gira entre os cadastrados no servidor */
+      generateReflection: async (topic = '') =>
+        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'reflection' })).post,
       create: async (draft: NewPost) =>
         (await call<{ post: Post }>('/api/blog/admin/posts', 'POST', draft)).post,
       update: async (id: string, patch: Partial<Post>) =>

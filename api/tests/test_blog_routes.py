@@ -26,6 +26,7 @@ def blog(monkeypatch):
     monkeypatch.setattr(store, "_db", lambda: db)
     monkeypatch.setattr(store, "FieldFilter", FakeFilter)
     monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: dict(DRAFT))
+    monkeypatch.setattr(service.gemini, "generate_reflection", lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
     monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: None)
     monkeypatch.setattr(routes, "TICK_KEY", "chave-do-agendador")
     return db
@@ -199,3 +200,21 @@ class TestGerarPorTema:
     def test_modo_tema_sem_tema_devolve_409(self, client, blog, admin):
         res = client.post("/api/blog/admin/generate", json={"topic": "", "mode": "topic"}, headers=AUTH)
         assert res.status_code == 409
+
+
+class TestGerarReflexao:
+    def test_modo_reflexao_devolve_201_com_a_origem_certa(self, client, blog, admin):
+        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        res = client.post("/api/blog/admin/generate", json={"mode": "reflection"}, headers=AUTH)
+        assert res.status_code == 201
+        assert res.get_json()["post"]["generation"]["source"] == "reflection"
+
+    def test_tema_proprio_no_modo_reflexao(self, client, blog, admin):
+        res = client.post("/api/blog/admin/generate", json={"topic": "contratar sênior", "mode": "reflection"}, headers=AUTH)
+        assert res.get_json()["post"]["topic"] == "contratar sênior"
+
+    def test_sem_tema_cadastrado_devolve_409(self, client, blog, admin):
+        store.save_config({"reflection_topics": []})
+        res = client.post("/api/blog/admin/generate", json={"mode": "reflection"}, headers=AUTH)
+        assert res.status_code == 409
+        assert "reflex" in res.get_json()["error"]

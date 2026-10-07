@@ -46,6 +46,18 @@ export function ConfigPanel({ config, busy, onSave }: {
           <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.news_terms)} termos</p>
         </div>
 
+        <div className="pt-4 border-t border-line">
+          <label className="field-label" htmlFor="cfg-reflection">Temas de reflexão — um por linha</label>
+          <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
+            Sem notícia: o robô conta uma cena real da sua carreira sobre o tema, curto, no estilo de post que
+            para o feed. Usado no botão "escrever reflexão", na lista de posts.
+          </p>
+          <textarea id="cfg-reflection" className="field !min-h-[9rem] font-mono !text-[12.5px]"
+                    value={draft.reflection_topics.join('\n')}
+                    onChange={(e) => set('reflection_topics', e.target.value.split('\n'))} />
+          <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.reflection_topics)} temas</p>
+        </div>
+
       </section>
 
       <section className="panel p-5 md:p-7 grid gap-4">

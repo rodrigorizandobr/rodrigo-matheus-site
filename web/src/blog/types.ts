@@ -100,6 +100,8 @@ export type BlogConfig = {
   research_enabled: boolean
   /** assuntos vigiados; o robô passa por todos em rodízio antes de repetir */
   news_terms: string[]
+  /** temas do modo "reflexão" (sem notícia); o robô passa por todos em rodízio antes de repetir */
+  reflection_topics: string[]
   /** compartilhar os posts no LinkedIn automaticamente, na mesma agenda de `generate_weekdays`/`generate_hour` */
   linkedin_enabled: boolean
 }

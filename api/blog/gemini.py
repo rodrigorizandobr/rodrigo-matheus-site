@@ -92,14 +92,19 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    bastante para quem nunca ouviu falar do assunto entender do que se trata; o resto do post
    é análise e opinião, não mais fatos encadeados. Pense em post de LinkedIn que comenta a
    notícia, não em matéria de jornal que a reconta.
-2. TÍTULO é manchete, não tese. A fórmula: o nome de quem protagonizou (empresa, produto,
-   foguete, robô) + um verbo concreto + o detalhe que estranha, em até {MAX_TITLE_CHARS} caracteres, de
-   modo que dê vontade de clicar. PROIBIDO o molde de ensaio: "A ilusão de…", "O mito de…",
+2. TÍTULO é manchete, não tese — e tem que fazer o dedo parar de rolar o feed, não só
+   informar. Duas fórmulas, escolha a que servir melhor à história: (a) o nome de quem
+   protagonizou (empresa, produto, foguete, robô) + um verbo concreto + o detalhe que
+   estranha; (b) uma pergunta direta ou uma afirmação ousada, sempre amarrada a ESTE fato
+   concreto, nunca uma pergunta genérica que serviria pra qualquer post. Em até
+   {MAX_TITLE_CHARS} caracteres. PROIBIDO o molde de ensaio: "A ilusão de…", "O mito de…",
    "Por que X exige Y", "X revela Y", "O fim de…", "O paradoxo…", "A verdade sobre…", e
    título feito só de substantivos abstratos (soberania, maturidade, arquitetura,
    conformidade). PROIBIDO também o clichê de manchete: "mudou o jogo", "revoluciona",
    "o futuro de…", "gigante". Se o título coubesse em qualquer notícia do ano, reescreva-o
-   com o nome da coisa. Escreva o título só a partir da história, sem moldes.
+   com o nome da coisa. Escreva o título só a partir da história, sem moldes. Em caixa de
+   frase (só a primeira palavra e nomes próprios maiúsculos) — nunca Com Cada Palavra Em
+   Maiúscula, que é título em inglês, não em português. Vale também para `heading`.
 3. `excerpt` é o gancho: uma ou duas frases, em até {MAX_EXCERPT_CHARS} caracteres, que contam o que
    aconteceu e deixam a curiosidade aberta. Nunca um resumo de tese.
 4. HUMOR. Seco, observador, com ironia leve e comparações do dia a dia de quem trabalha com
@@ -138,8 +143,11 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    problema novo, um prós e contras real com pelo menos um efeito colateral concreto (quem
    perde, o que fica mais arriscado, o que ainda não se sabe) — nunca só elogio; (3) a
    leitura do Rodrigo, o que ele pensa disso como quem constrói software e lidera time,
-   ancorada num fato do material, fechando com uma previsão com ousadia ou uma pergunta
-   específica DESTA história, nunca uma reflexão genérica sobre o futuro. Proibido fechar
+   ancorada num fato do material, puxando para uma lição que QUALQUER PESSOA QUE LIDERA ou
+   constrói alguma coisa reconhece na própria rotina — não só a opinião de Rodrigo sobre
+   esta notícia específica. Fecha SEMPRE com uma pergunta aberta de verdade, dirigida ao
+   leitor, específica DESTA história (nunca uma pergunta genérica que serviria pra qualquer
+   post) — é o que puxa comentário, o sinal que mais importa. Proibido fechar
    com "O tempo dirá", "Resta saber", "Seja como for", "No fim das contas", "Até onde
    vamos…". Cada `heading` é uma frase curta, de até
    {MAX_HEADING_CHARS} caracteres, tirada de um nome, número ou imagem do texto daquela seção; nunca um rótulo
@@ -291,6 +299,69 @@ história é o material abaixo.)"""
 {material}{_avoid_block(avoid_titles or [])}{_avoid_covers_block(avoid_covers or [])}
 Escreva o post completo em português e em inglês, seguindo as regras."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
+
+
+# Formato tipo "top voice" de LinkedIn (Ricardo Amorim): citação/afirmação curta + UMA
+# história pequena e real da carreira de Rodrigo + lição que qualquer um reconhece,
+# fechando em pergunta aberta. Medido contra o post de notícia: texto nativo curto puxa
+# mais comentário que o artigo de 3 seções — aqui o tamanho pequeno É a regra, não um
+# efeito colateral do orçamento do LinkedIn.
+REFLECTION_SECTIONS = 1
+REFLECTION_PARAGRAPHS = 1
+MIN_REFLECTION_WORDS = 60
+MAX_REFLECTION_WORDS = 120
+
+RULES_REFLECTION = f"""REGRAS DE ESCRITA — formato REFLEXÃO, diferente do post de notícia:
+
+1. NÃO É COMENTÁRIO DE NOTÍCIA. Não há fato da semana para resumir nem prós e contras pra
+   pesar. É uma reflexão pessoal, no molde de quem para o feed com uma frase e conta uma
+   história pequena por trás dela — pense em uma citação ou afirmação curta seguida de UM
+   parágrafo de reflexão, não em um artigo.
+2. TÍTULO é a própria afirmação ou pergunta que abre a reflexão — curta, direta, do jeito
+   que alguém diria em voz alta, nunca um resumo do parágrafo que vem depois. Em até
+   {MAX_TITLE_CHARS} caracteres, em caixa de frase (nunca Com Cada Palavra Maiúscula).
+3. `excerpt` é a mesma ideia do título, com uma frase a mais de contexto, em até
+   {MAX_EXCERPT_CHARS} caracteres.
+4. ESTRUTURA: {REFLECTION_SECTIONS} seção, {REFLECTION_PARAGRAPHS} parágrafo, de
+   {MIN_REFLECTION_WORDS} a {MAX_REFLECTION_WORDS} palavras. O parágrafo conta UMA cena real
+   e pequena da carreira de Rodrigo — um momento específico, não um resumo de anos de
+   experiência — e puxa dela uma lição que qualquer pessoa que lidera ou constrói alguma
+   coisa reconhece na própria rotina, fechando SEMPRE em uma pergunta aberta de verdade,
+   dirigida ao leitor, específica DESTA cena (nunca uma pergunta genérica). O `heading`
+   nunca repete o título ao pé da letra — ou fica em branco, ou usa outras palavras
+   para a mesma ideia.
+5. A CENA É REAL, NUNCA INVENTADA. Tudo sobre a carreira de Rodrigo sai do material
+   (currículo) — empresa, cargo, ano, time. Não invente episódio, nome de pessoa, número
+   ou empresa que não esteja no material; se o material não sustentar um detalhe
+   específico, fique no que ele sustenta.
+6. TOM. Em primeira pessoa, direto, sem a ironia leve do post de notícia — aqui o registro
+   é mais sincero que engraçado, mas continua informal, como quem fala com um colega, não
+   como quem dá palestra. Frase curta, nada de jargão de consultoria ("paradigma",
+   "sinergia", "ecossistema", "jornada", "em um mundo cada vez mais…").
+7. SEM MARCAÇÃO. Texto puro: nada de HTML, markdown, asteriscos ou emoji.
+8. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo texto, escrita como
+   original em inglês, mesmo tom — não tradução literal.
+9. IMAGEM. `imagePrompt` em inglês, mesma lógica do post de notícia: uma metáfora visual
+   da cena contada (não um retrato literal do cargo ou da empresa), em escala física,
+   fotorrealista, sem texto nem logo. `imageAlt` em português."""
+
+
+def generate_reflection(theme: str, context: str, avoid_titles: list[str] | None = None,
+                        avoid_covers: list[str] | None = None) -> dict[str, Any]:
+    """Escreve uma reflexão curta (pt+en) a partir de um tema e da carreira de Rodrigo.
+
+    Formato "top voice", sem notícia: ver `RULES_REFLECTION`. `context` é sempre o
+    currículo (`profile.career_context()`) — este modo nunca pesquisa a internet.
+    """
+    cabecalho = f"""TEMA DA REFLEXÃO: {theme}
+(É sobre isto que Rodrigo quer refletir agora. Encontre no material uma cena real da
+carreira dele que ilustre este tema — não é notícia, não troque de assunto.)"""
+    material = f"MATERIAL DE APOIO — a carreira de Rodrigo, única fonte de fatos sobre ele:\n{context}\n" if context.strip() else ""
+    prompt = f"""{cabecalho}
+
+{material}{_avoid_block(avoid_titles or [])}{_avoid_covers_block(avoid_covers or [])}
+Escreva a reflexão completa em português e em inglês, seguindo as regras."""
+    return _normalize(_call(prompt, f"{VOICE}\n\n{RULES_REFLECTION}"))
 
 
 def revise_post(post: dict[str, Any], instruction: str) -> dict[str, Any]:

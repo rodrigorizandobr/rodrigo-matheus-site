@@ -64,6 +64,7 @@ const config: BlogConfig = {
   generate_hour: 6, generate_weekdays: [0, 3],
   research_enabled: true,
   news_terms: ['OpenAI', 'Anthropic Claude', 'SpaceX'],
+  reflection_topics: ['liderar quem sabe mais do que você sobre o assunto'],
   linkedin_enabled: true,
 }
 

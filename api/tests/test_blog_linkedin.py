@@ -268,3 +268,25 @@ class TestPostCompleto:
     def test_sem_secoes_ainda_monta_titulo_e_resumo(self):
         post = {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": []}}}
         assert linkedin.share_text(post, self.URL).startswith("T\n\nR")
+
+
+class TestVideoNoTexto:
+    """O vídeo é só um LINK no texto — o LinkedIn desenha o cartão lendo a página do
+    YouTube; nunca baixamos nem subimos o arquivo (ver blog/videos.py)."""
+
+    def _post_com_video(self):
+        return {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": [
+            {"heading": "S", "paragraphs": ["P."]}]}},
+            "video": {"title": "Vídeo", "url": "https://youtu.be/abc", "channel": "Canal"}}
+
+    def test_o_link_do_video_entra_no_texto(self):
+        texto = linkedin.share_text(self._post_com_video())
+        assert "https://youtu.be/abc" in texto
+
+    def test_vem_logo_no_comeco_para_o_linkedin_desenhar_o_cartao(self):
+        texto = linkedin.share_text(self._post_com_video())
+        assert texto.index("https://youtu.be/abc") < texto.index("P.")
+
+    def test_sem_video_nao_sobra_linha_vazia_nem_quebra_nada(self):
+        post = {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": []}}}
+        assert linkedin.share_text(post).startswith("T\n\nR")

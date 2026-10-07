@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, images, linkedin, media, model, notify, profile, research, store
+from . import gemini, images, linkedin, media, model, notify, profile, research, store, videos
 
 
 class NoTopicError(RuntimeError):
@@ -39,8 +39,17 @@ def _pick_subject(cfg: dict[str, Any]) -> str:
     return term
 
 
+def _pick_reflection_theme(cfg: dict[str, Any]) -> str:
+    """Tema da vez, em rodízio entre os temas de reflexão (ver `model.DEFAULT_CONFIG`)."""
+    theme = model.pick_rotating(cfg.get("reflection_topics") or [], store.recent_topics())
+    if not theme:
+        raise NoTopicError("nenhum tema de reflexão cadastrado — configure os temas no painel")
+    return theme
+
+
 def generate(topic: str | None, now: datetime | None = None, context: str = "",
-             use_research: bool | None = None, from_topic: bool = False) -> dict[str, Any]:
+             use_research: bool | None = None, from_topic: bool = False,
+             reflection: bool = False) -> dict[str, Any]:
     """Escreve um post inteiro e grava conforme a configuração (agendado ou publicado).
 
     `use_research` sobrepõe a configuração para esta geração — é o que permite ao
@@ -49,10 +58,18 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
     `from_topic` é o modo "escreva sobre ESTE tema": o autor escolheu o assunto, a busca
     é geral (não só notícia da semana) e, sem material, o post NÃO sai — cair no
     currículo daria um texto que não é sobre o que ele pediu.
+
+    `reflection` é o modo "top voice" (ver `gemini.RULES_REFLECTION`): curto, sem
+    notícia, sempre ancorado na carreira — nunca pesquisa a internet.
     """
     now = now or _now()
     cfg = store.get_config()
     source = "manual"
+
+    if reflection:
+        theme = (topic or "").strip() or _pick_reflection_theme(cfg)
+        return _save_generated(theme, profile.career_context(), research.Research(), "reflection",
+                               now, cfg, reflection=True)
 
     if from_topic:
         topic = (topic or "").strip()
@@ -91,10 +108,15 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
 
 
 def _save_generated(topic: str, context: str, found: research.Research, source: str,
-                    now: datetime, cfg: dict[str, Any], author_topic: bool = False) -> dict[str, Any]:
-    """Texto → capa → gravação, igual para os dois caminhos de geração."""
-    draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
-                                 avoid_covers=store.recent_cover_prompts(), author_topic=author_topic)
+                    now: datetime, cfg: dict[str, Any], author_topic: bool = False,
+                    reflection: bool = False) -> dict[str, Any]:
+    """Texto → capa → gravação, igual para os três caminhos de geração."""
+    if reflection:
+        draft = gemini.generate_reflection(topic, context, avoid_titles=store.recent_titles(),
+                                           avoid_covers=store.recent_cover_prompts())
+    else:
+        draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
+                                     avoid_covers=store.recent_cover_prompts(), author_topic=author_topic)
     draft["topic"] = topic
     draft["generation"] = {
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,
@@ -105,6 +127,14 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     draft["references"] = [{**ref, "accessedAt": now.isoformat()} for ref in found.references[:8]]
     draft["sources"] = found.sources[:8]
     draft["image"] = images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
+
+    if reflection:
+        # Só busca LINK (ver blog/videos.py) — sem resultado, a reflexão sai sem vídeo,
+        # nunca trava a geração.
+        achado = videos.search_youtube(topic)
+        if achado:
+            draft["video"] = {"title": achado.title, "url": achado.url,
+                              "thumbnail": achado.thumbnail, "channel": achado.channel}
 
     post = store.create_post(draft, now=now)
 
@@ -141,7 +171,9 @@ class PostNotFoundError(RuntimeError):
 
 
 def _send_to_linkedin(auth: dict[str, Any], post: dict[str, Any], now: datetime) -> dict[str, Any] | None:
-    cover = post.get("image") or {}
+    # Imagem nativa + link que o LinkedIn desenha sozinho nunca foram validados juntos
+    # (um post só tem um cartão de prévia); com vídeo, o cartão é o do YouTube.
+    cover = {} if post.get("video") else (post.get("image") or {})
     image = media.read_image(cover["hash"]) if cover.get("hash") else None
     texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
     urn = linkedin.publish(auth, texto, image, alt=cover.get("alt") or post.get("imageAlt") or "")

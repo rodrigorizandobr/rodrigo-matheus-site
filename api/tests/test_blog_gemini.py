@@ -369,14 +369,88 @@ class TestFormatoDeArtigo:
         gemini.generate_post("OpenAI")
         assert "nunca só elogio" in _corrido(fake)
 
-    def test_terceira_secao_continua_sendo_a_opiniao_do_rodrigo_com_previsao_ou_pergunta(self, fake):
+    def test_terceira_secao_continua_sendo_a_opiniao_do_rodrigo_fechando_em_pergunta(self, fake):
         # regra que já existia e não pode se perder na reescrita
         gemini.generate_post("OpenAI")
         regras = _corrido(fake)
         assert "a leitura do Rodrigo" in regras
-        assert "previsão com ousadia" in regras
 
     def test_fechos_de_carimbo_continuam_proibidos(self, fake):
         gemini.generate_post("OpenAI")
         regras = _corrido(fake)
         assert "O tempo dirá" in regras and "Resta saber" in regras
+
+
+class TestGanchoDeEngajamento:
+    """Pedido do PO, 2026-10-07: o blog comenta bem, mas não para o dedo no feed. Medido
+    contra padrões de LinkedIn top voice: pergunta/afirmação ousada > manchete informativa
+    no título; fechar em pergunta aberta puxa comentário, que é o sinal mais forte do
+    algoritmo; a leitura final generaliza para uma lição, não só uma opinião sobre o fato."""
+
+    def test_titulo_pode_ser_pergunta_ou_afirmacao_ousada_ligada_ao_fato(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "pergunta direta" in regras or "afirmação ousada" in regras
+
+    def test_fechamento_vira_pergunta_aberta_de_verdade_ao_leitor(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "pergunta aberta" in regras and "comentário" in regras
+
+    def test_leitura_final_generaliza_para_uma_licao_nao_so_opiniao_sobre_o_fato(self, fake):
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "qualquer pessoa que lidera" in regras or "lição" in regras
+
+    def test_nao_perde_a_exigencia_de_pergunta_especifica_desta_historia(self, fake):
+        # sem isso a pergunta genérica ("o que você acha da IA?") volta a ser aceitável
+        gemini.generate_post("OpenAI")
+        assert "DESTA história" in _corrido(fake)
+
+    def test_titulo_e_titulos_de_secao_em_caixa_de_frase_nao_titulo_em_ingles(self, fake):
+        # medido num post real: "A Nvidia Lançou a Vera Para Cuidar dos Seus Agentes" —
+        # Title Case de cada palavra, que não é como título se escreve em português
+        gemini.generate_post("OpenAI")
+        regras = _corrido(fake)
+        assert "caixa de frase" in regras
+
+
+class TestReflexaoPessoal:
+    """Pedido do PO, 2026-10-07: um formato tipo Ricardo Amorim — curto, sem notícia,
+    citação/afirmação + história curta da carreira + lição universal. Não é o post de
+    3 seções sobre novidade da semana."""
+
+    def test_gera_a_partir_de_um_tema_sem_pesquisa_nenhuma(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        assert fake.calls, "devia ter chamado o Gemini"
+
+    def test_nao_usa_as_regras_de_noticia(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        regras = " ".join(_sistema(fake).split())
+        assert "ARTIGO, NÃO NOTICIÁRIO" not in regras
+        assert "ANÁLISE" not in regras
+
+    def test_e_curto_uma_secao_um_paragrafo(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        regras = " ".join(_sistema(fake).split())
+        assert f"{gemini.REFLECTION_SECTIONS} seç" in regras or "uma seção" in regras
+        assert "não é comentário de notícia" in regras.lower()
+
+    def test_fecha_em_pergunta_aberta_tambem(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        assert "pergunta aberta" in " ".join(_sistema(fake).split())
+
+    def test_lastro_e_a_carreira_nunca_episodio_inventado(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        regras = " ".join(_sistema(fake).split())
+        assert "inventar" in regras or "invente" in regras
+
+    def test_o_tema_chega_no_pedido(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="")
+        assert "liderar quem sabe mais do que você" in _pedido(fake)
+
+    def test_heading_nunca_repete_o_titulo_ao_pe_da_letra(self, fake):
+        # medido num post real: heading == título, duplicado no texto final do LinkedIn
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        regras = " ".join(_sistema(fake).split())
+        assert "nunca repete o título ao pé da letra" in regras

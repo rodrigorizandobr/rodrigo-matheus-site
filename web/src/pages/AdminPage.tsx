@@ -10,6 +10,7 @@ import { LinkedInPanel } from './admin/LinkedInPanel'
 import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { TopicComposer } from './admin/TopicComposer'
+import { ReflectionComposer } from './admin/ReflectionComposer'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
 type Tab = 'posts' | 'media' | 'config'
@@ -271,6 +272,14 @@ export function AdminPage() {
                                const post = await api.generateFromTopic(tema)
                                setPosts((all) => [post, ...all]); open(post)
                              }, 'Post escrito a partir da pesquisa.')} />
+            </div>
+
+            <div className="pt-4 border-t border-line">
+              <ReflectionComposer busy={busy === 'generate'}
+                                  onWrite={(tema) => void run('generate', async () => {
+                                    const post = await api.generateReflection(tema)
+                                    setPosts((all) => [post, ...all]); open(post)
+                                  }, 'Reflexão escrita.')} />
             </div>
 
             <div className="grid gap-2 pt-4 border-t border-line">

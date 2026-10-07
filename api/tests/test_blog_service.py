@@ -524,3 +524,118 @@ class TestAPartirDeUmTema:
         vistas = self._pesquisa(monkeypatch, context="material")
         service.generate("https://x.com/y", now=utc(2026, 9, 14, 21), from_topic=True)
         assert vistas
+
+
+class TestReflexaoPessoal:
+    """Formato curto, sem notícia, pedido do PO em 2026-10-07 (ver gemini.RULES_REFLECTION)."""
+
+    def _generate_reflection(self, monkeypatch, recebe=None):
+        recebe = recebe if recebe is not None else {}
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None:
+                            (recebe.update(theme=theme, ctx=context) or dict(DRAFT)))
+        return recebe
+
+    def test_usa_generate_reflection_nao_generate_post(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("modo errado")))
+        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert post["generation"]["source"] == "reflection"
+
+    def test_material_e_sempre_o_curriculo_nunca_pesquisa(self, env, monkeypatch):
+        recebe = self._generate_reflection(monkeypatch)
+        monkeypatch.setattr(service.research, "search_web", lambda q: (_ for _ in ()).throw(AssertionError("não deveria pesquisar")))
+        monkeypatch.setattr(service.research, "search_topic", lambda q: (_ for _ in ()).throw(AssertionError("não deveria pesquisar")))
+        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert "EXPERIÊNCIA" in recebe["ctx"]
+
+    def test_tema_explicito_vence_o_rodizio(self, env, monkeypatch):
+        recebe = self._generate_reflection(monkeypatch)
+        store.save_config({"reflection_topics": ["outro tema"]})
+        service.generate("contratar sênior em mercado aquecido", now=utc(2026, 9, 14, 21), reflection=True)
+        assert recebe["theme"] == "contratar sênior em mercado aquecido"
+
+    def test_sem_tema_gira_entre_os_cadastrados(self, env, monkeypatch):
+        recebe = self._generate_reflection(monkeypatch)
+        store.save_config({"reflection_topics": ["tema a", "tema b"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert recebe["theme"] in ("tema a", "tema b")
+
+    def test_sem_tema_cadastrado_nem_explicito_nao_gera_e_explica(self, env):
+        store.save_config({"reflection_topics": []})
+        with pytest.raises(service.NoTopicError, match="reflex"):
+            service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+
+    def test_respeita_agendamento_da_config_igual_aos_outros_modos(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        store.save_config({"reflection_topics": ["t"], "delay_days": 0, "publish_hour": 8, "auto_publish": False})
+        post = service.generate(None, now=utc(2026, 9, 15, 9), reflection=True)
+        assert post["status"] == "scheduled"
+
+
+class TestVideoNaReflexao:
+    """Vídeo é SÓ LINK (busca no Serper, nunca baixa — ver blog/videos.py).
+
+    Só o modo reflexão busca vídeo; a notícia comentada não muda."""
+
+    def _generate_reflection(self, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+
+    def test_achou_video_anexa_ao_post(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        monkeypatch.setattr(service.videos, "search_youtube",
+                            lambda q: service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal"))
+        store.save_config({"reflection_topics": ["liderança"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert post["video"]["url"] == "https://youtu.be/x"
+        assert post["video"]["title"] == "Vídeo"
+
+    def test_sem_video_o_post_sai_mesmo_assim(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        monkeypatch.setattr(service.videos, "search_youtube", lambda q: service.videos.VideoResult())
+        store.save_config({"reflection_topics": ["liderança"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert post.get("video") is None
+
+    def test_busca_o_video_pelo_tema(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        vistos = []
+        monkeypatch.setattr(service.videos, "search_youtube", lambda q: vistos.append(q) or service.videos.VideoResult())
+        service.generate("contratar sênior", now=utc(2026, 9, 14, 21), reflection=True)
+        assert vistos == ["contratar sênior"]
+
+    def test_noticia_comentada_nao_busca_video(self, env, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_youtube", lambda q: (_ for _ in ()).throw(AssertionError("não deveria buscar vídeo")))
+        service.generate("meu tema", now=utc(2026, 9, 14, 21))
+
+
+class TestVideoNoCompartilhamento:
+    """Post com vídeo não leva a capa: o cartão de prévia é o do YouTube, e os dois
+    juntos (imagem nativa + link) nunca foram validados contra o LinkedIn de verdade."""
+
+    def _com_token(self, monkeypatch, urn="urn:li:share:1"):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        enviados = []
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda auth, texto, imagem=None, alt="": enviados.append(
+                                {"texto": texto, "imagem": imagem, "alt": alt}) or urn)
+        monkeypatch.setattr(service.media, "read_image", lambda digest: b"JPEG:" + digest[:4].encode())
+        return enviados
+
+    def test_post_com_video_nao_leva_imagem(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        post = service.generate("t", now=utc(2026, 9, 10, 21))
+        store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        store.update_post(post["id"], {"video": {"title": "V", "url": "https://youtu.be/x", "channel": "C"}})
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["imagem"] is None
+        assert "https://youtu.be/x" in enviados[0]["texto"]
+
+    def test_post_sem_video_continua_levando_a_capa(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["imagem"] is not None

@@ -120,6 +120,8 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         "image": draft.get("image"),
         "imageAlt": draft.get("imageAlt", ""),
         "imagePrompt": draft.get("imagePrompt", ""),
+        # Só o modo reflexão busca (ver blog/videos.py); ausente nos demais.
+        "video": draft.get("video"),
         "topic": draft.get("topic", ""),
         "sources": draft.get("sources") or [],
         "references": draft.get("references") or [],
@@ -144,7 +146,7 @@ def get_post(post_id: str) -> dict[str, Any] | None:
 def update_post(post_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     """Atualiza campos editáveis. Status e datas mudam pelas funções próprias."""
     editable = {k: v for k, v in (patch or {}).items()
-                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "topic",
+                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "video", "topic",
                          "references", "linkedinEnabled")}
     if "tags" in editable:
         editable["tags"] = model.clean_tags(editable["tags"])
