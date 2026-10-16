@@ -377,11 +377,21 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 - **Projeto fixo e conferido:** `clip_worker.check_project()` recusa rodar se o Firestore não for
   `rodrigo-matheus` (o cliente sem projeto cai no padrão do gcloud — já gravou em `br51-app`).
 - **Como o trecho é escolhido:** vídeo inteiro em 240p, um quadro a cada 5 s com o tempo GRAVADO no quadro
-  (Pillow; o ffmpeg do Homebrew não tem `drawtext`), mosaicos 5×4, e o Gemini marca os tempos que mostram o
-  que o post discute — o tempo vem do quadro, nunca do modelo (assistindo pela URL ele inventou 37:05 num
-  vídeo de 23:21, e o "melhor trecho" era o Elon falando). Depois: início refinado a 1 quadro/s (a 5 s o corte
-  começou numa filmagem aérea — o PO reclamou), corte em H.264 720p com `--force-keyframes-at-cuts` (o
-  padrão vinha AV1, que LinkedIn e iPhone não tocam bem), e conferência final dos quadros pelo Gemini.
+  (Pillow; o ffmpeg do Homebrew não tem `drawtext`), mosaicos 5×4, e o modelo marca os tempos com o
+  assunto, cada um com NOTA 1 a 3 — vence o trecho que soma mais nota (`clips.choose_segment(scores=)`),
+  não o mais longo. O tempo vem do quadro, nunca do modelo (assistindo pela URL ele inventou 37:05 num
+  vídeo de 23:21). Depois, a janela final é escolhida a 1 quadro/s numa região com folga em volta do
+  trecho (`MARGIN_BEFORE` 10 s, `MARGIN_AFTER` 30 s — um quadro escuro entre a manobra e o salto
+  quebrava o trecho), validada por `_valid_window`; inválida → fica o trecho grosso. Corte em H.264 720p
+  com `--force-keyframes-at-cuts` (o padrão vinha AV1, que LinkedIn e iPhone não tocam bem) e
+  conferência final dos quadros.
+- **Decisão por imagem é do `VISION_MODEL` (`gemini-3.8-flash`), não do flash-lite do texto.** Medido no
+  Roadster: com o flash-lite, a escolha a 5 s pegou 27 s do carro PARADO no palco + filmagem aérea, e a
+  janela a 1 quadro/s saiu com 3 s e "viu" salto onde não havia; o 3.8-flash (e o 3.1-pro, igual)
+  acertou a janela nas duas tentativas, e na escolha grossa achou a melhor parte do vídeo (437–474: a
+  largada com o 0–100 na tela, o carro subindo a rampa vertical, o salto, o drift). São poucas imagens
+  por post. **Pedir nota ao flash-lite deixou a marcação avarenta** (5 quadros em vez de ~20): o prompt
+  manda listar TODOS, "na dúvida, nota 1 — a nota escolhe, a lista não pode ter buracos".
 - **A conferência barra corte SEM o assunto, não cobra detalhe** (`VERIFY_PROMPT`): a primeira versão
   recusou o loop da sucção porque o texto falava de salto.
 - **Canal oficial primeiro** (`search_youtube(prefer=topic)`): a ABC News vinha antes do canal da Tesla, com
@@ -395,11 +405,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   `MAX_ATTEMPTS` (3). 429 (teto do Gemini, rajada no YouTube) → `pending` sem gastar tentativa — com a
   rotina de 15 em 15 min, contar faria o post desistir em 45 min. Falha que não é de rede (nenhum trecho
   bom, conferência recusou) → `failed` com o motivo, na hora.
-- **Pendência conhecida (próximo passo):** a escolha pega a MAIOR sequência de quadros com o assunto, não a
-  mais relevante, e não refina o fim. Medido no Roadster: o automático pegou a pista escura e o burnout e
-  terminou na filmagem aérea, perdendo o loop e o salto sobre o caminhão (22:20–22:48), que o corte manual
-  pegou. Ideia: nota por momento no `ask_times` e refino do fim igual ao do início. Também falta mandar o
-  recorte como vídeo NATIVO ao LinkedIn (hoje vai o link do YouTube no texto).
+- **Pendência:** mandar o recorte como vídeo NATIVO ao LinkedIn (hoje vai o link do YouTube no texto).
 
 ## Git dentro do Google Drive
 
@@ -544,7 +550,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 574 testes
+cd api && source .venv/bin/activate && pytest      # 588 testes
 cd web && npm test                                  # 411 testes
 ```
 

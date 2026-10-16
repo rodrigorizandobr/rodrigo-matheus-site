@@ -17,9 +17,10 @@ def utc(*a):
 class Ferramentas:
     """Faz de conta: o vídeo tem 1400 s e o assunto aparece de 1340 a 1365."""
 
-    def __init__(self, tempos="[1340, 1345, 1350, 1355, 1360, 1365]", confere=True, inicio_fino=1342,
+    def __init__(self, tempos="[1340, 1345, 1350, 1355, 1360, 1365]", confere=True, janela=(1342, 1370),
                  explode_em=None):
-        self.tempos, self.confere, self.inicio_fino, self.explode_em = tempos, confere, inicio_fino, explode_em
+        self.tempos, self.confere, self.janela, self.explode_em = tempos, confere, janela, explode_em
+        self.regioes = []
         self.cortes = []
 
     def _talvez_explodir(self, etapa):
@@ -37,8 +38,9 @@ class Ferramentas:
     def ask_times(self, frames, post_text, duration):
         return '{"tempos": %s}' % self.tempos
 
-    def refine_start(self, url, start, post_text):
-        return self.inicio_fino
+    def refine_window(self, url, start, end, post_text):
+        self.regioes.append((start, end))
+        return self.janela
 
     def cut(self, url, start, end):
         self._talvez_explodir("cut")
@@ -155,14 +157,6 @@ class TestRecorte:
         clip_worker.process(post, Ferramentas(tempos="[]"))
         assert store.get_post(post["id"])["clip"]["status"] == "failed"
 
-    def test_inicio_fino_nunca_sai_do_trecho(self, env):
-        # se o refinamento voltar algo absurdo, fica o início grosso
-        post = _post_pendente()
-        ferramentas = Ferramentas(inicio_fino=5)
-        clip_worker.process(post, ferramentas)
-        assert ferramentas.cortes == [(1340, 1370)]
-
-
 class TestRodada:
     def test_respeita_o_limite_por_rodada(self, env):
         for _ in range(3):
@@ -208,16 +202,53 @@ class TestLimiteNaoGastaTentativa:
         assert "429" in clip["lastError"]
 
 
-class TestLimiteDeDuracao:
-    def test_refino_que_puxa_o_inicio_para_tras_nao_passa_do_maximo(self, env):
-        # medido: início grosso 1300 virou 1296 e o corte ficou com 49 s (máximo é 45)
+class TestJanelaFina:
+    """A 5 s o corte começou e terminou fora da ação (carro parado no palco, filmagem aérea); a 1
+    quadro/s um modelo mais forte acerta a janela — o tempo continua vindo do quadro."""
+
+    def test_pede_a_janela_numa_regiao_com_folga_em_volta_do_trecho_grosso(self, env):
+        # a folga depois do fim é maior: o quadro escuro entre a manobra e o salto quebrava o trecho
         post = _post_pendente()
-        ferramentas = Ferramentas(tempos="[" + ", ".join(str(t) for t in range(1300, 1400, 5)) + "]", inicio_fino=1296)
+        ferramentas = Ferramentas()
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.regioes == [(1340 - clip_worker.MARGIN_BEFORE, 1370 + clip_worker.MARGIN_AFTER)]
+
+    @pytest.mark.parametrize("janela", [None, (5, 40), (1342, 1346), (1360, 1340), ("a", "b")])
+    def test_janela_invalida_fica_com_o_trecho_grosso(self, env, janela):
+        post = _post_pendente()
+        ferramentas = Ferramentas(janela=janela)
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1340, 1370)]
+
+    def test_janela_pode_sair_do_trecho_grosso_dentro_da_regiao(self, env):
+        # foi assim no Roadster: o salto vinha depois do fim do trecho grosso
+        post = _post_pendente()
+        ferramentas = Ferramentas(janela=(1350, 1390))
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1350, 1390)]
+
+    def test_janela_longa_e_cortada_no_maximo(self, env):
+        from blog import clips
+        post = _post_pendente()
+        ferramentas = Ferramentas(janela=(1335, 1399))
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1335, 1335 + clips.MAX_CLIP)]
+
+
+class TestModeloDaVisao:
+    def test_escolha_de_trecho_usa_modelo_mais_forte_que_o_do_texto(self):
+        # medido: o flash-lite deu janelas de 3 s e "viu" salto onde não havia; o 3.8-flash acertou
+        assert clip_worker.VISION_MODEL != clip_worker.gemini.TEXT_MODEL
+        assert clip_worker.VISION_MODEL in clip_worker.GEMINI_URL
+
+
+class TestNotaNaEscolha:
+    def test_trecho_com_nota_alta_vence_o_mais_longo(self, env):
+        tempos = ", ".join([*(f'{{"t": {t}, "nota": 1}}' for t in range(100, 160, 5)),
+                            *(f'{{"t": {t}, "nota": 3}}' for t in range(1340, 1370, 5))])
+        post = _post_pendente()
+        ferramentas = Ferramentas(tempos=f"[{tempos}]", janela=None)
         clip_worker.process(post, ferramentas)
         (inicio, fim), = ferramentas.cortes
-        assert inicio == 1296 and fim - inicio <= clips_max()
+        assert inicio >= 1335 and fim <= 1375
 
-
-def clips_max():
-    from blog import clips
-    return clips.MAX_CLIP

@@ -10,7 +10,11 @@ Uso:  ./scripts/clip-worker.sh        (uma rodada; o launchd chama de 15 em 15 m
 Como o trecho é escolhido (lições da prova manual, 2026-10-16):
 - o Gemini "assistindo" pela URL inventa tempo; aqui ele marca QUADROS que têm o tempo
   gravado neles (um a cada 5 s, em mosaicos), e o tempo vem do quadro;
-- o início é refinado a 1 quadro/s — a 5 s o corte começou numa filmagem aérea sem o carro;
+- cada tempo marcado ganha nota 1 a 3 e vence o trecho que soma mais nota, não o mais longo
+  (o mais longo era o carro só passando; o loop e o salto do post eram um trecho mais curto);
+- a janela final é escolhida a 1 quadro/s numa região com folga em volta do trecho — a 5 s o
+  corte começou com o carro parado no palco e terminou numa filmagem aérea;
+- as decisões por imagem usam `VISION_MODEL`, não o flash-lite do texto;
 - o corte final é conferido de novo pelo Gemini antes de ir para o bucket.
 """
 from __future__ import annotations
@@ -31,6 +35,13 @@ from blog import clips, gemini, media, service, store
 PROJECT = "rodrigo-matheus"
 #: no máximo isto por rodada: o YouTube dá 429 para quem baixa em rajada
 LIMIT = 3
+#: folga em volta do trecho grosso para a janela fina (a 1 quadro/s). Depois é maior: no Roadster
+#: um quadro escuro entre a manobra e o salto quebrou o trecho, e o salto ficou de fora.
+MARGIN_BEFORE = 10
+MARGIN_AFTER = 30
+#: escolher o momento por imagem é demais para o flash-lite (janelas de 3 s, "viu" salto onde não
+#: havia); o 3.8-flash acertou a janela do Roadster nas duas tentativas. Poucas imagens por post.
+VISION_MODEL = "gemini-3.8-flash"
 #: erro de rede/YouTube tenta de novo nas rodadas seguintes; desiste depois disto
 MAX_ATTEMPTS = 3
 
@@ -91,6 +102,14 @@ def _retry(post: dict[str, Any], error: str) -> dict[str, Any]:
     return clip
 
 
+def _valid_window(janela: Any, regiao: tuple[int, int]) -> bool:
+    if not (isinstance(janela, (tuple, list)) and len(janela) == 2
+            and all(isinstance(t, int) and not isinstance(t, bool) for t in janela)):
+        return False
+    inicio, fim = janela
+    return regiao[0] <= inicio and fim <= regiao[1] and fim - inicio >= clips.MIN_CLIP
+
+
 def process(post: dict[str, Any], tools: Any) -> dict[str, Any]:
     """Recorta UM post. Nunca levanta: toda falha vira `clip.status = failed` com o motivo."""
     video = post.get("video") or {}
@@ -102,16 +121,16 @@ def process(post: dict[str, Any], tools: Any) -> dict[str, Any]:
         etapa = "frames"
         quadros = tools.frames(url, clips.STEP)
         etapa = "escolha"
-        tempos = clips.parse_times(tools.ask_times(quadros, texto, duracao), duration=duracao)
-        trecho = clips.choose_segment(clips.group_segments(tempos))
+        notas = clips.parse_scores(tools.ask_times(quadros, texto, duracao), duration=duracao)
+        trecho = clips.choose_segment(clips.group_segments(list(notas)), scores=notas)
         if not trecho:
             return _fail(post, "nenhum trecho do vídeo mostra o que o post discute")
         inicio, fim = trecho
         etapa = "refino"
-        fino = tools.refine_start(url, inicio, texto)
-        if isinstance(fino, int) and inicio - clips.STEP <= fino < fim - clips.MIN_CLIP:
-            inicio = fino
-            fim = min(fim, inicio + clips.MAX_CLIP)  # refino para trás não estoura o máximo
+        regiao = (max(0, inicio - MARGIN_BEFORE), min(duracao, fim + MARGIN_AFTER))
+        janela = tools.refine_window(url, *regiao, texto)
+        if _valid_window(janela, regiao):
+            inicio, fim = janela[0], min(janela[1], janela[0] + clips.MAX_CLIP)
         etapa = "cut"
         mp4, largura, altura = tools.cut(url, inicio, fim)
         etapa = "conferência"
@@ -158,7 +177,7 @@ def run_once(tools: Any, limit: int = LIMIT) -> int:
 # ── ferramentas de verdade: yt-dlp, ffmpeg, Pillow, Gemini ──────────────────
 
 YTDLP = [sys.executable, "-m", "yt_dlp", "--impersonate", "chrome", "--no-warnings", "-q"]
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini.TEXT_MODEL}:generateContent"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{VISION_MODEL}:generateContent"
 
 # Medido: a primeira versão ("mostra o acontecimento do post?") recusou o loop da sucção porque o
 # texto falava de salto. O papel da conferência é barrar corte SEM o assunto, não cobrar detalhe.
@@ -239,20 +258,26 @@ class Ferramentas:
         return self._gemini(self._mosaicos(frames), (
             "Estes mosaicos são quadros de um vídeo, um a cada 5 segundos; o tempo em segundos está "
             "escrito em amarelo no canto de cada quadro. Abaixo está o post que este vídeo vai "
-            "acompanhar. Liste SÓ os tempos (os números amarelos) cujos quadros MOSTRAM na imagem o "
-            "acontecimento que o post discute — a coisa em ação, não pessoas falando no palco, "
-            "plateia, logotipo ou animação gráfica. Responda só JSON: {\"tempos\": [int, ...]}\n\n"
+            "acompanhar. Liste TODOS os tempos (os números amarelos) cujos quadros mostram o assunto "
+            "do post — mesmo escuro, com fumaça, de longe ou em movimento borrado; deixe de fora só "
+            "pessoas falando no palco, plateia, logotipo, animação gráfica e outro produto. Depois dê "
+            "a cada tempo uma nota: 3 = mostra exatamente o que o texto destaca acontecendo; "
+            "2 = o assunto em ação; 1 = o assunto aparece, mas parado ou distante. Na dúvida, liste "
+            "com nota 1 — a nota escolhe, a lista não pode ter buracos. "
+            "Responda só JSON: {\"tempos\": [{\"t\": int, \"nota\": int}, ...]}\n\n"
             f"POST:\n{post_text[:2000]}"))
 
-    def refine_start(self, url: str, start: int, post_text: str) -> int:
-        janela = max(0, start - 4)
-        quadros = self._quadros(self._baixa(url), janela, janela + 10, "1")
-        resposta = self._gemini(self._mosaicos([(janela + i, q) for i, q in enumerate(quadros)]), (
-            "Quadros de um vídeo, um por segundo, com o tempo em amarelo. Qual é o PRIMEIRO tempo em "
-            "que a imagem já mostra o acontecimento do post abaixo, de perto o bastante para ver? "
-            f"Responda só JSON: {{\"tempos\": [int]}}\n\nPOST:\n{post_text[:800]}"))
-        tempos = clips.parse_times(resposta)
-        return tempos[0] if tempos else start
+    def refine_window(self, url: str, start: int, end: int, post_text: str) -> tuple[int, int] | None:
+        quadros = self._quadros(self._baixa(url), start, end, "1")
+        resposta = json.loads(self._gemini(self._mosaicos([(start + i, q) for i, q in enumerate(quadros)]), (
+            "Quadros de um trecho de vídeo, um por segundo, com o tempo em amarelo. Escolha o trecho "
+            f"CONTÍNUO de {clips.MIN_CLIP} a {clips.MAX_CLIP} segundos que melhor mostra, em ação, o que o "
+            "post abaixo destaca — comece no primeiro quadro em que a ação já é visível e termine no "
+            "último; corte o que é só o produto parado, filmagem distante sem ação, palco ou plateia. "
+            "Use os números amarelos. Responda só JSON: {\"inicio\": int, \"fim\": int}\n\n"
+            f"POST:\n{post_text[:1500]}")))
+        inicio, fim = resposta.get("inicio"), resposta.get("fim")
+        return (inicio, fim) if isinstance(inicio, int) and isinstance(fim, int) else None
 
     def cut(self, url: str, start: int, end: int) -> tuple[bytes, int, int]:
         destino = self.dir / f"corte-{start}-{end}.mp4"

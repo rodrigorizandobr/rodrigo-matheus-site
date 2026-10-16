@@ -34,34 +34,64 @@ def group_segments(times: list[int], step: int = STEP) -> list[tuple[int, int]]:
     return trechos
 
 
+def _window_score(inicio: int, fim: int, scores: dict[int, int]) -> int:
+    return sum(n for t, n in scores.items() if inicio <= t < fim)
+
+
 def choose_segment(segments: list[tuple[int, int]], min_len: int = MIN_CLIP,
-                   max_len: int = MAX_CLIP) -> tuple[int, int] | None:
-    """O trecho mais longo, cortado em `max_len` a partir do início; curto demais → None."""
-    if not segments:
+                   max_len: int = MAX_CLIP, scores: dict[int, int] | None = None) -> tuple[int, int] | None:
+    """O melhor trecho, até `max_len`; curto demais → None.
+
+    Sem nota, vence o mais longo. Com nota, vence a janela que SOMA mais nota — medido no
+    Roadster: o mais longo era o carro só passando e terminava na filmagem aérea, e o loop e o
+    salto (o que o post discute) eram um trecho mais curto. Empate fica com o mais longo.
+    """
+    candidatos = []
+    for inicio, fim in segments:
+        if fim - inicio < min_len:
+            continue
+        # janelas de até max_len começando em cada quadro marcado do trecho
+        partidas = sorted(t for t in (scores or {}) if inicio <= t < fim) or [inicio]
+        for p in partidas:
+            j_fim = min(fim, p + max_len)
+            if j_fim - p >= min_len:
+                nota = _window_score(p, j_fim, scores) if scores else 0
+                candidatos.append((nota, j_fim - p, -p, (p, j_fim)))
+    if not candidatos:
         return None
-    inicio, fim = max(segments, key=lambda s: s[1] - s[0])
-    if fim - inicio < min_len:
-        return None
-    return inicio, min(fim, inicio + max_len)
+    return max(candidatos)[3]
 
 
-def parse_times(text: str, duration: int | None = None) -> list[int]:
-    """Lê `{"tempos": [...]}` da resposta do modelo, descartando o que não é tempo válido."""
+def parse_scores(text: str, duration: int | None = None) -> dict[int, int]:
+    """Lê `{"tempos": [...]}` — cada item é um tempo ou `{"t": tempo, "nota": 1 a 3}`.
+
+    Tempo sem nota vale 1; nota fora da escala é contida em 1..3. O que não é tempo válido sai.
+    """
     try:
         bruto: Any = json.loads(text).get("tempos")
     except (ValueError, AttributeError):
-        return []
+        return {}
     if not isinstance(bruto, list):
-        return []
-    tempos = []
-    for t in bruto:
-        if isinstance(t, bool) or not isinstance(t, (int, float)):
+        return {}
+    notas: dict[int, int] = {}
+    for item in bruto:
+        nota: Any = 1
+        if isinstance(item, dict):
+            item, nota = item.get("t"), item.get("nota", 1)
+        if isinstance(item, bool) or not isinstance(item, (int, float)):
             continue
-        t = int(t)
+        t = int(item)
         if t < 0 or (duration is not None and t > duration):
             continue
-        tempos.append(t)
-    return tempos
+        if isinstance(nota, bool) or not isinstance(nota, (int, float)):
+            nota = 1
+        notas[t] = max(1, min(3, int(nota)))
+    return notas
+
+
+def parse_times(text: str, duration: int | None = None) -> list[int]:
+    """Só os tempos, na ordem da resposta (aceita o formato com nota)."""
+    return list(parse_scores(text, duration))
 
 
 def hms(seconds: int) -> str:
