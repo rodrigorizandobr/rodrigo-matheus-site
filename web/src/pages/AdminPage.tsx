@@ -276,8 +276,8 @@ export function AdminPage() {
 
             <div className="pt-4 border-t border-line">
               <ReflectionComposer busy={busy === 'generate'}
-                                  onWrite={(tema) => void run('generate', async () => {
-                                    const post = await api.generateReflection(tema)
+                                  onWrite={(tema, comCapa) => void run('generate', async () => {
+                                    const post = await api.generateReflection(tema, comCapa)
                                     setPosts((all) => [post, ...all]); open(post)
                                   }, 'Reflexão escrita.')} />
             </div>

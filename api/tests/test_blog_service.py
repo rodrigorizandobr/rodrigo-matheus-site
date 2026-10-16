@@ -639,3 +639,124 @@ class TestVideoNoCompartilhamento:
         post = service.generate("t", now=utc(2026, 9, 10, 21)); store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
         service.share_next(now=utc(2026, 9, 15, 12))
         assert enviados[0]["imagem"] is not None
+
+
+class TestCapaOpcional:
+    """Ricardo Amorim também posta só texto — nem todo post precisa de capa de IA."""
+
+    def _generate_reflection(self, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+
+    def test_sem_capa_nao_chama_a_geracao_de_imagem(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        monkeypatch.setattr(service.images, "build_cover", lambda *a, **k: (_ for _ in ()).throw(AssertionError("não deveria gerar capa")))
+        store.save_config({"reflection_topics": ["t"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True, with_image=False)
+        assert post["image"] is None
+
+    def test_padrao_continua_com_capa(self, env, monkeypatch):
+        self._generate_reflection(monkeypatch)
+        store.save_config({"reflection_topics": ["t"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert post["image"] is not None
+
+
+def _rascunho(texto):
+    return {**DRAFT, "i18n": {l: {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": [texto]}]}
+                              for l in ("pt", "en")}}
+
+
+class TestVocabularioDeIA:
+    """Expressão proibida no texto gerado vira UMA reescrita pedindo para trocá-la — a lista
+    fica fora do prompt de geração porque palavra citada como proibida é ecoada."""
+
+    def _revisor(self, monkeypatch, devolve):
+        pedidos = []
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda post, instr: pedidos.append(instr) or _rascunho(devolve))
+        return pedidos
+
+    def test_achou_expressao_proibida_pede_reescrita_e_grava_o_texto_limpo(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("A Tesla revelou o carro."))
+        pedidos = self._revisor(monkeypatch, "A Tesla mostrou o carro.")
+        store.save_config({"banned_phrases": ["revel"]})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1 and "revel" in pedidos[0]
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["A Tesla mostrou o carro."]
+        assert post["generation"]["bannedLeft"] == []
+
+    def test_texto_limpo_nao_gasta_reescrita(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Texto limpo."))
+        pedidos = self._revisor(monkeypatch, "x")
+        service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert pedidos == []
+
+    def test_se_sobrar_depois_da_reescrita_grava_e_registra_o_que_sobrou(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Revelou tudo."))
+        self._revisor(monkeypatch, "Ainda revelou.")
+        store.save_config({"banned_phrases": ["revel"]})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["generation"]["bannedLeft"] == ["revel"]
+
+    def test_reescrita_falhando_nao_derruba_o_post(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Revelou tudo."))
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda *a, **k: (_ for _ in ()).throw(service.gemini.GeminiError("cota")))
+        store.save_config({"banned_phrases": ["revel"]})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Revelou tudo."]
+        assert post["generation"]["bannedLeft"] == ["revel"]
+
+    def test_reflexao_tambem_passa_pelo_filtro(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection", lambda *a, **k: _rascunho("Já vi time sofrer."))
+        pedidos = self._revisor(monkeypatch, "Vi um time sofrer.")
+        store.save_config({"banned_phrases": ["já vi time"], "reflection_topics": ["t"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert len(pedidos) == 1
+
+    def test_editar_com_ia_no_painel_tambem_passa_pelo_filtro(self, env, monkeypatch):
+        post = service.generate("t", now=utc(2026, 9, 14, 21))
+        respostas = iter([_rascunho("Isso é indiscutível."), _rascunho("Isso é claro.")])
+        monkeypatch.setattr(service.gemini, "revise_post", lambda p, i: next(respostas))
+        store.save_config({"banned_phrases": ["indiscutív"]})
+        revisado = service.revise(post["id"], "encurte")
+        assert revisado["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Isso é claro."]
+
+
+class TestMemoriaInventada:
+    """Medido em post real: "Já vi muita diretoria gastar uma fortuna…" num post de notícia —
+    o modelo nem recebe o currículo nesse modo; toda memória em primeira pessoa é invenção."""
+
+    def _revisor(self, monkeypatch, devolve):
+        pedidos = []
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda post, instr: pedidos.append(instr) or _rascunho(devolve))
+        return pedidos
+
+    def test_noticia_com_memoria_em_primeira_pessoa_vira_reescrita(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Já vi muita diretoria errar."))
+        pedidos = self._revisor(monkeypatch, "Muita diretoria erra.")
+        store.save_config({"banned_phrases": []})
+        post = service.generate("openai", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1 and "opinião" in pedidos[0]
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Muita diretoria erra."]
+
+    def test_reflexao_pode_contar_cena_real_da_carreira(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda *a, **k: _rascunho("Quando liderei a tribo de crédito, aprendi."))
+        pedidos = self._revisor(monkeypatch, "x")
+        store.save_config({"banned_phrases": [], "reflection_topics": ["t"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert pedidos == []
+
+    def test_noticia_sem_material_cai_no_curriculo_e_ai_a_cena_e_real(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda *a, **k: _rascunho("Quando liderei a tribo de crédito, aprendi."))
+        pedidos = self._revisor(monkeypatch, "x")
+        store.save_config({"banned_phrases": []})
+        service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert pedidos == []

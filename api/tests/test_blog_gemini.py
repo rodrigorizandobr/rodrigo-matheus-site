@@ -71,7 +71,8 @@ class TestGeracaoDePost:
     def test_normaliza_tags_e_descarta_secao_vazia(self, fake):
         post = gemini.generate_post("x")
         assert post["tags"] == ["liderança", "ia", "a", "b", "c", "d"]
-        assert [s["heading"] for s in post["i18n"]["pt"]["sections"]] == ["Um"]
+        # seção sem parágrafo some; título de seção é apagado — o post é texto corrido
+        assert [s["heading"] for s in post["i18n"]["pt"]["sections"]] == [""]
 
     def test_devolve_i18n_pronto_com_slug_e_prompt_de_imagem(self, fake):
         post = gemini.generate_post("x")
@@ -160,11 +161,10 @@ class TestPostDeNovidade:
         assert "olhou para ele e desistiu" not in regras
         assert "subir para produção numa sexta-feira" not in regras
 
-    def test_proibe_titulo_de_secao_que_so_repete_o_papel_dela(self, fake):
-        # "O que muda para quem escreve código" saiu igual em posts diferentes
+    def test_nao_ha_mais_titulo_de_secao_para_proibir(self, fake):
+        # seções saíram do post (pedido do PO, 2026-10-16): as regras de título de seção também
         gemini.generate_post("OpenAI")
-        regras = _sistema(fake)
-        assert "O que muda para" in regras and "Até onde vai" in regras
+        assert "PROIBIDO como título" not in _sistema(fake)
 
     def test_proibe_comparacao_e_cliche_batidos(self, fake):
         gemini.generate_post("OpenAI")
@@ -199,7 +199,7 @@ class TestCabeInteiroNoLinkedIn:
         # palavra de 6 letras + espaço = 7 caracteres: mais larga que a média do português
         paragrafo = " ".join(["abcdef"] * gemini.MAX_PARAGRAPH_WORDS)
         secoes = [
-            {"heading": "h" * gemini.MAX_HEADING_CHARS, "paragraphs": [paragrafo] * gemini.PARAGRAPHS}
+            {"heading": "", "paragraphs": [paragrafo] * gemini.PARAGRAPHS}
             for _ in range(gemini.SECTIONS)
         ]
         pt = {"title": "t" * gemini.MAX_TITLE_CHARS, "excerpt": "e" * gemini.MAX_EXCERPT_CHARS, "sections": secoes}
@@ -340,7 +340,7 @@ class TestLinguagemDidatica:
         # medido: título de seção do `pt` saiu em inglês, copiado do material de busca
         gemini.generate_post("OpenAI")
         regras = _corrido(fake)
-        assert "inclusive os títulos das seções" in regras and "material estiver em inglês" in regras
+        assert "material estiver em inglês" in regras
 
 
 class TestFormatoDeArtigo:
@@ -449,8 +449,62 @@ class TestReflexaoPessoal:
         gemini.generate_reflection("liderar quem sabe mais do que você", context="")
         assert "liderar quem sabe mais do que você" in _pedido(fake)
 
-    def test_heading_nunca_repete_o_titulo_ao_pe_da_letra(self, fake):
-        # medido num post real: heading == título, duplicado no texto final do LinkedIn
+    def test_reflexao_tambem_sai_sem_titulo_de_secao(self, fake):
         gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
-        regras = " ".join(_sistema(fake).split())
-        assert "nunca repete o título ao pé da letra" in regras
+        assert "`heading` sempre vazio" in " ".join(_sistema(fake).split())
+
+
+class TestSemSecoesESemVicioDeIA:
+    """Pedido do PO, 2026-10-16: seções e certas palavras entregavam que o post era de IA."""
+
+    def test_noticia_pede_texto_corrido_sem_titulo_de_secao(self, fake):
+        gemini.generate_post("Tesla")
+        assert "`heading` sempre vazio" in _corrido(fake)
+
+    def test_titulo_de_secao_que_o_modelo_insistir_em_escrever_e_apagado(self, fake):
+        post = gemini.generate_post("Tesla")
+        for lang in ("pt", "en"):
+            assert all(sec["heading"] == "" for sec in post["i18n"][lang]["sections"])
+
+    def test_revisao_por_ia_tambem_sai_sem_titulo_de_secao(self, fake):
+        post = gemini.revise_post({"tags": [], "i18n": {}}, "encurte")
+        assert all(sec["heading"] == "" for sec in post["i18n"]["pt"]["sections"])
+
+    def test_prompt_nao_tem_mais_o_exemplo_que_o_modelo_copiava(self, fake):
+        # "já vi time inteiro cair nessa" era exemplo da regra 10 e voltava em todo post
+        gemini.generate_post("Tesla")
+        assert "já vi time" not in _corrido(fake).lower()
+
+    def test_prompt_nao_cita_revela_nem_como_proibido(self, fake):
+        # palavra citada como proibida também é ecoada (ver CLAUDE.md); quem barra é o filtro
+        gemini.generate_post("Tesla")
+        assert "revela" not in _corrido(fake).lower()
+
+    def test_nunca_inventa_experiencia_do_rodrigo(self, fake):
+        # medido: "já vi time botar [produto] complexo na rua" — ele nem trabalha com produto
+        # físico. No modo notícia o modelo nem recebe o currículo: toda memória era inventada.
+        gemini.generate_post("Tesla")
+        regras = _corrido(fake)
+        assert "memória inventada nunca" in regras
+        assert "Opinião sim" in regras
+
+
+class TestProfundidade:
+    """Medido no post da Tesla (2026-10-16): contou que o carro tem sucção e propulsores,
+    mas não explicou POR QUE isso importa — o limite físico que a tecnologia quebra."""
+
+    def test_analise_comeca_explicando_o_mecanismo(self, fake):
+        gemini.generate_post("Tesla")
+        regras = _corrido(fake)
+        assert "MECANISMO" in regras
+        assert "que limite" in regras
+
+    def test_pode_usar_conhecimento_comum_para_explicar_mas_nao_para_fato_novo(self, fake):
+        gemini.generate_post("Tesla")
+        assert "conhecimento comum" in _corrido(fake)
+
+    def test_sem_exemplo_pronto_que_o_modelo_copiaria(self, fake):
+        # exemplo no prompt é copiado quase palavra por palavra (ver CLAUDE.md)
+        gemini.generate_post("Tesla")
+        regras = _corrido(fake).lower()
+        assert "sucção" not in regras and "capota" not in regras

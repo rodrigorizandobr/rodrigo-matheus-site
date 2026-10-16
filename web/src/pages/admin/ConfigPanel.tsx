@@ -58,6 +58,19 @@ export function ConfigPanel({ config, busy, onSave }: {
           <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.reflection_topics)} temas</p>
         </div>
 
+        <div className="pt-4 border-t border-line">
+          <label className="field-label" htmlFor="cfg-banned">Palavras que não são suas — uma por linha</label>
+          <p className="text-[11.5px] text-muted mb-2 leading-relaxed">
+            Se o texto gerado tiver alguma destas, o robô reescreve trocando por palavras simples. Cada linha vale
+            como começo de palavra, sem acento nem maiúscula: <span className="font-mono">revel</span> pega
+            "revelou", "revela" e "revelando".
+          </p>
+          <textarea id="cfg-banned" className="field !min-h-[7rem] font-mono !text-[12.5px]"
+                    value={draft.banned_phrases.join('\n')}
+                    onChange={(e) => set('banned_phrases', e.target.value.split('\n'))} />
+          <p className="font-mono text-[11px] text-muted mt-1">{contar(draft.banned_phrases)} expressões</p>
+        </div>
+
       </section>
 
       <section className="panel p-5 md:p-7 grid gap-4">

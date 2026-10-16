@@ -146,6 +146,39 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   português, inclusive `heading`, mesmo com material em inglês: um post saiu com título de seção em inglês
   copiado do Serper. Resíduo conhecido: o flash-lite ainda ecoa clichês proibidos (café, "Resta saber") e
   deixa passar sigla curta como "API".
+- **Post é texto corrido — sem título de seção** (pedido do PO, 2026-10-16: "as sessões deixam bem
+  artificial"). O prompt pede `heading` vazio e `gemini._normalize` APAGA qualquer título que o modelo
+  insista em escrever, em geração, reflexão e revisão. O schema continua com `sections` (os três
+  movimentos — o que aconteceu, análise, leitura — viram a ordem dos parágrafos), então site, editor e
+  LinkedIn não mudaram: todos já ignoravam `heading` vazio. Posts antigos mantêm os títulos.
+- **Vocabulário que entrega IA é barrado DEPOIS da geração, não no prompt** (`model.banned_found`,
+  `service._scrub_vocab`, `cfg["banned_phrases"]`, editável em Configuração). Cada item vale como
+  COMEÇO de palavra, sem acento nem caixa ("revel" pega revelou/revela). Achou → UMA chamada a
+  `revise_post` pedindo para trocar só aquilo; sobrou ou a reescrita falhou → o post sai mesmo assim e o
+  resto fica em `generation.bannedLeft`. A lista fica FORA do prompt de geração de propósito: palavra
+  citada como proibida é ecoada. Duas das palavras que o PO apontou vinham do próprio prompt —
+  "já vi time…" era o exemplo da regra 10 (copiado em todo post) e "revela" estava na lista de títulos
+  proibidos; as duas saíram do prompt. Também vale para "editar com IA" no painel (`service.revise`).
+- **Memória do autor nunca é inventada** (regra 10, `model.MEMORY_CLAIMS`, `TestMemoriaInventada`).
+  No modo notícia o modelo recebe só as matérias, e a regra antiga mandava "usar a experiência dele" —
+  ele inventava: "já viu time botar produto físico na rua" (o PO nem trabalha com produto físico),
+  "Já vi muita diretoria gastar uma fortuna…". Hoje: opinião sim, memória só se estiver no material.
+  Medido que a regra sozinha NÃO bastou (2 de 3 posts ainda inventaram), por isso há barreira
+  determinística: com material de notícia, "já vi", "já passei", "como quem já", "quando liderei"…
+  disparam a mesma reescrita, pedindo para virar opinião. Não vale para reflexão nem para notícia que
+  caiu no currículo — ali a cena é real. Não é lista do painel: não é gosto, é verdade.
+- **A análise começa explicando o MECANISMO** (item 2 da regra 6, `TestProfundidade`). Medido no post da
+  Tesla: contou que o carro tinha sucção e propulsores, mas não por que isso importa. Hoje o primeiro parágrafo
+  da análise explica como a coisa funciona e que limite ela quebra (conhecimento comum vale para explicar,
+  nunca para fato novo); o segundo é o prós e contras. Sem exemplo pronto no prompt — "carro comum fica leve
+  em alta velocidade" voltaria em todo post. Medido depois: melhorou, mas o modelo ainda escolhe o mecanismo
+  mais óbvio (aderência em curva) e às vezes inventa um detalhe técnico; o ângulo específico se pede no
+  "editar com IA". Os fechos proibidos no prompt ("Resta saber", "No fim das contas"…) continuavam saindo:
+  entraram em `banned_phrases`, onde a barreira determinística segura.
+- **Capa sem pista de origem — verificado em produção** (2026-10-16): arquivo servido sem EXIF, XMP,
+  C2PA/JUMBF nem string "Google/Gemini"; JSON público sem `provider`/`imagePrompt`/`generation`. O que
+  sobra é o SynthID, marca d'água invisível que o Google põe nos PIXELS: tirar metadado não remove, e
+  não tentamos remover.
 - **O título e o fechamento existem para gerar engajamento, não só para informar**
   (regra 2 e item 3 da regra 6 de `gemini.RULES`, `TestGanchoDeEngajamento`). Pedido do PO,
   2026-10-07, depois de mostrar um post gerado e perguntar "isso chama atenção de quem vê
@@ -316,6 +349,38 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   prévia com dados de exemplo. O painel real exige login com Google, o que impede conferir telas
   estreitas durante o desenvolvimento. Não entra no build (o Vite só empacota o `index.html`).
 
+## Recorte de vídeo do YouTube — prova feita, ainda não está no produto (2026-10-16)
+
+Decisão do PO: posts com recorte de vídeo sempre que possível, só o trecho certo, sem edição, como
+RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume essa responsabilidade.
+A prova foi feita à mão (Tesla Roadster, canal oficial, 22:20–22:48) e ensinou:
+
+- **O Gemini "assistindo" pela URL do YouTube inventa tempo.** Num vídeo de 23:21, apontou momentos em
+  29:14 e 37:05, e o "melhor trecho" escolhido era o Elon falando no palco, sem carro. Escolher trecho pela
+  LEGENDA também falha: legenda é fala, não imagem (a justificativa "kick flip" foi inventada).
+- **O que funciona:** baixar o vídeo inteiro em 240p (~10 MB), extrair um quadro a cada 5 s, gravar o tempo
+  NO quadro (Pillow — o ffmpeg do Homebrew não tem `drawtext`), montar mosaicos 5×4 e pedir ao Gemini os
+  tempos que mostram o assunto (~15 mil tokens, centavos). O tempo vem do quadro real. Depois refinar o
+  início a 1 quadro/s — a 5 s o corte começou numa filmagem aérea sem o carro (o PO reclamou).
+- **Baixar só o trecho**: `yt-dlp --download-sections "*MM:SS-MM:SS"`, forçando H.264
+  (`bv*[vcodec^=avc1]`) — o padrão veio AV1, que LinkedIn e Safari do iPhone não tocam bem. Corte fino do
+  início com `ffmpeg -ss` reencodando (crf 18): cortar com cópia pula para o keyframe anterior.
+- **O YouTube bloqueia**: legenda pt deu 429 e o download deu 403 até usar `--impersonate chrome`
+  (pacote `curl_cffi`), mesmo do IP de casa. Do Cloud Run (IP de datacenter) a chance de bloqueio é maior —
+  a decisão de onde o recorte roda (Mac do PO vs. servidor com cookies) está pendente com o PO.
+- Falta construir: guardar o clipe, `<video>` no site com crédito ao canal, texto amarrado ao que o clipe
+  mostra, e vídeo nativo no LinkedIn (fluxo novo da API).
+
+## Git dentro do Google Drive
+
+O repositório vive numa pasta do Google Drive. Em 2026-10-16 o Drive deixou 23 arquivos do `.git` como
+"só online" (placeholder `dataless`) e não os entregou mais — `git status` morria com "cannot use
+.git/info/exclude as an exclude file", e até `cp` travava. Conserto: os placeholders foram para
+`.git/quarentena-drive/`, `info/exclude` e `description` recriados, e os objetos reconstituídos de um clone
+fresco do GitHub (`git cat-file` → `git hash-object -w`, hash conferido). O único objeto que não estava no
+GitHub era um `firebase-debug.log` de um tree solto, sem commit apontando. A pasta foi marcada como
+"Disponível off-line" no Drive. Se voltar: `find .git -type f -flags +dataless` mostra os presos.
+
 ## Currículo: uma fonte, duas saídas
 
 O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta a home.
@@ -449,8 +514,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 485 testes
-cd web && npm test                                  # 397 testes
+cd api && source .venv/bin/activate && pytest      # 517 testes
+cd web && npm test                                  # 399 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

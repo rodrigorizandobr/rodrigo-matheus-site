@@ -80,13 +80,9 @@ def save_config(patch: dict[str, Any]) -> dict[str, Any]:
             value = sorted(set(value))
         if key in ("auto_publish", "research_enabled", "linkedin_enabled") and not isinstance(value, bool):
             raise ValueError(f"{key} deve ser booleano")
-        if key == "linkedin_weekdays":
-            if not isinstance(value, list) or any(not isinstance(d, int) or not 0 <= d <= 6 for d in value):
-                raise ValueError("linkedin_weekdays deve ser uma lista de 0 (segunda) a 6 (domingo)")
-            value = sorted(set(value))
-        if key == "news_terms":
+        if key in ("news_terms", "reflection_topics", "banned_phrases"):
             if not isinstance(value, list) or any(not isinstance(t, str) for t in value):
-                raise ValueError("news_terms deve ser uma lista de textos")
+                raise ValueError(f"{key} deve ser uma lista de textos")
             value = [t.strip() for t in value if t.strip()]
         clean[key] = value
 

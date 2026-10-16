@@ -102,6 +102,8 @@ export type BlogConfig = {
   news_terms: string[]
   /** temas do modo "reflexão" (sem notícia); o robô passa por todos em rodízio antes de repetir */
   reflection_topics: string[]
+  /** expressões que entregam texto de IA; cada uma vale como começo de palavra, sem acento */
+  banned_phrases: string[]
   /** compartilhar os posts no LinkedIn automaticamente, na mesma agenda de `generate_weekdays`/`generate_hour` */
   linkedin_enabled: boolean
 }

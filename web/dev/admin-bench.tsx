@@ -65,6 +65,7 @@ const config: BlogConfig = {
   research_enabled: true,
   news_terms: ['OpenAI', 'Anthropic Claude', 'SpaceX'],
   reflection_topics: ['liderar quem sabe mais do que você sobre o assunto'],
+  banned_phrases: ['revel', 'que promet'],
   linkedin_enabled: true,
 }
 

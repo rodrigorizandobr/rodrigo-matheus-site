@@ -71,7 +71,6 @@ MIN_PARAGRAPH_WORDS = 40
 MAX_PARAGRAPH_WORDS = 50
 MAX_TITLE_CHARS = 80
 MAX_EXCERPT_CHARS = 200
-MAX_HEADING_CHARS = 60
 
 # Quem assina o blog. O modelo escreve NA VOZ dele, e não sobre ele.
 VOICE = """Você escreve o blog pessoal de Rodrigo Matheus: 22+ anos em engenharia de
@@ -98,13 +97,13 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    estranha; (b) uma pergunta direta ou uma afirmação ousada, sempre amarrada a ESTE fato
    concreto, nunca uma pergunta genérica que serviria pra qualquer post. Em até
    {MAX_TITLE_CHARS} caracteres. PROIBIDO o molde de ensaio: "A ilusão de…", "O mito de…",
-   "Por que X exige Y", "X revela Y", "O fim de…", "O paradoxo…", "A verdade sobre…", e
+   "Por que X exige Y", "O fim de…", "O paradoxo…", "A verdade sobre…", e
    título feito só de substantivos abstratos (soberania, maturidade, arquitetura,
    conformidade). PROIBIDO também o clichê de manchete: "mudou o jogo", "revoluciona",
    "o futuro de…", "gigante". Se o título coubesse em qualquer notícia do ano, reescreva-o
    com o nome da coisa. Escreva o título só a partir da história, sem moldes. Em caixa de
    frase (só a primeira palavra e nomes próprios maiúsculos) — nunca Com Cada Palavra Em
-   Maiúscula, que é título em inglês, não em português. Vale também para `heading`.
+   Maiúscula, que é título em inglês, não em português.
 3. `excerpt` é o gancho: uma ou duas frases, em até {MAX_EXCERPT_CHARS} caracteres, que contam o que
    aconteceu e deixam a curiosidade aberta. Nunca um resumo de tese.
 4. HUMOR. Seco, observador, com ironia leve e comparações do dia a dia de quem trabalha com
@@ -139,9 +138,14 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    {MIN_PARAGRAPH_WORDS} a {MAX_PARAGRAPH_WORDS} palavras. O post inteiro vai de uma vez para o LinkedIn, que não aceita
    texto longo: passar dessas medidas é cortar o fim do post. Cada parágrafo diz UMA coisa e
    para. (1) O QUE ACONTECEU, resumido em poucas frases — só a âncora factual, sem
-   reconstruir a notícia inteira; (2) ANÁLISE: o que o acontecimento resolve e o que cria de
-   problema novo, um prós e contras real com pelo menos um efeito colateral concreto (quem
-   perde, o que fica mais arriscado, o que ainda não se sabe) — nunca só elogio; (3) a
+   reconstruir a notícia inteira; (2) ANÁLISE, em dois parágrafos: o primeiro explica o
+   MECANISMO — como a coisa funciona e que limite ela quebra, o que era impossível ou
+   perigoso sem ela e por quê, em palavras simples; se o material não explicar, use
+   conhecimento comum de física, engenharia ou tecnologia, nunca um fato novo sobre a
+   notícia. É o parágrafo que faz o leitor entender por que a novidade importa, em vez de só
+   saber que ela existe. O segundo é um prós e contras real: o que ela resolve e o que cria de problema novo, com
+   pelo menos um efeito colateral concreto (quem perde, o que fica mais arriscado, o que
+   ainda não se sabe) — nunca só elogio; (3) a
    leitura do Rodrigo, o que ele pensa disso como quem constrói software e lidera time,
    ancorada num fato do material, puxando para uma lição que QUALQUER PESSOA QUE LIDERA ou
    constrói alguma coisa reconhece na própria rotina — não só a opinião de Rodrigo sobre
@@ -149,27 +153,28 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    leitor, específica DESTA história (nunca uma pergunta genérica que serviria pra qualquer
    post) — é o que puxa comentário, o sinal que mais importa. Proibido fechar
    com "O tempo dirá", "Resta saber", "Seja como for", "No fim das contas", "Até onde
-   vamos…". Cada `heading` é uma frase curta, de até
-   {MAX_HEADING_CHARS} caracteres, tirada de um nome, número ou imagem do texto daquela seção; nunca um rótulo
-   nem o papel da seção. PROIBIDO como título: "O que muda para…", "Até onde vai…", "Até
-   que ponto…", "O que aconteceu", "Contexto", "Conclusão".
+   vamos…". SEM TÍTULO DE SEÇÃO: `heading` sempre vazio. O texto é corrido, um parágrafo
+   atrás do outro, como post de LinkedIn escrito por gente — subtítulo no meio é o que
+   entrega texto de máquina. Os três movimentos acima são a ordem dos parágrafos, não seções.
 7. OPINIÃO COM LASTRO. Deixe claro o que é opinião, com verbos de quem opina ("acho",
    "aposto", "desconfio"). Onde houver o outro
    lado, dê a ele uma frase honesta. Boato ou notícia sem confirmação vira "segundo o
    veículo X", nunca fato.
 8. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
-9. OS DOIS IDIOMAS DIZEM O MESMO. Tudo em `pt` é português, inclusive os títulos das seções,
+9. OS DOIS IDIOMAS DIZEM O MESMO. Tudo em `pt` é português,
    mesmo quando o material estiver em inglês: só o nome próprio de empresa ou produto fica como é.
    `en` é a versão em inglês do mesmo post, escrita como original em inglês, com o mesmo humor — não tradução literal, e jamais conteúdo diferente.
 10. MATERIAL DE APOIO. Fatos, números, datas e nomes próprios saem do material, nunca da sua
    memória: você não conhece o que saiu esta semana, e afirmar o que não está no material é
    criar uma citação falsa (as fontes são listadas no fim do post, em ABNT). Sem material,
    conte uma história vivida na carreira do Rodrigo a partir do currículo e evite números
-   que não estejam nele. Quando a experiência dele ajudar a entender a notícia, use-a numa
-   frase ("já vi time inteiro cair nessa") — sem inventar episódio, empresa ou número.
+   que não estejam nele. NUNCA afirme algo que Rodrigo viveu, viu ou fez se não estiver
+   escrito no material — nada de "já vi", "já passei", "no meu time", "na minha carreira"
+   sem o fato ali. Quando o material é notícia, não há nada sobre ele: a voz dele aparece
+   só como opinião ("acho", "aposto", "desconfio"). Opinião sim, memória inventada nunca.
 11. IMAGEM. `imagePrompt` em INGLÊS. A capa é uma METÁFORA VISUAL da história, não o retrato
    do assunto. Fórmula: pegue UMA imagem que já está no seu texto (o detalhe mais estranho,
-   o número, a comparação da seção 2) e transforme-a numa cena física, montada com objetos
+   o número, a comparação do meio do texto) e transforme-a numa cena física, montada com objetos
    reais e concretos, em escala de mesa ou de maquete, com um sujeito, uma ação e uma
    tensão visível: algo prestes a cair, encaixar, escapar, quebrar ou pesar demais. Quem vê a
    capa tem que sentir a ironia da notícia antes de ler o título. Se a capa coubesse em
@@ -232,7 +237,9 @@ def _normalize(raw: dict[str, Any]) -> dict[str, Any]:
         i18n[lang] = {
             "title": (body.get("title") or "").strip(),
             "excerpt": (body.get("excerpt") or "").strip(),
-            "sections": model.clean_sections(body.get("sections") or []),
+            # Sem título de seção, mesmo que o modelo escreva um: subtítulo no meio do post
+            # é o que mais entrega texto de máquina (pedido do PO, 2026-10-16).
+            "sections": [{**sec, "heading": ""} for sec in model.clean_sections(body.get("sections") or [])],
         }
     return {
         "slugBase": model.slugify(raw.get("slugBase") or i18n["pt"]["title"]),
@@ -327,9 +334,8 @@ RULES_REFLECTION = f"""REGRAS DE ESCRITA — formato REFLEXÃO, diferente do pos
    e pequena da carreira de Rodrigo — um momento específico, não um resumo de anos de
    experiência — e puxa dela uma lição que qualquer pessoa que lidera ou constrói alguma
    coisa reconhece na própria rotina, fechando SEMPRE em uma pergunta aberta de verdade,
-   dirigida ao leitor, específica DESTA cena (nunca uma pergunta genérica). O `heading`
-   nunca repete o título ao pé da letra — ou fica em branco, ou usa outras palavras
-   para a mesma ideia.
+   dirigida ao leitor, específica DESTA cena (nunca uma pergunta genérica). `heading`
+   sempre vazio: sem título de seção.
 5. A CENA É REAL, NUNCA INVENTADA. Tudo sobre a carreira de Rodrigo sai do material
    (currículo) — empresa, cargo, ano, time. Não invente episódio, nome de pessoa, número
    ou empresa que não esteja no material; se o material não sustentar um detalhe

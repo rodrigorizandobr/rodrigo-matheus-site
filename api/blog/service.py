@@ -49,7 +49,7 @@ def _pick_reflection_theme(cfg: dict[str, Any]) -> str:
 
 def generate(topic: str | None, now: datetime | None = None, context: str = "",
              use_research: bool | None = None, from_topic: bool = False,
-             reflection: bool = False) -> dict[str, Any]:
+             reflection: bool = False, with_image: bool = True) -> dict[str, Any]:
     """Escreve um post inteiro e grava conforme a configuração (agendado ou publicado).
 
     `use_research` sobrepõe a configuração para esta geração — é o que permite ao
@@ -61,6 +61,9 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
 
     `reflection` é o modo "top voice" (ver `gemini.RULES_REFLECTION`): curto, sem
     notícia, sempre ancorado na carreira — nunca pesquisa a internet.
+
+    `with_image` desligado pula a capa de IA — post só texto, como o Ricardo Amorim
+    também posta (nem todo post de top voice tem imagem).
     """
     now = now or _now()
     cfg = store.get_config()
@@ -69,7 +72,7 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
     if reflection:
         theme = (topic or "").strip() or _pick_reflection_theme(cfg)
         return _save_generated(theme, profile.career_context(), research.Research(), "reflection",
-                               now, cfg, reflection=True)
+                               now, cfg, reflection=True, with_image=with_image)
 
     if from_topic:
         topic = (topic or "").strip()
@@ -80,7 +83,7 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
             motivo = ("a chave SERPER_API_KEY não está configurada no servidor" if not research.SERPER_KEY
                       else f"a busca não trouxe material sobre «{topic}»")
             raise NoResearchError(f"Nada escrito: {motivo}. Reformule o tema ou use outro modo.")
-        return _save_generated(topic, found.context, found, "tema", now, cfg, author_topic=True)
+        return _save_generated(topic, found.context, found, "tema", now, cfg, author_topic=True, with_image=with_image)
 
     if not (topic or "").strip():
         topic = _pick_subject(cfg)
@@ -104,12 +107,47 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
         context = profile.career_context()
         source = f"{source}+curriculo"
 
-    return _save_generated(topic, context, found, source, now, cfg)
+    return _save_generated(topic, context, found, source, now, cfg, with_image=with_image)
+
+
+def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
+                 memories: tuple[str, ...] = ()) -> tuple[dict[str, Any], list[str]]:
+    """Tira, numa reescrita dirigida, o que entrega texto de IA ou inventa a vida do autor.
+
+    `phrases` é vocabulário (lista do painel); `memories` são memórias em primeira pessoa,
+    passadas só quando o material NÃO é o currículo — aí toda memória é invenção. As listas
+    ficam fora do prompt de geração (palavra citada como proibida é ecoada); aqui só são
+    citadas para quem tem a tarefa de tirá-las. Devolve o rascunho e o que SOBROU — a
+    reescrita falhar ou deixar resto nunca derruba o post, só fica registrado.
+    """
+    def achar(rascunho: dict[str, Any]) -> tuple[list[str], list[str]]:
+        corpo = (rascunho.get("i18n") or {}).get("pt") or {}
+        return model.banned_found(corpo, phrases), model.banned_found(corpo, memories)
+
+    palavras, lembrancas = achar(draft)
+    if not palavras and not lembrancas:
+        return draft, []
+    pedidos = ["Não mude mais nada do texto além do que se pede abaixo, nos dois idiomas."]
+    if palavras:
+        pedidos.append("Troque estas palavras e expressões, que não são do vocabulário do autor, por "
+                       "palavras simples de conversa (cada item vale para qualquer palavra que comece "
+                       "assim): " + "; ".join(f"«{a}…»" for a in palavras) + ".")
+    if lembrancas:
+        pedidos.append("O material não fala da vida do autor: tire as frases em que ele conta algo que "
+                       "teria visto, vivido ou feito — transforme em opinião (acho, aposto, desconfio) "
+                       "ou corte. Começam assim: " + "; ".join(f"«{a}…»" for a in lembrancas) + ".")
+    try:
+        revisado = gemini.revise_post(draft, " ".join(pedidos))
+    except Exception:
+        return draft, palavras + lembrancas
+    draft = {**draft, "i18n": revisado["i18n"], "tags": revisado.get("tags") or draft.get("tags")}
+    palavras, lembrancas = achar(draft)
+    return draft, palavras + lembrancas
 
 
 def _save_generated(topic: str, context: str, found: research.Research, source: str,
                     now: datetime, cfg: dict[str, Any], author_topic: bool = False,
-                    reflection: bool = False) -> dict[str, Any]:
+                    reflection: bool = False, with_image: bool = True) -> dict[str, Any]:
     """Texto → capa → gravação, igual para os três caminhos de geração."""
     if reflection:
         draft = gemini.generate_reflection(topic, context, avoid_titles=store.recent_titles(),
@@ -117,16 +155,22 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     else:
         draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
                                      avoid_covers=store.recent_cover_prompts(), author_topic=author_topic)
+    # Memória só é verdade quando o material é a carreira (reflexão, ou notícia que caiu no
+    # currículo por falta de pesquisa); com notícia como material, é sempre invenção.
+    sem_curriculo = not reflection and "curriculo" not in source
+    draft, sobrou = _scrub_vocab(draft, cfg.get("banned_phrases") or [],
+                                 model.MEMORY_CLAIMS if sem_curriculo else ())
     draft["topic"] = topic
     draft["generation"] = {
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,
-        "researched": bool(found.context), "pagesRead": found.pages_read,
+        "researched": bool(found.context), "pagesRead": found.pages_read, "bannedLeft": sobrou,
     }
     # Referências completas para a citação ABNT no fim do post. A data de acesso é
     # gravada aqui — é quando a página foi de fato lida, e a norma pede essa data.
     draft["references"] = [{**ref, "accessedAt": now.isoformat()} for ref in found.references[:8]]
     draft["sources"] = found.sources[:8]
-    draft["image"] = images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
+    draft["image"] = (images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
+                      if with_image else None)
 
     if reflection:
         # Só busca LINK (ver blog/videos.py) — sem resultado, a reflexão sai sem vídeo,
@@ -149,6 +193,7 @@ def revise(post_id: str, instruction: str) -> dict[str, Any] | None:
     if not post:
         return None
     revised = gemini.revise_post(post, instruction)
+    revised, _ = _scrub_vocab(revised, store.get_config().get("banned_phrases") or [])
     return store.update_post(post_id, {"i18n": revised["i18n"], "tags": revised["tags"]})
 
 

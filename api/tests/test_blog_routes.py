@@ -218,3 +218,8 @@ class TestGerarReflexao:
         res = client.post("/api/blog/admin/generate", json={"mode": "reflection"}, headers=AUTH)
         assert res.status_code == 409
         assert "reflex" in res.get_json()["error"]
+
+    def test_sem_capa_o_post_sai_sem_imagem(self, client, blog, admin):
+        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        res = client.post("/api/blog/admin/generate", json={"mode": "reflection", "withImage": False}, headers=AUTH)
+        assert res.get_json()["post"]["image"] is None

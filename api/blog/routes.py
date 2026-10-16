@@ -294,11 +294,13 @@ def media_delete(digest: str):
 def admin_generate():
     body = request.get_json(silent=True) or {}
     research_flag = body.get("research")
+    image_flag = body.get("withImage")
     try:
         post = service.generate(body.get("topic"), context=body.get("context", ""),
                                 use_research=research_flag if isinstance(research_flag, bool) else None,
                                 from_topic=body.get("mode") == "topic",
-                                reflection=body.get("mode") == "reflection")
+                                reflection=body.get("mode") == "reflection",
+                                with_image=image_flag if isinstance(image_flag, bool) else True)
     except service.NoTopicError as exc:
         return jsonify({"error": str(exc)}), 409
     except service.NoResearchError as exc:

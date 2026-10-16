@@ -50,6 +50,24 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "Tesla Optimus",
         "computador quântico",
     ],
+    # Expressões que entregam texto de IA e não são do vocabulário de Rodrigo. Cada item
+    # vale como COMEÇO de palavra, sem acento e sem caixa ("revel" pega revela, revelou).
+    # Ficam FORA do prompt de geração de propósito — palavra citada como proibida é
+    # ecoada pelo modelo (ver CLAUDE.md); quem barra é `banned_found` + uma reescrita.
+    "banned_phrases": [
+        "revel",
+        "que promet",
+        "indiscutív",
+        "dobra a aposta",
+        "dobrou a aposta",
+        "já vi time",
+        "se apaixon",
+        # fechos que o prompt já proíbe e o modelo ignora (medido em post real)
+        "resta saber",
+        "no fim das contas",
+        "o tempo dirá",
+        "seja como for",
+    ],
     # Temas do modo "reflexão" (gemini.generate_reflection) — sem notícia, a partir da
     # carreira real de Rodrigo. Em rodízio, igual aos assuntos vigiados; lista vazia
     # desliga o modo (sem tema explícito, não há sobre o que refletir).
@@ -205,6 +223,42 @@ def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | 
     if last_shared_at is not None and last_shared_at.astimezone(tz).date() == local.date():
         return False
     return True
+
+
+#: Memória em primeira pessoa. No post de notícia o modelo não recebe o currículo, então
+#: qualquer "já vi…" é invenção — medido em post real ("Já vi muita diretoria gastar uma
+#: fortuna…"; "já viu time botar produto físico na rua", e o autor nem trabalha com isso).
+#: Não é gosto de vocabulário, é verdade: por isso não fica na lista editável do painel.
+MEMORY_CLAIMS = (
+    "já vi", "já passei", "como quem já", "no meu time", "na minha carreira",
+    "na minha experiência", "já liderei", "quando liderei", "já trabalhei", "na minha época",
+)
+
+
+def _plain(text: str) -> str:
+    """Minúsculas e sem acento — a comparação de vocabulário não depende de grafia."""
+    decomposed = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
+
+
+def banned_found(body: dict[str, Any], phrases: Iterable[str]) -> list[str]:
+    """Quais expressões proibidas aparecem no texto (título, resumo, parágrafos).
+
+    Cada expressão vale como começo de palavra: casa no início de palavra e segue livre,
+    então "revel" pega "revelou" e "que promet" pega "que prometem", mas "promet" não
+    pega "compromete". Devolve as expressões encontradas, na ordem da lista.
+    """
+    partes = [body.get("title") or "", body.get("excerpt") or ""]
+    for sec in body.get("sections") or []:
+        partes.append(sec.get("heading") or "")
+        partes.extend(sec.get("paragraphs") or [])
+    texto = _plain(" ".join(partes))
+    achadas = []
+    for phrase in phrases or []:
+        alvo = _plain(phrase).strip()
+        if alvo and re.search(r"(?<!\w)" + re.escape(alvo), texto) and phrase not in achadas:
+            achadas.append(phrase)
+    return achadas
 
 
 def clean_tags(tags: Iterable[str]) -> list[str]:

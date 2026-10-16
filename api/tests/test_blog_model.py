@@ -165,3 +165,55 @@ class TestAssuntosVigiadosPadrao:
         termos = " | ".join(model.DEFAULT_CONFIG["news_terms"]).lower()
         for esperado in ("openai", "anthropic", "foguete", "robô"):
             assert esperado in termos
+
+
+class TestVocabularioProibido:
+    """Expressões que entregam texto de IA (pedido do PO, 2026-10-16). Cada item vale como
+    COMEÇO de palavra: 'revel' pega revela, revelou, revelando — e não pega 'desrevelado'."""
+
+    def _corpo(self, texto, titulo="T"):
+        return {"title": titulo, "excerpt": "", "sections": [{"heading": "", "paragraphs": [texto]}]}
+
+    def test_acha_pelo_comeco_da_palavra(self):
+        assert model.banned_found(self._corpo("A Tesla revelou o carro."), ["revel"]) == ["revel"]
+
+    def test_ignora_acento_e_maiuscula(self):
+        assert model.banned_found(self._corpo("Algo INDISCUTIVEL."), ["indiscutível"]) == ["indiscutível"]
+
+    def test_nao_pega_no_meio_da_palavra(self):
+        assert model.banned_found(self._corpo("Isso compromete o prazo."), ["promet"]) == []
+
+    def test_procura_no_titulo_e_no_resumo_tambem(self):
+        corpo = {"title": "Que promete mudar tudo", "excerpt": "dobra a aposta", "sections": []}
+        assert model.banned_found(corpo, ["que promet", "dobra a aposta"]) == ["que promet", "dobra a aposta"]
+
+    def test_expressao_de_varias_palavras(self):
+        assert model.banned_found(self._corpo("Já vi time técnico sofrer."), ["já vi time"]) == ["já vi time"]
+
+    def test_lista_vazia_ou_texto_limpo_nao_acha_nada(self):
+        assert model.banned_found(self._corpo("Texto limpo."), []) == []
+        assert model.banned_found(self._corpo("Texto limpo."), ["revel"]) == []
+
+    def test_padrao_ja_traz_os_exemplos_do_po(self):
+        corpo = self._corpo("Revelou, que promete, indiscutível, dobra a aposta, já vi time, se apaixonar.")
+        assert len(model.banned_found(corpo, model.DEFAULT_CONFIG["banned_phrases"])) >= 6
+
+
+class TestMemoriaEmPrimeiraPessoa:
+    def test_pega_as_formas_medidas_em_post_real(self):
+        corpo = {"title": "", "excerpt": "", "sections": [{"heading": "", "paragraphs": [
+            "Já vi muita diretoria errar. Como quem já passou anos nisso, acho que sim."]}]}
+        assert model.banned_found(corpo, model.MEMORY_CLAIMS)
+
+    def test_nao_pega_frase_comum_de_noticia(self):
+        corpo = {"title": "", "excerpt": "", "sections": [{"heading": "", "paragraphs": [
+            "O prazo já passou e a empresa viu as vendas caírem."]}]}
+        assert model.banned_found(corpo, model.MEMORY_CLAIMS) == []
+
+    def test_padrao_barra_os_fechos_que_o_prompt_proibe_e_o_modelo_ignora(self):
+        # medido no post da Tesla (2026-10-16): "Resta saber…" e "No fim das contas…" saíram
+        # mesmo proibidos no prompt — só a barreira depois da geração segura
+        corpo = {"title": "", "excerpt": "", "sections": [{"heading": "", "paragraphs": [
+            "Resta saber se dá certo. No fim das contas, o tempo dirá."]}]}
+        achadas = model.banned_found(corpo, model.DEFAULT_CONFIG["banned_phrases"])
+        assert {"resta saber", "no fim das contas", "o tempo dira"} <= {model._plain(a) for a in achadas}

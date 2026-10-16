@@ -65,8 +65,8 @@ export const blogApi = {
       generateFromTopic: async (topic: string) =>
         (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'topic' })).post,
       /** reflexão curta, sem notícia; tema vazio gira entre os cadastrados no servidor */
-      generateReflection: async (topic = '') =>
-        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'reflection' })).post,
+      generateReflection: async (topic = '', withImage = true) =>
+        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'reflection', withImage })).post,
       create: async (draft: NewPost) =>
         (await call<{ post: Post }>('/api/blog/admin/posts', 'POST', draft)).post,
       update: async (id: string, patch: Partial<Post>) =>
