@@ -28,7 +28,11 @@ describe('PostList — ações de cada post', () => {
   it('rascunho também tem visualizar: é o único jeito de ver antes de publicar', async () => {
     const onPreview = vi.fn()
     render(<PostList {...props({ onPreview })} />)
-    await userEvent.click(screen.getByRole('button', { name: /visualizar/i }))
+    const link = screen.getByRole('link', { name: /visualizar/i })
+    expect(link).toHaveAttribute('href', '/admin/visualizar/1')
+    expect(link).toHaveAttribute('target', '_blank')
+    link.addEventListener('click', (e) => e.preventDefault())
+    await userEvent.click(link)
     expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
 

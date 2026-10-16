@@ -185,3 +185,32 @@ describe('recorte de vídeo no editor', () => {
     expect(screen.queryByText(/^Vídeo$/)).toBeNull()
   })
 })
+
+describe('player do recorte no editor', () => {
+  it('recorte pronto aparece como vídeo para assistir', () => {
+    const clip = { status: 'ready' as const, hash: 'c'.repeat(64), channel: 'Tesla', title: 'Roadster Event', start: 437, end: 474 }
+    const { container } = render(<PostEditor {...props({ post: post({ clip }) })} />)
+    const video = container.querySelector('video')
+    expect(video).not.toBeNull()
+    expect(video!.getAttribute('src')).toBe(`/api/blog/video/${'c'.repeat(64)}.mp4`)
+    expect(video!.hasAttribute('controls')).toBe(true)
+  })
+
+  it('recorte pendente não tem player', () => {
+    const { container } = render(<PostEditor {...props({ post: post({ clip: { status: 'pending' } }) })} />)
+    expect(container.querySelector('video')).toBeNull()
+  })
+})
+
+describe('visualizar no editor', () => {
+  it('é um link para a prévia que abre em outra aba', async () => {
+    const onPreview = vi.fn()
+    render(<PostEditor {...props({ onPreview })} />)
+    const link = screen.getByRole('link', { name: /^visualizar$/i })
+    expect(link).toHaveAttribute('href', '/admin/visualizar/1')
+    expect(link).toHaveAttribute('target', '_blank')
+    link.addEventListener('click', (e) => e.preventDefault())
+    await userEvent.click(link)
+    expect(onPreview).toHaveBeenCalled()
+  })
+})

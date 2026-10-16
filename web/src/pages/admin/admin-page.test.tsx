@@ -38,6 +38,7 @@ const config = {
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/admin') // a URL do jsdom sobrevive entre testes
   Object.values(api).forEach((f) => { if (typeof f === 'function') f.mockReset() })
   api.linkedin.status.mockResolvedValue(null)
   api.list.mockResolvedValue([post()])
@@ -126,5 +127,58 @@ describe('texto ainda não salvo', () => {
     await abrirEditor()
     await userEvent.click(screen.getByRole('button', { name: /^configuração$/i }))
     expect(confirmar).not.toHaveBeenCalled()
+  })
+})
+
+describe('cada tela do painel tem URL', () => {
+  beforeEach(() => window.history.replaceState(null, '', '/admin'))
+
+  it('abrir o editor muda a URL para /admin/editar/<id>', async () => {
+    await abrirEditor()
+    expect(window.location.pathname).toBe('/admin/editar/p1')
+  })
+
+  it('entrar direto em /admin/editar/<id> (refresh) abre o editor desse post', async () => {
+    window.history.replaceState(null, '', '/admin/editar/p1')
+    render(<AdminPage />)
+    expect(await screen.findByRole('button', { name: /voltar à lista/i })).toBeInTheDocument()
+  })
+
+  it('voltar do navegador fecha o editor e mostra a lista', async () => {
+    await abrirEditor()
+    window.history.replaceState(null, '', '/admin')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    expect(await screen.findByRole('button', { name: /^editar$/i })).toBeInTheDocument()
+  })
+
+  it('voltar com texto não salvo pergunta; "cancelar" fica no editor e na URL dele', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await abrirEditor()
+    await userEvent.type(screen.getByRole('textbox', { name: /^título/i }), '!')
+    window.history.replaceState(null, '', '/admin')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    expect(screen.getByRole('button', { name: /voltar à lista/i })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/admin/editar/p1')
+  })
+
+  it('trocar de aba muda a URL e o refresh volta para a mesma aba', async () => {
+    render(<AdminPage />)
+    await userEvent.click(await screen.findByRole('button', { name: /^configuração$/i }))
+    expect(window.location.pathname).toBe('/admin/configuracao')
+  })
+
+  it('/admin/visualizar/<id> mostra a prévia do post', async () => {
+    window.history.replaceState(null, '', '/admin/visualizar/p1')
+    render(<AdminPage />)
+    expect(await screen.findByRole('dialog', { name: /prévia do post/i })).toBeInTheDocument()
+  })
+
+  it('a prévia mostra o texto ainda não salvo que o editor deixou para ela', async () => {
+    localStorage.setItem('admin-preview:p1', JSON.stringify({ at: Date.now(), post: post({
+      i18n: { pt: { title: 'Texto digitado', excerpt: 'R', sections: [] }, en: { title: 'T', excerpt: 'R', sections: [] } } }) }))
+    window.history.replaceState(null, '', '/admin/visualizar/p1')
+    render(<AdminPage />)
+    expect(await screen.findByText('Texto digitado')).toBeInTheDocument()
+    localStorage.clear()
   })
 })

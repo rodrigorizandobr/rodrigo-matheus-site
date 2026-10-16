@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Lang, Post } from '../../blog/types'
-import { clipSourceAt, coverUrl } from '../../blog/types'
+import { clipSourceAt, clipUrl, coverUrl } from '../../blog/types'
 import { DISCARD_QUESTION, clipStatusText, formatDay, parseTags, statusLabel } from '../../blog/editing'
 import { BodyEditor } from './BodyEditor'
+import { previewPath } from './adminRoute'
 
 type Props = {
   post: Post
@@ -93,7 +94,9 @@ export function PostEditor(p: Props) {
         <span className="badge" data-status={status}>{statusLabel(status)}</span>
         <div className="flex items-center gap-2 ml-auto">
           {p.dirty && <span className="text-[12px] text-red" role="status">alterações não salvas</span>}
-          <button type="button" onClick={p.onPreview} className={`chip !h-8 ${BTN}`}>visualizar</button>
+          {/* link de verdade, em outra aba: o editor fica onde está */}
+          <a href={previewPath(p.post.id)} target="_blank" rel="noopener" onClick={p.onPreview}
+             className={`chip !h-8 ${BTN}`}>visualizar</a>
           <button type="button" onClick={p.onSave} disabled={disabled || !p.dirty}
                   className={`cta cta-primary !py-2 ${BTN}`}>
             {p.busy === 'save' ? 'salvando…' : 'salvar'}
@@ -228,6 +231,10 @@ export function PostEditor(p: Props) {
               <p className={`text-[12px] leading-relaxed ${p.post.clip.status === 'failed' ? 'text-red' : 'text-muted'}`}>
                 {clipStatusText(p.post.clip)}
               </p>
+              {clipUrl(p.post.clip) && (
+                <video src={clipUrl(p.post.clip)!} poster={coverUrl(p.post.image) ?? undefined} controls playsInline
+                       preload="metadata" className="w-full aspect-[16/9] bg-heading border border-line" />
+              )}
               {p.post.clip.sourceUrl && (
                 <a href={clipSourceAt(p.post.clip)} target="_blank" rel="noopener nofollow"
                    className="text-[12px] text-red hover:underline">ver o original ↗</a>

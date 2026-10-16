@@ -13,7 +13,7 @@ import { TopicComposer } from './admin/TopicComposer'
 import { ReflectionComposer } from './admin/ReflectionComposer'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
-type Tab = 'posts' | 'media' | 'config'
+import { adminPath, parseAdminPath, readStashedPreview, stashPreview, type AdminTab as Tab, type AdminView } from './admin/adminRoute'
 type Session = { email: string } | null
 
 /**
@@ -26,12 +26,14 @@ type Session = { email: string } | null
  */
 export function AdminPage() {
   const [session, setSession] = useState<Session | undefined>(undefined)
-  const [tab, setTab] = useState<Tab>('posts')
+  // A URL é quem diz a tela: refresh volta ao mesmo lugar, voltar/avançar anda entre telas.
+  const [view, setView] = useState<AdminView>(() => parseAdminPath(window.location.pathname))
+  const tab = view.tab
+  const [loaded, setLoaded] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [config, setConfig] = useState<BlogConfig | null>(null)
   const [editing, setEditing] = useState<Post | null>(null)
   const [saved, setSaved] = useState<Post | null>(null)
-  const [previewing, setPreviewing] = useState<Post | null>(null)
   const [pickingCover, setPickingCover] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [research, setResearch] = useState(true)
@@ -56,9 +58,9 @@ export function AdminPage() {
     document.title = 'Painel do blog — Rodrigo Matheus'
     // o callback do LinkedIn devolve o navegador para cá; sem isso a volta é muda
     if (new URLSearchParams(window.location.search).get('linkedin') === 'ok') {
-      setTab('config')
+      setView({ tab: 'config', editId: null, previewId: null })
       setMessage({ kind: 'ok', text: 'Conta do LinkedIn conectada.' })
-      window.history.replaceState(null, '', window.location.pathname)
+      window.history.replaceState(null, '', '/admin/configuracao')
     }
     return watchUser((user) => setSession(user ? { email: user.email ?? '' } : null))
   }, [])
@@ -80,8 +82,39 @@ export function AdminPage() {
 
   const reload = useCallback(async () => {
     const [list, cfg] = await Promise.all([api.list(), api.config()])
-    setPosts(list); setConfig(cfg)
+    setPosts(list); setConfig(cfg); setLoaded(true)
   }, [api])
+
+  const go = useCallback((next: AdminView) => {
+    const path = adminPath(next)
+    if (path !== window.location.pathname) window.history.pushState(null, '', path)
+    setView(next)
+  }, [])
+
+  // Voltar/avançar do navegador. Sair do editor com texto não salvo pergunta, igual aos botões.
+  useEffect(() => {
+    const onPop = () => {
+      const next = parseAdminPath(window.location.pathname)
+      if (dirty && editing && next.editId !== editing.id && !confirm(DISCARD_QUESTION)) {
+        window.history.pushState(null, '', adminPath(view))
+        return
+      }
+      setView(next)
+      if (!next.editId) { setEditing(null); setSaved(null) }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [dirty, editing, view])
+
+  // Chegou por /admin/editar/<id> (refresh, link, avançar): abre o post assim que a lista chega.
+  useEffect(() => {
+    if (!view.editId || !loaded || editing?.id === view.editId) return
+    const found = posts.find((p) => p.id === view.editId)
+    if (found) { setEditing(found); setSaved(found); return }
+    setMessage({ kind: 'erro', text: 'Post não encontrado — talvez tenha sido excluído.' })
+    window.history.replaceState(null, '', '/admin')
+    setView({ tab: 'posts', editId: null, previewId: null })
+  }, [view.editId, loaded, posts, editing])
 
   /** Uma leitura só do LinkedIn alimenta a faixa de aviso E o painel de configuração. */
   const refreshLinkedin = useCallback(() => {
@@ -125,8 +158,18 @@ export function AdminPage() {
     )
   }
 
-  const open = (post: Post) => { setEditing(post); setSaved(post) }
-  const closeEditor = () => { setEditing(null); setSaved(null) }
+  const open = (post: Post) => { setEditing(post); setSaved(post); go({ tab: 'posts', editId: post.id, previewId: null }) }
+  const closeEditor = () => { setEditing(null); setSaved(null); go({ tab: 'posts', editId: null, previewId: null }) }
+
+  // /admin/visualizar/<id>: a prévia abre sozinha numa aba própria (o editor fica na outra).
+  if (view.previewId) {
+    const id = view.previewId
+    const post = readStashedPreview<Post>(id) ?? posts.find((p) => p.id === id)
+    if (!post) {
+      return <Shell><p className="text-muted text-[13px]">{loaded ? 'Post não encontrado.' : 'Carregando prévia…'}</p></Shell>
+    }
+    return <PostPreview post={post} onClose={() => { window.close(); go({ tab: 'posts', editId: id, previewId: null }) }} />
+  }
 
   /**
    * Resposta do servidor entra na lista e na base do editor. `keepDraft` preserva o texto
@@ -175,7 +218,8 @@ export function AdminPage() {
 
   const switchTab = (t: Tab) => {
     if (dirty && !confirm(DISCARD_QUESTION)) return
-    setTab(t); closeEditor()
+    setEditing(null); setSaved(null)
+    go({ tab: t, editId: null, previewId: null })
   }
 
   return (
@@ -228,7 +272,7 @@ export function AdminPage() {
           dirty={dirty}
           onChange={setEditing}
           onClose={closeEditor}
-          onPreview={() => setPreviewing(editing)}
+          onPreview={() => stashPreview(editing)}
           onSave={() => run('save', persist, 'Post salvo.')}
           onRevise={(instruction) => run('revise', afterSaving((id) => api.revise(id, instruction)), 'Post reescrito pela IA.')}
           onCover={(prompt) => run('cover', async () => { applyServer(await api.cover(editing.id, prompt), true) }, 'Capa nova gerada.')}
@@ -245,7 +289,9 @@ export function AdminPage() {
         />
       )}
 
-      {tab === 'posts' && !editing && (
+      {tab === 'posts' && !editing && view.editId && <p className="text-muted text-[13px]">Carregando post…</p>}
+
+      {tab === 'posts' && !editing && !view.editId && (
         <>
           <div className="panel p-5 grid gap-5 mb-6">
             {/* Três caminhos: o robô escolhe a notícia da vez, o autor escolhe o tema, ou o autor aponta uma notícia. */}
@@ -324,7 +370,7 @@ export function AdminPage() {
           {busy === 'load' && <p className="text-muted text-[13px]">Carregando…</p>}
           {busy !== 'load' && posts.length === 0 && <p className="panel p-8 text-center text-muted text-[14px]">Nenhum post ainda.</p>}
 
-          <PostList posts={posts} onPreview={setPreviewing} onEdit={open} busyId={togglingId}
+          <PostList posts={posts} onPreview={stashPreview} onEdit={open} busyId={togglingId}
                     onTogglePublish={(post) => {
                       setTogglingId(post.id)
                       void run('publish', async () => {
@@ -342,7 +388,6 @@ export function AdminPage() {
                     }} />
         </>
       )}
-      {previewing && <PostPreview post={previewing} onClose={() => setPreviewing(null)} />}
       {pickingCover && editing && (
         <ImagePicker api={api.media} onClose={() => setPickingCover(false)}
                      onPick={(item) => {

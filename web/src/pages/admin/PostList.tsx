@@ -3,6 +3,7 @@ import type { Post } from '../../blog/types'
 import { coverUrl } from '../../blog/types'
 import { formatDay, statusLabel } from '../../blog/editing'
 import { IconArrowUpRight } from '../../components/ui/Icons'
+import { previewPath } from './adminRoute'
 
 const dateOf = (post: Post) => formatDay(post.publishedAt || post.scheduledFor || post.createdAt)
 const titleOf = (post: Post) => post.i18n?.pt?.title || post.i18n?.en?.title || ''
@@ -118,9 +119,10 @@ export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLi
             </div>
 
             <div className="flex gap-2 shrink-0 w-full sm:w-auto">
-              <button type="button" onClick={() => onPreview(post)} className={`chip !h-9 flex-1 sm:flex-none justify-center ${BTN}`}>
+              <a href={previewPath(post.id)} target="_blank" rel="noopener" onClick={() => onPreview(post)}
+                 className={`chip !h-9 flex-1 sm:flex-none justify-center ${BTN}`}>
                 visualizar
-              </button>
+              </a>
               <button type="button" onClick={() => onTogglePublish(post)} disabled={busy}
                       className={`${post.status === 'published' ? 'chip' : 'cta cta-primary'} !h-9 !py-2 !px-4 flex-1 sm:flex-none justify-center ${BTN}`}>
                 {post.status === 'published' ? 'despublicar' : 'publicar'}

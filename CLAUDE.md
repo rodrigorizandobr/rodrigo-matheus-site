@@ -321,8 +321,19 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   no topo (o PO reportou como "um vazio no começo da página").
 - **Um renderizador de post só** (`web/src/blog/PostArticle.tsx`), usado pela página pública E pela
   prévia do painel. Prévia que renderiza diferente do site não serve para decidir se publica.
-- **"Visualizar" funciona em rascunho** porque a prévia acontece DENTRO do painel, com o post que ele
-  já tem em mãos — não abrindo `/blog/<slug>`. Nunca abra uma porta pública para post não publicado.
+- **"Visualizar" funciona em rascunho** porque a prévia acontece DENTRO do painel — `/admin/visualizar/<id>`,
+  numa aba nova (pedido do PO, 2026-10-16), com o post vindo da API do painel —, nunca abrindo `/blog/<slug>`.
+  Nunca abra uma porta pública para post não publicado. O texto ainda não salvo atravessa para a aba nova
+  pelo `localStorage` (`stashPreview`/`readStashedPreview`, validade de 1 h); sem armazenamento, a prévia
+  mostra a última versão salva.
+- **Toda tela do painel tem URL** (`pages/admin/adminRoute.ts`, testado): `/admin`, `/admin/midia`,
+  `/admin/configuracao`, `/admin/editar/<id>`, `/admin/visualizar/<id>`. Refresh volta ao mesmo lugar (o
+  Hosting serve o `index.html` em `**`); voltar/avançar anda entre telas via `popstate`, e sair do editor com
+  texto não salvo pergunta também pelo botão do navegador (cancelar devolve a URL do editor). Antes era sempre
+  `/admin` e o refresh jogava o PO de volta para a lista. Nos testes, a URL do jsdom SOBREVIVE entre testes:
+  o `beforeEach` de `admin-page.test.tsx` volta para `/admin`.
+- **O editor tem o player do recorte** (cartão "Vídeo"), com a capa como `poster` — dá para assistir o corte
+  antes de publicar.
 - **Corpo do post: um campo só por idioma** (`##` abre seção), convertido para seções em `onBlur`
   (`blog/editing.ts`, ida-e-volta testada). Oito caixas para 4 seções em 2 línguas era impraticável;
   HTML livre traria de volta o risco que as seções eliminam.
@@ -559,7 +570,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 599 testes
-cd web && npm test                                  # 411 testes
+cd web && npm test                                  # 430 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
