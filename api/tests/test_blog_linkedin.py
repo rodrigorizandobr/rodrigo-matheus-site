@@ -290,3 +290,98 @@ class TestVideoNoTexto:
     def test_sem_video_nao_sobra_linha_vazia_nem_quebra_nada(self):
         post = {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": []}}}
         assert linkedin.share_text(post).startswith("T\n\nR")
+
+
+class TestVideoNativo:
+    """Pedido do PO, 2026-10-16: "quero o vídeo no LinkedIn e não o link". O recorte pronto
+    sobe como vídeo do próprio LinkedIn (Assets API, receita feedshare-video)."""
+
+    def _auth(self):
+        return {"accessToken": "t0k", "personUrn": "urn:li:person:x"}
+
+    def _rede(self, monkeypatch, upload_status=201, estados=("AVAILABLE",)):
+        chamadas, fila = [], list(estados)
+        mecanismo = "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+
+        def fake_post(url, **kw):
+            chamadas.append(("POST", url, kw))
+            if "registerUpload" in url:
+                return Resp({"value": {"asset": "urn:li:digitalmediaAsset:VID",
+                                       "uploadMechanism": {mecanismo: {"uploadUrl": "https://upload.li/v"}}}})
+            return Resp({}, headers={"x-restli-id": "urn:li:share:9"})
+
+        def fake_put(url, **kw):
+            chamadas.append(("PUT", url, kw))
+            return Resp({}, status=upload_status)
+
+        def fake_get(url, **kw):
+            chamadas.append(("GET", url, kw))
+            estado = fila.pop(0) if len(fila) > 1 else fila[0]
+            return Resp({"recipes": [{"recipe": "urn:li:digitalmediaRecipe:feedshare-video", "status": estado}]})
+
+        monkeypatch.setattr(linkedin.requests, "post", fake_post)
+        monkeypatch.setattr(linkedin.requests, "put", fake_put)
+        monkeypatch.setattr(linkedin.requests, "get", fake_get)
+        monkeypatch.setattr(linkedin.time, "sleep", lambda s: None)
+        return chamadas
+
+    def _conteudo(self, chamadas):
+        post = [c for c in chamadas if c[0] == "POST" and "ugcPosts" in c[1]][0]
+        return post[2]["json"]["specificContent"]["com.linkedin.ugc.ShareContent"]
+
+    def test_registra_como_video_envia_o_mp4_e_publica_como_VIDEO(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch)
+        urn = linkedin.publish(self._auth(), "texto", video=b"MP4BYTES", video_title="Roadster")
+        assert urn == "urn:li:share:9"
+        registro = chamadas[0][2]["json"]["registerUploadRequest"]
+        assert "feedshare-video" in registro["recipes"][0]
+        envio = [c for c in chamadas if c[0] == "PUT"][0]
+        assert envio[1] == "https://upload.li/v" and envio[2]["data"] == b"MP4BYTES"
+        conteudo = self._conteudo(chamadas)
+        assert conteudo["shareMediaCategory"] == "VIDEO"
+        assert conteudo["media"][0]["media"] == "urn:li:digitalmediaAsset:VID"
+        assert conteudo["media"][0]["title"]["text"] == "Roadster"
+
+    def test_espera_o_linkedin_processar_antes_de_publicar(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch, estados=("PROCESSING", "PROCESSING", "AVAILABLE"))
+        linkedin.publish(self._auth(), "t", video=b"MP4")
+        ordem = [c[0] for c in chamadas]
+        assert ordem.count("GET") == 3 and ordem[-1] == "POST"
+        assert "VID" in [c for c in chamadas if c[0] == "GET"][0][1]
+
+    def test_processamento_que_falha_NAO_publica(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch, estados=("PROCESSING_FAILED",))
+        with pytest.raises(linkedin.LinkedInError, match="vídeo"):
+            linkedin.publish(self._auth(), "t", video=b"MP4")
+        assert not [c for c in chamadas if "ugcPosts" in c[1]]
+
+    def test_falha_no_envio_do_video_NAO_publica(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch, upload_status=500)
+        with pytest.raises(linkedin.LinkedInError, match="vídeo"):
+            linkedin.publish(self._auth(), "t", video=b"MP4")
+        assert not [c for c in chamadas if "ugcPosts" in c[1]]
+
+    def test_video_vence_a_imagem(self, db, monkeypatch):
+        chamadas = self._rede(monkeypatch)
+        linkedin.publish(self._auth(), "t", b"JPEG", video=b"MP4")
+        assert self._conteudo(chamadas)["shareMediaCategory"] == "VIDEO"
+        assert len([c for c in chamadas if "registerUpload" in c[1]]) == 1
+
+
+class TestTextoComVideoNativo:
+    def _post(self):
+        return {"tags": [], "i18n": {"pt": {"title": "T", "excerpt": "R", "sections": [
+            {"heading": "", "paragraphs": ["P."]}]}},
+            "video": {"title": "Roadster Event", "url": "https://youtu.be/abc", "channel": "Tesla"},
+            "clip": {"status": "ready", "hash": "a" * 64, "title": "Roadster Event", "channel": "Tesla"}}
+
+    def test_com_recorte_pronto_o_link_do_youtube_sai_do_texto(self):
+        assert "youtu" not in linkedin.share_text(self._post())
+
+    def test_credita_a_fonte_em_texto(self):
+        texto = linkedin.share_text(self._post())
+        assert "Roadster Event" in texto and "Tesla" in texto
+
+    def test_recorte_pendente_continua_com_o_link(self):
+        post = {**self._post(), "clip": {"status": "pending"}}
+        assert "https://youtu.be/abc" in linkedin.share_text(post)

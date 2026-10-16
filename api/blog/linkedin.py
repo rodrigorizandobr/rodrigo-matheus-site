@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -50,6 +51,9 @@ STATE_RE = re.compile(r"^[a-f0-9]{48}$")
 TIMEOUT = 30
 #: o LinkedIn corta o comentário em 3000 caracteres
 MAX_TEXT = 3000
+#: o LinkedIn processa o vídeo depois do envio; espera até isto antes de publicar
+VIDEO_WAIT_SECONDS = 180
+VIDEO_POLL_SECONDS = 5
 # Quanto um post GERADO pode ocupar já montado (título, resumo, corpo, hashtags e link):
 # folga sob o limite real para o texto que o autor editar à mão.
 POST_BUDGET = 2800
@@ -223,6 +227,13 @@ def share_text(post: dict[str, Any], url: str = "") -> str:
     # desenhar o cartão de prévia (ler a própria página do YouTube; nunca baixamos o
     # arquivo, ver blog/videos.py). Cedo na lista: a truncagem corta do fim, não daqui.
     video_url = (post.get("video") or {}).get("url") or ""
+    # Recorte pronto sobe como vídeo NATIVO (pedido do PO: "o vídeo e não o link"); o link do
+    # YouTube sai, e a fonte fica creditada em texto.
+    clip = post.get("clip") or {}
+    if has_native_clip(post):
+        fonte = clip.get("title") or (post.get("video") or {}).get("title") or ""
+        canal = clip.get("channel") or (post.get("video") or {}).get("channel") or ""
+        video_url = f"Vídeo: trecho de “{fonte}”" + (f", {canal}." if canal else ".") if fonte else ""
 
     # Título de seção cola no primeiro parágrafo: o corte nunca o deixa órfão.
     unidades = [title, excerpt, video_url]
@@ -246,6 +257,11 @@ def share_text(post: dict[str, Any], url: str = "") -> str:
     return montar(n, True)[:MAX_TEXT]
 
 
+def has_native_clip(post: dict[str, Any]) -> bool:
+    clip = post.get("clip") or {}
+    return clip.get("status") == "ready" and bool(clip.get("hash"))
+
+
 def _headers(auth: dict[str, Any]) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {auth['accessToken']}",
@@ -254,42 +270,69 @@ def _headers(auth: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def upload_image(auth: dict[str, Any], image: bytes) -> str:
-    """Registra e envia o JPEG; devolve o URN do asset para anexar ao post."""
+def _upload(auth: dict[str, Any], data: bytes, recipe: str, what: str) -> str:
+    """Registra e envia o arquivo pela Assets API; devolve o URN do asset."""
     res = requests.post(
         "https://api.linkedin.com/v2/assets?action=registerUpload",
         headers=_headers(auth),
         json={"registerUploadRequest": {
-            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+            "recipes": [f"urn:li:digitalmediaRecipe:{recipe}"],
             "owner": auth["personUrn"],
             "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}],
         }},
         timeout=TIMEOUT,
     )
     if not res.ok:
-        raise LinkedInError(f"registro da imagem falhou ({res.status_code}): {res.text[:300]}")
+        raise LinkedInError(f"registro d{what} falhou ({res.status_code}): {res.text[:300]}")
     try:
         value = res.json()["value"]
         mecanismo = value["uploadMechanism"]["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]
         upload_url, asset = mecanismo["uploadUrl"], value["asset"]
     except (KeyError, TypeError, ValueError) as exc:
-        raise LinkedInError(f"resposta inesperada ao registrar a imagem: {res.text[:300]}") from exc
+        raise LinkedInError(f"resposta inesperada ao registrar {what}: {res.text[:300]}") from exc
 
-    sent = requests.put(upload_url, data=image,
-                        headers={"Authorization": f"Bearer {auth['accessToken']}"}, timeout=TIMEOUT)
+    sent = requests.put(upload_url, data=data, timeout=max(TIMEOUT, 300), headers={
+        "Authorization": f"Bearer {auth['accessToken']}", "Content-Type": "application/octet-stream"})
     if not sent.ok:
-        raise LinkedInError(f"envio da imagem falhou ({sent.status_code}): {sent.text[:300]}")
+        raise LinkedInError(f"envio d{what} falhou ({sent.status_code}): {sent.text[:300]}")
     return asset
 
 
-def publish(auth: dict[str, Any], text: str, image: bytes | None = None, alt: str = "") -> str:
+def upload_image(auth: dict[str, Any], image: bytes) -> str:
+    return _upload(auth, image, "feedshare-image", "a imagem")
+
+
+def upload_video(auth: dict[str, Any], video: bytes) -> str:
+    """Envia o MP4 e espera o LinkedIn processar: post com vídeo ainda em processamento não é garantido."""
+    asset = _upload(auth, video, "feedshare-video", "o vídeo")
+    asset_id = asset.rsplit(":", 1)[-1]
+    prazo = time.monotonic() + VIDEO_WAIT_SECONDS
+    while True:
+        res = requests.get(f"https://api.linkedin.com/v2/assets/{asset_id}", headers=_headers(auth), timeout=TIMEOUT)
+        estados = [r.get("status") for r in ((res.json() or {}).get("recipes") or [])] if res.ok else []
+        if "AVAILABLE" in estados:
+            return asset
+        if any(e and ("FAILED" in e or e == "CLIENT_ERROR") for e in estados):
+            raise LinkedInError(f"o LinkedIn não conseguiu processar o vídeo ({', '.join(estados)})")
+        if time.monotonic() >= prazo:
+            return asset  # segue processando: o LinkedIn publica quando terminar
+        time.sleep(VIDEO_POLL_SECONDS)
+
+
+def publish(auth: dict[str, Any], text: str, image: bytes | None = None, alt: str = "",
+            video: bytes | None = None, video_title: str = "") -> str:
     """Publica no perfil da pessoa e devolve o URN do share.
 
     Com `image`, o post sai com a imagem anexada (e o texto vai inteiro no comentário);
     se o envio da imagem falhar, nada é publicado — o chamador tenta de novo depois.
     """
     content: dict[str, Any] = {"shareCommentary": {"text": text}, "shareMediaCategory": "NONE"}
-    if image:
+    if video:
+        # vídeo vence a imagem: um post do LinkedIn carrega um tipo de mídia só
+        asset = upload_video(auth, video)
+        content["shareMediaCategory"] = "VIDEO"
+        content["media"] = [{"status": "READY", "media": asset, "title": {"text": video_title[:200]}}]
+    elif image:
         asset = upload_image(auth, image)
         content["shareMediaCategory"] = "IMAGE"
         content["media"] = [{"status": "READY", "media": asset, "description": {"text": alt[:200]}}]

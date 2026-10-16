@@ -814,3 +814,44 @@ class TestMemoriaInventada:
         store.save_config({"banned_phrases": []})
         service.generate("tema", now=utc(2026, 9, 14, 21))
         assert pedidos == []
+
+
+class TestRecorteNoLinkedIn:
+    def _com_token(self, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        enviados = []
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda auth, texto, imagem=None, alt="", video=None, video_title="": enviados.append(
+                                {"texto": texto, "imagem": imagem, "video": video, "titulo": video_title}) or "urn:li:share:1")
+        monkeypatch.setattr(service.media, "read_image", lambda digest: b"JPEG")
+        return enviados
+
+    def _post_com_recorte(self, clip):
+        post = service.generate("t", now=utc(2026, 9, 10, 21))
+        store.publish_post(post["id"], now=utc(2026, 9, 10, 22))
+        store.update_post(post["id"], {"video": {"title": "V", "url": "https://youtu.be/x", "channel": "C"},
+                                       "clip": clip})
+        return post
+
+    def test_recorte_pronto_vai_como_video_nativo_sem_capa(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        monkeypatch.setattr(service.media, "read_video", lambda digest, start=None, end=None: b"MP4:" + digest[:2].encode())
+        self._post_com_recorte({"status": "ready", "hash": "ab" + "0" * 62, "title": "V", "channel": "C"})
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["video"] == b"MP4:ab" and enviados[0]["imagem"] is None
+        assert enviados[0]["titulo"] == "V"
+
+    def test_recorte_sumido_do_bucket_nao_publica_nada(self, env, monkeypatch):
+        # publicar sem o vídeo prometido é irreversível; o próximo tick tenta de novo
+        enviados = self._com_token(monkeypatch)
+        monkeypatch.setattr(service.media, "read_video", lambda digest, start=None, end=None: None)
+        post = self._post_com_recorte({"status": "ready", "hash": "ab" + "0" * 62})
+        with pytest.raises(service.linkedin.LinkedInError):
+            service.share_next(now=utc(2026, 9, 15, 12))
+        assert not enviados and not store.get_post(post["id"]).get("linkedinPostedAt")
+
+    def test_recorte_pendente_continua_com_o_link(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        self._post_com_recorte({"status": "pending"})
+        service.share_next(now=utc(2026, 9, 15, 12))
+        assert enviados[0]["video"] is None and "https://youtu.be/x" in enviados[0]["texto"]

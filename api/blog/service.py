@@ -227,11 +227,20 @@ class PostNotFoundError(RuntimeError):
 
 
 def _send_to_linkedin(auth: dict[str, Any], post: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
+    if linkedin.has_native_clip(post):
+        # Recorte pronto vai como vídeo NATIVO, sem capa. Sumiu do bucket → não publica nada:
+        # sair sem o vídeo prometido é irreversível, e o próximo tick tenta de novo.
+        clip = post["clip"]
+        video = media.read_video(clip["hash"])
+        if not video:
+            raise linkedin.LinkedInError("o recorte do post não está no bucket")
+        urn = linkedin.publish(auth, texto, video=video, video_title=clip.get("title") or "")
+        return store.mark_shared(post["id"], urn, now=now)
     # Imagem nativa + link que o LinkedIn desenha sozinho nunca foram validados juntos
     # (um post só tem um cartão de prévia); com vídeo, o cartão é o do YouTube.
     cover = {} if post.get("video") else (post.get("image") or {})
     image = media.read_image(cover["hash"]) if cover.get("hash") else None
-    texto = linkedin.share_text(post, f"{linkedin.SITE}/blog/{post['slug']}")
     urn = linkedin.publish(auth, texto, image, alt=cover.get("alt") or post.get("imageAlt") or "")
     return store.mark_shared(post["id"], urn, now=now)
 

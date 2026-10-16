@@ -405,7 +405,15 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   `MAX_ATTEMPTS` (3). 429 (teto do Gemini, rajada no YouTube) → `pending` sem gastar tentativa — com a
   rotina de 15 em 15 min, contar faria o post desistir em 45 min. Falha que não é de rede (nenhum trecho
   bom, conferência recusou) → `failed` com o motivo, na hora.
-- **Pendência:** mandar o recorte como vídeo NATIVO ao LinkedIn (hoje vai o link do YouTube no texto).
+- **No LinkedIn, o recorte vai como vídeo NATIVO** (pedido do PO, 2026-10-16: "quero o vídeo no LinkedIn e
+  não o link"; `linkedin.upload_video`, `TestVideoNativo`, `TestRecorteNoLinkedIn`). Assets API com a receita
+  `feedshare-video` → `PUT` do MP4 → espera o asset ficar `AVAILABLE` (até `VIDEO_WAIT_SECONDS`, 180 s;
+  passou disso, publica mesmo assim e o LinkedIn solta quando terminar) → `ugcPosts` com `VIDEO`. Sem capa
+  (um post do LinkedIn leva um tipo de mídia só) e sem o link do YouTube: a fonte vai creditada em texto
+  ("Vídeo: trecho de “título”, canal."). Envio ou processamento falhou, ou o MP4 sumiu do bucket → **nada é
+  publicado** e o próximo tick tenta de novo. Recorte pendente/falho → comportamento antigo (link no texto).
+  **Ainda não validado contra o LinkedIn de verdade** — o primeiro compartilhamento de post com recorte é
+  o teste; conferir o post no perfil logo depois.
 
 ## Git dentro do Google Drive
 
@@ -550,7 +558,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 588 testes
+cd api && source .venv/bin/activate && pytest      # 599 testes
 cd web && npm test                                  # 411 testes
 ```
 
