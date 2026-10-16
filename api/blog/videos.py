@@ -1,11 +1,9 @@
 """Busca de vídeo no YouTube via Serper — só busca, nunca baixa.
 
-"Vídeo nativo" de verdade (upload direto no LinkedIn) exigiria baixar o arquivo do
-YouTube, e isso viola os Termos de Uso deles — não é só questão de direito autoral.
-Por isso este módulo devolve só o LINK: quem desenha o cartão de prévia é o próprio
-LinkedIn, lendo a página pública do YouTube, igual a qualquer post que cola um link.
-Opcional em todo lugar, igual à pesquisa de notícia: sem `SERPER_API_KEY`, ou sem
-resultado do YouTube, a reflexão sai sem vídeo — nunca trava a geração do post.
+Quem baixa e recorta é a rotina do Mac (`clip_worker.py`): o YouTube bloqueia download vindo de IP
+de datacenter. O post com vídeo achado nasce rascunho com `clip.status = "pending"` — o PO pede
+autorização ao dono do vídeo antes de publicar. Opcional em todo lugar: sem `SERPER_API_KEY`, ou
+sem resultado do YouTube, o post sai sem vídeo — nunca trava a geração.
 """
 from __future__ import annotations
 

@@ -209,27 +209,14 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   **`heading` nunca repete o título ao pé da letra** — bug medido num post real (heading
   == título, duplicado no texto final do LinkedIn); a regra original deixava isso passar
   ("pode repetir a ideia do título"), hoje é proibido copiar literalmente.
-- **Vídeo é só LINK, nunca upload — decisão de escopo, não falta de ambição**
-  (`blog/videos.py`, `TestVideoNaReflexao`, `TestVideoNoTexto`, `TestVideoNoCompartilhamento`).
-  "Vídeo nativo" de verdade (upload no LinkedIn, que é o que mais engaja) exigiria BAIXAR
-  o vídeo de algum lugar — de banco de imagem tipo Pixabay (recusado pelo PO: "zoados") ou
-  do YouTube (recusado por mim: baixar vídeo do YouTube viola os TERMOS DE USO deles, uma
-  restrição contratual separada de direito autoral, que o PO não pode simplesmente dispensar
-  como fez com a citação de trecho curto). A solução que ficou: `videos.search_youtube(tema)`
-  busca no Serper (`POST /videos`, filtrando `youtube.com`/`youtu.be` no link devolvido, com
-  `site:youtube.com` no termo) um vídeo real sobre o tema da reflexão, e o post do LinkedIn
-  **linka** a URL — o LinkedIn desenha o cartão de prévia sozinho, lendo a página pública do
-  YouTube, sem nenhum arquivo passar pelo nosso servidor. Opcional em toda a cadeia: sem
-  `SERPER_API_KEY`, sem resultado do YouTube, ou se o Serper cair, a reflexão sai sem vídeo
-  — nunca trava a geração (mesmo padrão de `research.py`). Só o modo reflexão busca vídeo;
-  a notícia comentada não muda. Quando o post TEM vídeo, `service._send_to_linkedin` não
-  anexa a capa gerada por IA — os dois juntos (imagem nativa + link que o LinkedIn tenta
-  desenrolar sozinho) nunca foram testados contra o LinkedIn de verdade, e um post só
-  desenha UM cartão de prévia por vez; o vídeo vence. **A primeira reflexão com vídeo real
-  nunca foi postada no LinkedIn de verdade** — o fluxo foi validado ponta a ponta localmente
-  (geração real + busca real do Serper + `share_text` montado), mas falta confirmar com o
-  PO antes do primeiro envio ao vivo, pelo mesmo motivo que vale para a Assets API de
-  imagem: ação pública, nova, sem precedente neste projeto.
+- **Vídeo: o servidor só BUSCA; quem baixa e recorta é o Mac** (`blog/videos.py`, `TestVideoNaReflexao`).
+  Histórico: até 2026-10-16 a decisão era "vídeo só como link, nunca upload", porque baixar do YouTube fere os
+  Termos de Uso dele (contrato, separado de direito autoral). O PO decidiu fazer os recortes assumindo a
+  responsabilidade e pedindo autorização ao dono de cada vídeo antes de publicar — por isso todo post com
+  recorte nasce RASCUNHO. O risco que sobra é dele e é real: o dono pode denunciar o post no LinkedIn mesmo
+  com o crédito. `search_youtube` busca no Serper `/videos` (filtra `youtube.com`/`youtu.be`); opcional em
+  toda a cadeia — sem chave ou sem resultado, o post sai sem vídeo. Recorte e envio nativo: seção
+  "Recorte de vídeo do YouTube".
 - **O blog é artigo que comenta, não noticiário que reconta** (regras 1 e 6 de `gemini.RULES`,
   `TestFormatoDeArtigo`). A estrutura de 3 seções continua, mas o papel de cada uma mudou: (1) o que
   aconteceu, resumido em poucas frases, sem reconstruir a notícia inteira; (2) ANÁLISE — o que o
