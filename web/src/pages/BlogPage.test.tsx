@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { I18nProvider } from '../i18n/useI18n'
 import { BlogPage } from './BlogPage'
 import type { Post } from '../blog/types'
@@ -120,6 +120,8 @@ describe('BlogPage — post', () => {
     mockApi([post()])
     r('a')
     await screen.findByRole('heading', { level: 1 })
-    expect(document.title).toContain('Post A pt')
+    // O título é posto num useEffect, que o React roda numa tarefa SEPARADA, depois de desenhar o
+    // h1: conferir na linha seguinte ao findBy às vezes chegava antes dele (falha rara, 1 em ~7).
+    await waitFor(() => expect(document.title).toContain('Post A pt'))
   })
 })

@@ -214,3 +214,17 @@ describe('visualizar no editor', () => {
     expect(onPreview).toHaveBeenCalled()
   })
 })
+
+describe('afirmações sem fonte que sobraram', () => {
+  it('o editor mostra cada trecho para o autor conferir', () => {
+    const generation = { model: 'm', generatedAt: '', topic: 't', unsupportedLeft: ['Engenheiros torceram o nariz.'] }
+    render(<PostEditor {...props({ post: post({ generation }) })} />)
+    expect(screen.getByText(/sem fonte/i)).toBeInTheDocument()
+    expect(screen.getByText(/Engenheiros torceram o nariz\./)).toBeInTheDocument()
+  })
+
+  it('sem sobra, nenhum aviso', () => {
+    render(<PostEditor {...props({ post: post({ generation: { model: 'm', generatedAt: '', topic: 't', unsupportedLeft: [] } }) })} />)
+    expect(screen.queryByText(/sem fonte/i)).toBeNull()
+  })
+})

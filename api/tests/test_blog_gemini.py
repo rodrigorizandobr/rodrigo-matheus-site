@@ -508,3 +508,52 @@ class TestProfundidade:
         gemini.generate_post("Tesla")
         regras = _corrido(fake).lower()
         assert "sucção" not in regras and "capota" not in regras
+
+
+class TestAfirmacoesSemFonte:
+    """Medido: "engenheiros veteranos torceram o nariz" — reação que nenhuma matéria contava.
+    Um modelo mais forte confere o texto contra o material e aponta o que não tem fonte."""
+
+    CORPO = {"title": "Tesla bota foguete em carro", "excerpt": "e", "sections": [{"heading": "", "paragraphs": [
+        "A Tesla mostrou o Roadster com propulsores. Engenheiros veteranos torceram o nariz para a ideia.",
+        "Acho que isso vai virar só vitrine."]}]}
+
+    def _fake(self, monkeypatch, achados):
+        f = FakePost({"candidates": [{"content": {"parts": [{"text": json.dumps({"semFonte": achados})}]}}]})
+        monkeypatch.setattr(gemini.requests, "post", f)
+        monkeypatch.setattr(gemini, "API_KEY", "k")
+        return f
+
+    def test_usa_o_modelo_de_conferencia_em_temperatura_zero_com_material_e_texto(self, monkeypatch):
+        f = self._fake(monkeypatch, [])
+        gemini.unsupported_claims(self.CORPO, "MATERIAL: a Tesla mostrou o Roadster com propulsores.")
+        chamada = f.calls[0]
+        assert gemini.CHECK_MODEL in chamada["url"] and gemini.CHECK_MODEL != gemini.TEXT_MODEL
+        assert chamada["json"]["generationConfig"]["temperature"] == 0
+        prompt = chamada["json"]["contents"][0]["parts"][0]["text"]
+        assert "a Tesla mostrou o Roadster com propulsores" in prompt and "torceram o nariz" in prompt
+
+    def test_devolve_o_trecho_e_o_motivo(self, monkeypatch):
+        self._fake(monkeypatch, [{"trecho": "Engenheiros veteranos torceram o nariz para a ideia.",
+                                  "porque": "o material não fala de reação de engenheiros"}])
+        achados = gemini.unsupported_claims(self.CORPO, "material")
+        assert achados == [{"trecho": "Engenheiros veteranos torceram o nariz para a ideia.",
+                            "porque": "o material não fala de reação de engenheiros"}]
+
+    def test_trecho_que_nao_esta_no_texto_e_descartado(self, monkeypatch):
+        # a conferência também pode inventar: só vale o que está escrito, palavra por palavra
+        self._fake(monkeypatch, [{"trecho": "A Tesla faliu em 2025.", "porque": "x"}])
+        assert gemini.unsupported_claims(self.CORPO, "material") == []
+
+    def test_sem_material_nao_confere(self, monkeypatch):
+        f = self._fake(monkeypatch, [])
+        assert gemini.unsupported_claims(self.CORPO, "   ") == []
+        assert f.calls == []
+
+    def test_regra_poupa_opiniao_pergunta_e_conhecimento_geral(self):
+        assert "opinião" in gemini.CLAIMS_RULES and "pergunta" in gemini.CLAIMS_RULES
+        assert "conhecimento geral" in gemini.CLAIMS_RULES
+        assert "reação" in gemini.CLAIMS_RULES  # a categoria que escapava
+        # medido em 3 posts reais: escapavam "proibido na rua porque arremessa pedras" e "alertas
+        # chegam aos gabinetes de compliance" — regra/proibição e funcionamento interno disfarçado
+        assert "proibição" in gemini.CLAIMS_RULES and "por dentro" in gemini.CLAIMS_RULES

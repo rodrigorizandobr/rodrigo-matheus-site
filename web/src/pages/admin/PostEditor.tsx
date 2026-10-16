@@ -225,6 +225,19 @@ export function PostEditor(p: Props) {
             </details>
           </div>
 
+          {!!p.post.generation?.unsupportedLeft?.length && (
+            <div className="panel p-5 grid gap-2">
+              <span className="field-label !mb-0 !text-red">Confira: afirmações sem fonte</span>
+              <p className="text-[12px] text-muted leading-relaxed">
+                A conferência não achou estes fatos no material da pesquisa, e a reescrita não resolveu.
+                Corte, vire opinião ou confirme antes de publicar.
+              </p>
+              <ul className="grid gap-1.5 text-[12.5px] text-heading list-disc pl-4">
+                {p.post.generation.unsupportedLeft.map((t) => <li key={t}>{t}</li>)}
+              </ul>
+            </div>
+          )}
+
           {p.post.clip?.status && (
             <div className="panel p-5 grid gap-2">
               <span className="field-label !mb-0">Vídeo</span>

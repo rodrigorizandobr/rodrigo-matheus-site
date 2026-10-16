@@ -59,7 +59,11 @@ export type Post = {
   /** só no painel */
   imagePrompt?: string
   topic?: string
-  generation?: { model: string; generatedAt: string; topic: string } | null
+  generation?: {
+    model: string; generatedAt: string; topic: string
+    /** frases que a conferência achou sem fonte no material e que a reescrita não resolveu */
+    unsupportedLeft?: string[] | null
+  } | null
   /** fontes da pesquisa — públicas: o leitor precisa ver de onde o texto saiu */
   references?: Reference[]
   /** posts antigos guardavam só as URLs */

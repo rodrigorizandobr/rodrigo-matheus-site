@@ -167,6 +167,25 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   determinística: com material de notícia, "já vi", "já passei", "como quem já", "quando liderei"…
   disparam a mesma reescrita, pedindo para virar opinião. Não vale para reflexão nem para notícia que
   caiu no currículo — ali a cena é real. Não é lista do painel: não é gosto, é verdade.
+- **Afirmação sem fonte é conferida DEPOIS da geração, por outro modelo** (`gemini.unsupported_claims`,
+  `service._check_claims`, `TestAfirmacoesSemFonte`). Medido: "engenheiros veteranos torceram o nariz" — reação
+  que nenhuma matéria contava; a regra de não inventar no prompt não bastava. Hoje: `CHECK_MODEL`
+  (`gemini-3.8-flash`, temperatura 0 — o flash-lite é o mesmo que inventou) lê o texto pt E o material da
+  pesquisa (`context`) e lista cada frase com fato específico sem apoio (número, nome, citação, REAÇÃO de
+  pessoas/grupos, causa, regra/proibição, e como ESTE produto funciona por dentro — mesmo escrito como
+  explicação). Só vale trecho que está no texto palavra por palavra (a conferência também inventa). Achou →
+  UMA reescrita: corte, opinião ou pergunta, "nunca troque por outro fato… e não acrescente informação
+  nenhuma" (medido: a correção escreveu "a empresa não comentou o motivo" — fato novo). Depois, uma segunda
+  conferência registra o que sobrou em `generation.unsupportedLeft`, e o editor mostra a lista em vermelho
+  ("Confira: afirmações sem fonte"). Conferência fora do ar → o post sai mesmo assim (`unsupportedLeft: None`).
+  Roda antes do filtro de vocabulário. Não roda no "editar com IA" (o material não fica gravado no post).
+  **Medido em 6 posts reais (2026-10-16):** pegou motivo de empresa dito como fato, detalhe técnico do produto
+  ("motores de passo", "juntas do robô", "milissegundos"), número inventado ("milhões de interações por
+  segundo") e exagero de paráfrase ("proibido" onde a matéria diz "voltado para fora de estradas"); poupou os
+  fatos que estavam no material (5% dos bitcoins, PF, 600 litros). Antes de nomear "regra/proibição" e
+  "funcionamento por dentro", escapavam "alertas chegam aos gabinetes de compliance" e o "proibido".
+  Custo conhecido: às vezes aponta possibilidade dita como possibilidade ou o título — vira opinião, o
+  sentido fica. Mesmo a temperatura 0 não é determinística: rodar duas vezes pode dar listas diferentes.
 - **A análise começa explicando o MECANISMO** (item 2 da regra 6, `TestProfundidade`). Medido no post da
   Tesla: contou que o carro tinha sucção e propulsores, mas não por que isso importa. Hoje o primeiro parágrafo
   da análise explica como a coisa funciona e que limite ela quebra (conhecimento comum vale para explicar,
@@ -578,9 +597,14 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 624 testes
-cd web && npm test                                  # 431 testes
+cd api && source .venv/bin/activate && pytest      # 634 testes
+cd web && npm test                                  # 433 testes
 ```
+
+**Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
+O React roda o efeito numa tarefa SEPARADA, depois de desenhar: conferir na linha seguinte ao `findBy…`
+falhava 1 vez em ~7 (`BlogPage.test.tsx`, "o título da aba recebe o nome do post"). Dentro de `act()` é
+síncrono e não precisa.
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,
 `capability`, `headTracking`) e componentes de HUD; a cena 3D é verificada no browser.

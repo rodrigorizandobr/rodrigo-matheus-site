@@ -19,6 +19,8 @@ from . import model
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TEXT_MODEL = os.environ.get("BLOG_TEXT_MODEL", "gemini-3.5-flash-lite")
+#: conferir fato contra fonte pede mais que escrever: o flash-lite é o mesmo que inventou
+CHECK_MODEL = os.environ.get("BLOG_CHECK_MODEL", "gemini-3.8-flash")
 TIMEOUT = 120
 
 # Teto alto de propósito: post cortado no meio foi o defeito mais comum no
@@ -190,7 +192,8 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    `imageAlt` em português, descrevendo a imagem para quem não a vê."""
 
 
-def _call(prompt: str, system: str) -> dict[str, Any]:
+def _call(prompt: str, system: str, schema: dict[str, Any] | None = None, model_name: str | None = None,
+          temperature: float = 0.9) -> dict[str, Any]:
     if not API_KEY:
         raise GeminiError("GEMINI_API_KEY não configurada no serviço")
 
@@ -199,13 +202,13 @@ def _call(prompt: str, system: str) -> dict[str, Any]:
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "responseSchema": POST_SCHEMA,
+            "responseSchema": schema or POST_SCHEMA,
             "maxOutputTokens": MAX_OUTPUT_TOKENS,
-            "temperature": 0.9,
+            "temperature": temperature,
         },
     }
     res = requests.post(
-        f"{BASE}/models/{TEXT_MODEL}:generateContent",
+        f"{BASE}/models/{model_name or TEXT_MODEL}:generateContent",
         headers={"x-goog-api-key": API_KEY, "content-type": "application/json"},
         json=body,
         timeout=TIMEOUT,
@@ -384,3 +387,62 @@ INSTRUÇÃO DO AUTOR: {instruction}
 Devolva o post inteiro revisado, nos dois idiomas, no mesmo formato. Mantenha o que a
 instrução não pediu para mudar — isto é uma edição, não um post novo."""
     return _normalize(_call(prompt, f"{VOICE}\n\n{RULES}"))
+
+
+# ── conferência: afirmação sem fonte ─────────────────────────────────────────
+# Medido: "engenheiros veteranos torceram o nariz" — reação que nenhuma matéria contava. A regra
+# de não inventar está no prompt de geração e não bastou; quem confere é outro modelo, depois.
+
+CLAIMS_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {"semFonte": {"type": "ARRAY", "items": {
+        "type": "OBJECT",
+        "properties": {"trecho": {"type": "STRING"}, "porque": {"type": "STRING"}},
+        "required": ["trecho", "porque"]}}},
+    "required": ["semFonte"],
+}
+
+CLAIMS_RULES = """Você confere um texto de blog contra o MATERIAL que o autor tinha em mãos.
+Aponte cada frase que afirma um FATO ESPECÍFICO que o material não sustenta:
+- número, data, valor, prazo, porcentagem, recorde;
+- nome de pessoa, empresa, produto ou lugar ligado ao acontecimento;
+- citação ou fala atribuída a alguém;
+- reação, sentimento ou opinião atribuída a pessoas, grupos, empresas ou "ao mercado" (quem reclamou,
+  quem comemorou, quem desconfiou);
+- resultado, consequência ou causa apresentada como certa;
+- regra, lei, proibição, licença ou aprovação (o que é permitido, proibido, liberado, multado);
+- como ESTE produto, empresa ou processo funciona por dentro (peça, etapa, equipe, fluxo interno) —
+  mesmo escrito como explicação, se o material não descreve, é fato específico.
+Vale para TODO parágrafo, inclusive o de prós e contras e o de opinião.
+NÃO aponte: opinião do próprio autor (acho, aposto, desconfio, na minha visão), pergunta, possibilidade
+dita como possibilidade (pode, talvez), e conhecimento geral usado para explicar como algo funciona
+(física, como uma tecnologia opera) — desde que não traga número ou fato novo sobre o acontecimento.
+Na dúvida entre fato específico e conhecimento geral, aponte.
+Copie o trecho EXATAMENTE como está no texto (a frase inteira, sem mudar uma letra) e diga em poucas
+palavras por que o material não o sustenta. Nada sem fonte → lista vazia."""
+
+
+def _plain_text(body: dict[str, Any]) -> str:
+    paragrafos = [p for sec in body.get("sections") or [] for p in sec.get("paragraphs") or []]
+    return "\n\n".join([body.get("title") or "", body.get("excerpt") or "", *paragrafos]).strip()
+
+
+def _squash(text: str) -> str:
+    return " ".join((text or "").split()).lower()
+
+
+def unsupported_claims(body: dict[str, Any], material: str) -> list[dict[str, str]]:
+    """Frases do texto (pt) que afirmam fato específico sem apoio no material."""
+    if not (material or "").strip():
+        return []
+    texto = _plain_text(body)
+    prompt = f"MATERIAL:\n{material[:30000]}\n\nTEXTO DO BLOG:\n{texto}"
+    resposta = _call(prompt, CLAIMS_RULES, schema=CLAIMS_SCHEMA, model_name=CHECK_MODEL, temperature=0)
+    corrido = _squash(texto)
+    achados = []
+    for item in resposta.get("semFonte") or []:
+        trecho = (item.get("trecho") or "").strip()
+        # a conferência também pode inventar: só vale o que está no texto, palavra por palavra
+        if trecho and _squash(trecho) in corrido:
+            achados.append({"trecho": trecho, "porque": (item.get("porque") or "").strip()})
+    return achados[:8]

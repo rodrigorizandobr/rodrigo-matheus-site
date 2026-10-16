@@ -28,6 +28,7 @@ def env(monkeypatch):
     monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
     monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [])
+    monkeypatch.setattr(service.gemini, "unsupported_claims", lambda corpo, material: [])
     return chamadas
 
 
@@ -928,3 +929,69 @@ class TestMacParado:
         self._pendente(utc(2026, 10, 16, 8))
         service.tick(now=utc(2026, 10, 16, 12))
         assert len(enviados) == 1
+
+
+class TestAfirmacoesSemFonte:
+    """Afirmação sem fonte no material é reescrita antes de gravar: corte, opinião ou pergunta."""
+
+    TRECHO = "Engenheiros veteranos torceram o nariz."
+
+    def _conferencia(self, monkeypatch, rodadas):
+        materiais = []
+        def confere(corpo, material):
+            materiais.append(material)
+            return rodadas.pop(0) if rodadas else []
+        monkeypatch.setattr(service.gemini, "unsupported_claims", confere)
+        return materiais
+
+    def _revisao(self, monkeypatch):
+        pedidos = []
+        def revisa(post, instrucao):
+            pedidos.append(instrucao)
+            return {"i18n": post["i18n"], "tags": post.get("tags", [])}
+        monkeypatch.setattr(service.gemini, "revise_post", revisa)
+        return pedidos
+
+    def _com_material(self, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q, **k: service.research.Research(context="MATERIAL DA PESQUISA"))
+
+    def test_confere_contra_o_material_da_pesquisa(self, env, monkeypatch):
+        self._com_material(monkeypatch)
+        materiais = self._conferencia(monkeypatch, [])
+        service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert materiais and "MATERIAL DA PESQUISA" in materiais[0]
+
+    def test_achou_reescreve_pedindo_corte_opiniao_ou_pergunta(self, env, monkeypatch):
+        self._com_material(monkeypatch)
+        self._conferencia(monkeypatch, [[{"trecho": self.TRECHO, "porque": "sem fonte"}], []])
+        pedidos = self._revisao(monkeypatch)
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1 and self.TRECHO in pedidos[0]
+        assert "nunca troque por outro fato" in pedidos[0]
+        # medido: a correção acrescentou "a empresa não comentou o motivo" — fato novo também
+        assert "não acrescente informação" in pedidos[0]
+        assert post["generation"]["unsupportedFound"] == [self.TRECHO]
+        assert post["generation"]["unsupportedLeft"] == []
+
+    def test_o_que_sobrou_depois_da_reescrita_fica_registrado(self, env, monkeypatch):
+        self._com_material(monkeypatch)
+        achado = [{"trecho": self.TRECHO, "porque": "sem fonte"}]
+        self._conferencia(monkeypatch, [achado, achado])
+        self._revisao(monkeypatch)
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["generation"]["unsupportedLeft"] == [self.TRECHO]
+
+    def test_nada_sem_fonte_nao_reescreve(self, env, monkeypatch):
+        self._com_material(monkeypatch)
+        self._conferencia(monkeypatch, [[]])
+        pedidos = self._revisao(monkeypatch)
+        service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert pedidos == []
+
+    def test_conferencia_fora_do_ar_nao_derruba_o_post(self, env, monkeypatch):
+        self._com_material(monkeypatch)
+        monkeypatch.setattr(service.gemini, "unsupported_claims",
+                            lambda c, m: (_ for _ in ()).throw(service.gemini.GeminiError("503")))
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["id"] and post["generation"]["unsupportedLeft"] is None

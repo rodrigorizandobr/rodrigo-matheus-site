@@ -110,6 +110,37 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
     return _save_generated(topic, context, found, source, now, cfg, with_image=with_image)
 
 
+def _check_claims(draft: dict[str, Any], material: str) -> tuple[dict[str, Any], list[str], list[str] | None]:
+    """Confere o texto contra o material; o que não tem fonte vira corte, opinião ou pergunta.
+
+    Devolve (rascunho, achados, sobras). `sobras` None = a conferência não rodou (fora do ar):
+    o post sai mesmo assim — conferir é proteção, nunca motivo para não publicar.
+    """
+    corpo = lambda d: (d.get("i18n") or {}).get("pt") or {}  # noqa: E731
+    try:
+        achados = gemini.unsupported_claims(corpo(draft), material)
+    except Exception:
+        return draft, [], None
+    if not achados:
+        return draft, [], []
+    lista = "; ".join(f"«{a['trecho']}» ({a['porque']})" for a in achados)
+    try:
+        revisado = gemini.revise_post(draft, (
+            "Estes trechos afirmam fatos que o material da pesquisa não sustenta: " + lista + ". "
+            "Para cada um: corte, ou transforme em opinião explícita do autor (acho, desconfio, aposto) "
+            "ou em pergunta ao leitor — nunca troque por outro fato, número ou nome, e não acrescente "
+            "informação nenhuma, nem sobre o que alguém disse ou deixou de dizer. Ajuste a frase "
+            "vizinha só se precisar para o texto continuar fluindo. Não mude mais nada, nos dois idiomas."))
+        draft = {**draft, "i18n": revisado["i18n"], "tags": revisado.get("tags") or draft.get("tags")}
+    except Exception:
+        return draft, [a["trecho"] for a in achados], [a["trecho"] for a in achados]
+    try:
+        sobras = [a["trecho"] for a in gemini.unsupported_claims(corpo(draft), material)]
+    except Exception:
+        sobras = None
+    return draft, [a["trecho"] for a in achados], sobras
+
+
 def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
                  memories: tuple[str, ...] = ()) -> tuple[dict[str, Any], list[str]]:
     """Tira, numa reescrita dirigida, o que entrega texto de IA ou inventa a vida do autor.
@@ -155,6 +186,8 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     else:
         draft = gemini.generate_post(topic, context=context, avoid_titles=store.recent_titles(),
                                      avoid_covers=store.recent_cover_prompts(), author_topic=author_topic)
+    # Fato sem fonte primeiro: a reescrita de vocabulário vem depois e é estreita.
+    draft, sem_fonte, sem_fonte_sobrou = _check_claims(draft, context)
     # Memória só é verdade quando o material é a carreira (reflexão, ou notícia que caiu no
     # currículo por falta de pesquisa); com notícia como material, é sempre invenção.
     sem_curriculo = not reflection and "curriculo" not in source
@@ -164,6 +197,7 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     draft["generation"] = {
         "model": draft.get("model", ""), "generatedAt": now, "topic": topic, "source": source,
         "researched": bool(found.context), "pagesRead": found.pages_read, "bannedLeft": sobrou,
+        "unsupportedFound": sem_fonte, "unsupportedLeft": sem_fonte_sobrou,
     }
     # Referências completas para a citação ABNT no fim do post. A data de acesso é
     # gravada aqui — é quando a página foi de fato lida, e a norma pede essa data.
