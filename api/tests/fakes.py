@@ -122,10 +122,17 @@ class FakeBlob:
         self._bucket.objects[self.name] = {"data": data, "content_type": content_type,
                                            "cache_control": self.cache_control}
 
-    def download_as_bytes(self):
+    def download_as_bytes(self, start=None, end=None):
         if not self.exists():
             raise FileNotFoundError(self.name)
-        return self._bucket.objects[self.name]["data"]
+        data = self._bucket.objects[self.name]["data"]
+        if start is None and end is None:
+            return data
+        # como no GCS: `end` é INCLUSIVO
+        return data[(start or 0):(None if end is None else end + 1)]
+
+    def reload(self):
+        self.size = len(self._bucket.objects[self.name]["data"]) if self.exists() else None
 
     def patch(self):
         if self.exists():

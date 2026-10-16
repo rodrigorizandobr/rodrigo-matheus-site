@@ -16,6 +16,26 @@ export type CoverImage = {
   height?: number
 }
 
+/**
+ * Recorte de vídeo do YouTube, feito no Mac do autor (api/clip_worker.py). O site público só
+ * recebe o pronto, e sem `status`; o painel recebe tudo, inclusive pendente e falho.
+ */
+export type Clip = {
+  status?: 'pending' | 'ready' | 'failed'
+  hash?: string
+  sourceUrl?: string
+  title?: string
+  channel?: string
+  /** segundos no vídeo original */
+  start?: number
+  end?: number
+  width?: number
+  height?: number
+  reason?: string
+  attempts?: number
+  lastError?: string
+}
+
 /** Fonte usada pela pesquisa, com o que a ABNT pede para citar. */
 export type Reference = {
   url: string
@@ -33,6 +53,7 @@ export type Post = {
   i18n: Record<Lang, Body>
   image: CoverImage | null
   imageAlt: string
+  clip?: Clip | null
   /** só no painel */
   imagePrompt?: string
   topic?: string
@@ -128,6 +149,14 @@ export type LinkedInStatus = {
 /** URL pública da capa — servida pela nossa API, nunca pelo banco de imagens de origem. */
 export const coverUrl = (image: { hash: string } | null): string | null =>
   image ? `/api/blog/image/${image.hash}.jpg` : null
+
+/** URL do recorte pronto (o público vem sem `status`, o painel vem com) — ou null. */
+export const clipUrl = (clip: Clip | null | undefined): string | null =>
+  clip?.hash && (clip.status === undefined || clip.status === 'ready') ? `/api/blog/video/${clip.hash}.mp4` : null
+
+/** Link do vídeo original já no segundo em que o trecho começa. */
+export const clipSourceAt = (clip: Clip): string =>
+  clip.sourceUrl ? `${clip.sourceUrl}${clip.sourceUrl.includes('?') ? '&' : '?'}t=${clip.start ?? 0}s` : ''
 
 /** Corpo no idioma pedido, caindo para o outro se faltar — post nunca some por idioma. */
 export const bodyFor = (post: Post, lang: Lang): Body =>

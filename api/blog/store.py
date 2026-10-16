@@ -33,6 +33,9 @@ INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic",
 #: como ela foi produzida
 COVER_PUBLIC_FIELDS = ("hash", "credit", "sourceUrl", "alt", "width", "height")
 
+#: do recorte, o site vê só o pronto, e só o que toca e credita — nunca estado nem motivo de falha
+CLIP_PUBLIC_FIELDS = ("hash", "sourceUrl", "title", "channel", "start", "end", "width", "height")
+
 _client: firestore.Client | None = None
 
 
@@ -116,8 +119,9 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         "image": draft.get("image"),
         "imageAlt": draft.get("imageAlt", ""),
         "imagePrompt": draft.get("imagePrompt", ""),
-        # Só o modo reflexão busca (ver blog/videos.py); ausente nos demais.
+        # vídeo achado no YouTube (ver blog/videos.py) e o estado do recorte feito no Mac
         "video": draft.get("video"),
+        "clip": draft.get("clip"),
         "topic": draft.get("topic", ""),
         "sources": draft.get("sources") or [],
         "references": draft.get("references") or [],
@@ -142,7 +146,7 @@ def get_post(post_id: str) -> dict[str, Any] | None:
 def update_post(post_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     """Atualiza campos editáveis. Status e datas mudam pelas funções próprias."""
     editable = {k: v for k, v in (patch or {}).items()
-                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "video", "topic",
+                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "video", "clip", "topic",
                          "references", "linkedinEnabled")}
     if "tags" in editable:
         editable["tags"] = model.clean_tags(editable["tags"])
@@ -162,6 +166,9 @@ def _public_view(post: dict[str, Any]) -> dict[str, Any]:
     imagem = limpo.get("image")
     if isinstance(imagem, dict):
         limpo["image"] = {k: imagem[k] for k in COVER_PUBLIC_FIELDS if k in imagem}
+    clip = limpo.pop("clip", None)
+    if isinstance(clip, dict) and clip.get("status") == "ready" and clip.get("hash"):
+        limpo["clip"] = {k: clip[k] for k in CLIP_PUBLIC_FIELDS if k in clip}
     return limpo
 
 

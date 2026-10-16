@@ -27,6 +27,7 @@ def env(monkeypatch):
     chamadas = {"gerou": [], "capa": []}
     monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
+    monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: service.videos.VideoResult())
     return chamadas
 
 
@@ -587,7 +588,7 @@ class TestVideoNaReflexao:
     def test_achou_video_anexa_ao_post(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
         monkeypatch.setattr(service.videos, "search_youtube",
-                            lambda q: service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal"))
+                            lambda q, **k: service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal"))
         store.save_config({"reflection_topics": ["liderança"]})
         post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
         assert post["video"]["url"] == "https://youtu.be/x"
@@ -595,7 +596,7 @@ class TestVideoNaReflexao:
 
     def test_sem_video_o_post_sai_mesmo_assim(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
-        monkeypatch.setattr(service.videos, "search_youtube", lambda q: service.videos.VideoResult())
+        monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: service.videos.VideoResult())
         store.save_config({"reflection_topics": ["liderança"]})
         post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
         assert post.get("video") is None
@@ -603,13 +604,66 @@ class TestVideoNaReflexao:
     def test_busca_o_video_pelo_tema(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
         vistos = []
-        monkeypatch.setattr(service.videos, "search_youtube", lambda q: vistos.append(q) or service.videos.VideoResult())
+        monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: vistos.append(q) or service.videos.VideoResult())
         service.generate("contratar sênior", now=utc(2026, 9, 14, 21), reflection=True)
         assert vistos == ["contratar sênior"]
 
-    def test_noticia_comentada_nao_busca_video(self, env, monkeypatch):
-        monkeypatch.setattr(service.videos, "search_youtube", lambda q: (_ for _ in ()).throw(AssertionError("não deveria buscar vídeo")))
-        service.generate("meu tema", now=utc(2026, 9, 14, 21))
+
+def _rascunho_en(titulo_en):
+    return {**DRAFT, "i18n": {"pt": {"title": "Título", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["p"]}]},
+                              "en": {"title": titulo_en, "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["p"]}]}}}
+
+
+class TestRecortePendente:
+    """Decisão do PO (2026-10-16): recorte de vídeo sempre que possível. O servidor só ACHA o vídeo;
+    quem corta é o Mac do autor (`clip_worker.py`). Post com recorte espera a autorização dele."""
+
+    def _video(self, monkeypatch, vistos=None):
+        def busca(q, **k):
+            if vistos is not None:
+                vistos.append((q, k))
+            return service.videos.VideoResult(title="Roadster Event", url="https://youtu.be/v", channel="Tesla")
+        monkeypatch.setattr(service.videos, "search_youtube", busca)
+
+    def test_noticia_tambem_busca_video_pelo_titulo_em_ingles_recente_e_sem_ancora(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho_en("Tesla puts rocket thrusters on a car"))
+        vistos = []
+        self._video(monkeypatch, vistos)
+        service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert vistos == [("Tesla puts rocket thrusters on a car", {"recent": True, "anchor": False, "prefer": "tesla"})]
+
+    def test_achou_video_marca_recorte_pendente(self, env, monkeypatch):
+        self._video(monkeypatch)
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["clip"] == {"status": "pending"}
+        assert post["video"]["url"] == "https://youtu.be/v"
+
+    def test_com_recorte_fica_rascunho_mesmo_com_publicar_sem_revisao(self, env, monkeypatch):
+        # o PO pede autorização ao dono do vídeo antes: nada com recorte vai ao ar sozinho
+        self._video(monkeypatch)
+        store.save_config({"auto_publish": True})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["status"] == "draft" and post.get("scheduledFor") is None
+
+    def test_com_recorte_nao_agenda_tambem(self, env, monkeypatch):
+        self._video(monkeypatch)
+        store.save_config({"auto_publish": False})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["status"] == "draft"
+
+    def test_sem_video_segue_o_fluxo_de_sempre(self, env, monkeypatch):
+        store.save_config({"auto_publish": True})
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["status"] == "published" and post.get("clip") is None
+
+    def test_reflexao_busca_pelo_tema_com_ancora_e_sem_recorte_de_data(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection", lambda *a, **k: dict(DRAFT))
+        vistos = []
+        self._video(monkeypatch, vistos)
+        store.save_config({"reflection_topics": ["liderar quem sabe mais"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert vistos == [("liderar quem sabe mais", {"recent": False, "anchor": True})]
+        assert post["clip"] == {"status": "pending"} and post["status"] == "draft"
 
 
 class TestVideoNoCompartilhamento:

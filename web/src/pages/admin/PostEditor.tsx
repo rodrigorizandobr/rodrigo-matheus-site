@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Lang, Post } from '../../blog/types'
-import { coverUrl } from '../../blog/types'
-import { DISCARD_QUESTION, formatDay, parseTags, statusLabel } from '../../blog/editing'
+import { clipSourceAt, coverUrl } from '../../blog/types'
+import { DISCARD_QUESTION, clipStatusText, formatDay, parseTags, statusLabel } from '../../blog/editing'
 import { BodyEditor } from './BodyEditor'
 
 type Props = {
@@ -221,6 +221,19 @@ export function PostEditor(p: Props) {
               </button>
             </details>
           </div>
+
+          {p.post.clip?.status && (
+            <div className="panel p-5 grid gap-2">
+              <span className="field-label !mb-0">Vídeo</span>
+              <p className={`text-[12px] leading-relaxed ${p.post.clip.status === 'failed' ? 'text-red' : 'text-muted'}`}>
+                {clipStatusText(p.post.clip)}
+              </p>
+              {p.post.clip.sourceUrl && (
+                <a href={clipSourceAt(p.post.clip)} target="_blank" rel="noopener nofollow"
+                   className="text-[12px] text-red hover:underline">ver o original ↗</a>
+              )}
+            </div>
+          )}
 
           <div className="panel p-5 grid gap-3">
             <span className="field-label !mb-0">Editar com IA</span>

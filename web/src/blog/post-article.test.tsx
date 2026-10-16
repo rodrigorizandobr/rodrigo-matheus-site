@@ -31,3 +31,42 @@ describe('PostArticle — a capa é ilustração da casa', () => {
     expect(img.getAttribute('height')).toBe('1080')
   })
 })
+
+const recorte = {
+  status: 'ready' as const, hash: 'c'.repeat(64), sourceUrl: 'https://www.youtube.com/watch?v=qt5p-_tE8d0',
+  title: 'Roadster Event', channel: 'Tesla', start: 1340, end: 1368, width: 1280, height: 720,
+}
+
+describe('PostArticle — recorte de vídeo', () => {
+  it('recorte pronto vira o destaque do post, com a capa como quadro inicial', () => {
+    const { container } = render(<PostArticle post={{ ...post(capa), clip: recorte }} lang="pt" minutes={1} />)
+    const video = container.querySelector('video')!
+    expect(video.getAttribute('src')).toBe(`/api/blog/video/${'c'.repeat(64)}.mp4`)
+    expect(video.getAttribute('poster')).toBe(`/api/blog/image/${'a'.repeat(64)}.jpg`)
+    expect(video).toHaveAttribute('controls')
+    expect(video).toHaveAttribute('playsinline')
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('credita o canal e leva ao YouTube no segundo exato do trecho', () => {
+    render(<PostArticle post={{ ...post(capa), clip: recorte }} lang="pt" minutes={1} />)
+    const link = screen.getByRole('link', { name: /Roadster Event/ })
+    expect(link).toHaveAttribute('href', 'https://www.youtube.com/watch?v=qt5p-_tE8d0&t=1340s')
+    expect(screen.getByText(/Tesla/)).toBeInTheDocument()
+  })
+
+  it('recorte pendente ou que falhou não aparece: fica a capa', () => {
+    for (const clip of [{ status: 'pending' as const }, { status: 'failed' as const, reason: 'x' }]) {
+      const { container, unmount } = render(<PostArticle post={{ ...post(capa), clip }} lang="pt" minutes={1} />)
+      expect(container.querySelector('video')).toBeNull()
+      expect(container.querySelector('img')).not.toBeNull()
+      unmount()
+    }
+  })
+
+  it('no site público o recorte chega sem status — e aparece mesmo assim', () => {
+    const { status: _, ...publico } = recorte
+    const { container } = render(<PostArticle post={{ ...post(capa), clip: publico }} lang="pt" minutes={1} />)
+    expect(container.querySelector('video')).not.toBeNull()
+  })
+})

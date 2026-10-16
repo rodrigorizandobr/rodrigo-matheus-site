@@ -85,3 +85,47 @@ class TestBuscaDeVideo:
         videos.search_youtube("arquitetura quando o time cresce")
         corpo = fake.calls[0]["json"]
         assert "engenharia de software" in corpo["q"]
+
+
+class TestAncoraERecencia:
+    def test_sem_ancora_nao_acrescenta_dominio(self, fake):
+        # notícia da Tesla não é "engenharia de software": a âncora atrapalharia a busca
+        videos.search_youtube("Tesla Roadster event", anchor=False)
+        assert "engenharia de software" not in fake.calls[0]["json"]["q"]
+
+    def test_recente_pede_so_a_ultima_semana(self, fake):
+        videos.search_youtube("Tesla Roadster event", recent=True)
+        assert fake.calls[0]["json"]["tbs"] == "qdr:w"
+
+    def test_padrao_continua_com_ancora_e_sem_recorte_de_data(self, fake):
+        videos.search_youtube("liderança")
+        corpo = fake.calls[0]["json"]
+        assert "engenharia de software" in corpo["q"] and "tbs" not in corpo
+
+
+class TestCanalOficialPrimeiro:
+    """Medido: buscando o Roadster, a ABC News veio antes do canal da Tesla — e com faixa de
+    reportagem e "LIVE views" por cima o vídeo inteiro. A fonte original é mais limpa."""
+
+    def test_prefere_o_canal_que_bate_com_o_protagonista(self, fake):
+        fake.payload = _resposta([
+            {"title": "Elon unveils Roadster", "link": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "channel": "ABC News"},
+            {"title": "Roadster Event", "link": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "channel": "Tesla"},
+        ])
+        r = videos.search_youtube("Tesla rocket car", prefer="Tesla Roadster")
+        assert r.channel == "Tesla"
+
+    def test_sem_canal_que_bata_fica_o_primeiro(self, fake):
+        fake.payload = _resposta([
+            {"title": "A", "link": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "channel": "ABC News"},
+            {"title": "B", "link": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "channel": "CNN"},
+        ])
+        assert videos.search_youtube("Tesla", prefer="Tesla").channel == "ABC News"
+
+    def test_ignora_acento_caixa_e_palavra_curta(self, fake):
+        # "de", "IA" não podem casar canal por acaso
+        fake.payload = _resposta([
+            {"title": "A", "link": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "channel": "Canal de Notícias"},
+            {"title": "B", "link": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "channel": "OPENAI"},
+        ])
+        assert videos.search_youtube("x", prefer="robô de IA da OpenAI").channel == "OPENAI"

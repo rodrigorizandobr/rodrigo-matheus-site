@@ -349,27 +349,57 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   prévia com dados de exemplo. O painel real exige login com Google, o que impede conferir telas
   estreitas durante o desenvolvimento. Não entra no build (o Vite só empacota o `index.html`).
 
-## Recorte de vídeo do YouTube — prova feita, ainda não está no produto (2026-10-16)
+## Recorte de vídeo do YouTube (2026-10-16)
 
-Decisão do PO: posts com recorte de vídeo sempre que possível, só o trecho certo, sem edição, como
+Decisão do PO: post com recorte de vídeo sempre que possível, só o trecho certo, sem edição, como
 RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume essa responsabilidade.
-A prova foi feita à mão (Tesla Roadster, canal oficial, 22:20–22:48) e ensinou:
 
-- **O Gemini "assistindo" pela URL do YouTube inventa tempo.** Num vídeo de 23:21, apontou momentos em
-  29:14 e 37:05, e o "melhor trecho" escolhido era o Elon falando no palco, sem carro. Escolher trecho pela
-  LEGENDA também falha: legenda é fala, não imagem (a justificativa "kick flip" foi inventada).
-- **O que funciona:** baixar o vídeo inteiro em 240p (~10 MB), extrair um quadro a cada 5 s, gravar o tempo
-  NO quadro (Pillow — o ffmpeg do Homebrew não tem `drawtext`), montar mosaicos 5×4 e pedir ao Gemini os
-  tempos que mostram o assunto (~15 mil tokens, centavos). O tempo vem do quadro real. Depois refinar o
-  início a 1 quadro/s — a 5 s o corte começou numa filmagem aérea sem o carro (o PO reclamou).
-- **Baixar só o trecho**: `yt-dlp --download-sections "*MM:SS-MM:SS"`, forçando H.264
-  (`bv*[vcodec^=avc1]`) — o padrão veio AV1, que LinkedIn e Safari do iPhone não tocam bem. Corte fino do
-  início com `ffmpeg -ss` reencodando (crf 18): cortar com cópia pula para o keyframe anterior.
-- **O YouTube bloqueia**: legenda pt deu 429 e o download deu 403 até usar `--impersonate chrome`
-  (pacote `curl_cffi`), mesmo do IP de casa. Do Cloud Run (IP de datacenter) a chance de bloqueio é maior —
-  a decisão de onde o recorte roda (Mac do PO vs. servidor com cookies) está pendente com o PO.
-- Falta construir: guardar o clipe, `<video>` no site com crédito ao canal, texto amarrado ao que o clipe
-  mostra, e vídeo nativo no LinkedIn (fluxo novo da API).
+| Peça | Onde | Papel |
+|---|---|---|
+| Achar o vídeo | `service._save_generated` → `videos.search_youtube` | Servidor. Todo post busca; achou → `video` + `clip: {status: pending}` e o post fica **rascunho, sem agendar**, mesmo com "publicar sem revisão". |
+| Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), o melhor de 10 a 45 s (`choose_segment`). |
+| Recortar | `api/clip_worker.py` | **Mac do autor**, via `launchd` de 15 em 15 min. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
+| Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. |
+| Mostrar | `PostArticle` (site e prévia), cartão "Vídeo" no editor | Pronto → o vídeo toma o lugar da capa (capa vira `poster`), crédito "Trecho de <título> · <canal>" com link no segundo exato. O público só vê recorte `ready`, por `CLIP_PUBLIC_FIELDS`. |
+
+- **Por que no Mac:** o YouTube bloqueia download de IP de datacenter; mesmo do IP de casa deu 429/403
+  até `--impersonate chrome` (pacote `curl_cffi`). `yt-dlp`/`curl_cffi` ficam em `requirements-worker.txt`,
+  fora do `requirements.txt` do Cloud Run.
+- **A rotina roda de uma CÓPIA, não da pasta do Drive.** O macOS não deixa processo em segundo plano ler
+  `~/Library/CloudStorage` (o launchd morreu com "Operation not permitted"); "Acesso Total ao Disco" para o
+  bash seria buraco grande demais. `scripts/install-clip-worker.sh` copia `api/blog`, `api/i18n` e
+  `api/clip_worker.py` para `~/Library/Application Support/rodrigo-matheus-recorte`, cria venv próprio e um
+  `env` (permissão 600) só com `GEMINI_API_KEY`/`GCS_BUCKET` — **as linhas do `.env` começam com `export `**,
+  o filtro precisa aceitar isso (a primeira cópia saiu com chave vazia → 403). **Mudou a rotina? Rode o
+  instalador de novo** — a cópia não se atualiza sozinha. À mão, da pasta do projeto: `./scripts/clip-worker.sh`.
+  Log: `~/Library/Logs/rodrigo-matheus-recorte.log`. `ProcessType=Standard`: com `Background` o corte de
+  40 s levou 20 min.
+- **Projeto fixo e conferido:** `clip_worker.check_project()` recusa rodar se o Firestore não for
+  `rodrigo-matheus` (o cliente sem projeto cai no padrão do gcloud — já gravou em `br51-app`).
+- **Como o trecho é escolhido:** vídeo inteiro em 240p, um quadro a cada 5 s com o tempo GRAVADO no quadro
+  (Pillow; o ffmpeg do Homebrew não tem `drawtext`), mosaicos 5×4, e o Gemini marca os tempos que mostram o
+  que o post discute — o tempo vem do quadro, nunca do modelo (assistindo pela URL ele inventou 37:05 num
+  vídeo de 23:21, e o "melhor trecho" era o Elon falando). Depois: início refinado a 1 quadro/s (a 5 s o corte
+  começou numa filmagem aérea — o PO reclamou), corte em H.264 720p com `--force-keyframes-at-cuts` (o
+  padrão vinha AV1, que LinkedIn e iPhone não tocam bem), e conferência final dos quadros pelo Gemini.
+- **A conferência barra corte SEM o assunto, não cobra detalhe** (`VERIFY_PROMPT`): a primeira versão
+  recusou o loop da sucção porque o texto falava de salto.
+- **Canal oficial primeiro** (`search_youtube(prefer=topic)`): a ABC News vinha antes do canal da Tesla, com
+  faixa de reportagem e "LIVE views" por cima do vídeo inteiro. Notícia busca pelo título em INGLÊS, só na
+  última semana e sem âncora; reflexão busca pelo tema, com a âncora "engenharia de software".
+- **Depois do corte, uma frase apresenta o vídeo** (revisão dirigida + filtro de vocabulário). Com a
+  descrição colada no pedido saiu "O vídeo do evento mostra Elon Musk apresenta o esportivo…": o pedido
+  manda escrever com as próprias palavras.
+- **Falha de rede tenta de novo; 429 nem conta tentativa.** Medido: o mesmo corte que falhou (ffmpeg 8)
+  funcionou na hora seguinte. Erro de rede → `pending` com `attempts`/`lastError`, desiste em
+  `MAX_ATTEMPTS` (3). 429 (teto do Gemini, rajada no YouTube) → `pending` sem gastar tentativa — com a
+  rotina de 15 em 15 min, contar faria o post desistir em 45 min. Falha que não é de rede (nenhum trecho
+  bom, conferência recusou) → `failed` com o motivo, na hora.
+- **Pendência conhecida (próximo passo):** a escolha pega a MAIOR sequência de quadros com o assunto, não a
+  mais relevante, e não refina o fim. Medido no Roadster: o automático pegou a pista escura e o burnout e
+  terminou na filmagem aérea, perdendo o loop e o salto sobre o caminhão (22:20–22:48), que o corte manual
+  pegou. Ideia: nota por momento no `ask_times` e refino do fim igual ao do início. Também falta mandar o
+  recorte como vídeo NATIVO ao LinkedIn (hoje vai o link do YouTube no texto).
 
 ## Git dentro do Google Drive
 
@@ -514,8 +544,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 517 testes
-cd web && npm test                                  # 399 testes
+cd api && source .venv/bin/activate && pytest      # 574 testes
+cd web && npm test                                  # 411 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

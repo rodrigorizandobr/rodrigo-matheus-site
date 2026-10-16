@@ -1,5 +1,5 @@
 import type { Lang, Post } from './types'
-import { bodyFor, coverUrl } from './types'
+import { bodyFor, clipSourceAt, clipUrl, coverUrl } from './types'
 import { abntReference, referencesOf, referencesTitle } from './abnt'
 
 /**
@@ -12,12 +12,29 @@ import { abntReference, referencesOf, referencesTitle } from './abnt'
 export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; minutes: number }) {
   const body = bodyFor(post, lang)
   const cover = coverUrl(post.image)
+  const video = clipUrl(post.clip)
   const references = referencesOf(post)
   const date = (post.publishedAt || post.scheduledFor || post.createdAt || '').slice(0, 10)
 
   return (
     <article className="max-w-[72ch] mx-auto">
-      {cover && (
+      {/* Com recorte pronto, o vídeo é o destaque e a capa vira o quadro inicial dele. */}
+      {video && post.clip && (
+        <figure className="mb-7 md:mb-8">
+          <video src={video} poster={cover || undefined} controls playsInline preload="metadata"
+                 width={post.clip.width || undefined} height={post.clip.height || undefined}
+                 className="w-full aspect-[16/9] bg-heading border border-line" />
+          <figcaption className="font-mono text-[10.5px] text-muted mt-2">
+            {lang === 'pt' ? 'Trecho de ' : 'Clip from '}
+            <a href={clipSourceAt(post.clip)} rel="noopener nofollow" target="_blank" className="hover:text-red">
+              {post.clip.title || 'YouTube'}
+            </a>
+            {post.clip.channel && <> · {post.clip.channel}</>}
+          </figcaption>
+        </figure>
+      )}
+
+      {cover && !video && (
         <figure className="mb-7 md:mb-8">
           <img src={cover} alt={post.image?.alt || post.imageAlt} loading="lazy" decoding="async"
                width={post.image?.width || undefined} height={post.image?.height || undefined}

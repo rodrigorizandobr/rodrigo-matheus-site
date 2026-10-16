@@ -34,6 +34,10 @@ HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 EDITABLE = ("alt", "credit", "sourceUrl")
 
+#: recortes de vídeo (feitos no Mac do autor, `clip_worker.py`) — mesmo bucket, mesmo
+#: esquema das imagens: nome pelo sha256, URL imutável, cache eterno
+VIDEO_PREFIX = "blog-videos"
+
 
 class InUseError(RuntimeError):
     """Imagem em uso por algum post. Apagar deixaria o post sem capa sem avisar ninguém."""
@@ -169,3 +173,37 @@ def as_cover(item: dict[str, Any] | None) -> dict[str, Any] | None:
     recorte["width"] = item.get("width", 0)
     recorte["height"] = item.get("height", 0)
     return recorte
+
+
+# ── recortes de vídeo ───────────────────────────────────────────────────────
+
+def _video_blob(digest: str):
+    return _bucket().blob(f"{VIDEO_PREFIX}/{digest}.mp4") if HASH_RE.match(digest or "") else None
+
+
+def store_video(raw: bytes) -> str | None:
+    """Guarda um MP4 pelo hash do conteúdo. Devolve o hash, ou None se não for MP4."""
+    if not raw or raw[4:8] != b"ftyp":
+        return None
+    digest = hashlib.sha256(raw).hexdigest()
+    blob = _video_blob(digest)
+    if not blob.exists():
+        blob.cache_control = "public, max-age=31536000, immutable"
+        blob.upload_from_string(raw, content_type="video/mp4")
+    return digest
+
+
+def video_size(digest: str) -> int | None:
+    blob = _video_blob(digest)
+    if blob is None or not blob.exists():
+        return None
+    blob.reload()
+    return blob.size
+
+
+def read_video(digest: str, start: int | None = None, end: int | None = None) -> bytes | None:
+    """Bytes do recorte; `start`/`end` (inclusivo, como no GCS) para servir por pedaços."""
+    blob = _video_blob(digest)
+    if blob is None or not blob.exists():
+        return None
+    return blob.download_as_bytes(start=start, end=end)

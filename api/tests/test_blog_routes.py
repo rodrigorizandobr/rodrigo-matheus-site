@@ -223,3 +223,61 @@ class TestGerarReflexao:
         store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
         res = client.post("/api/blog/admin/generate", json={"mode": "reflection", "withImage": False}, headers=AUTH)
         assert res.get_json()["post"]["image"] is None
+
+
+class TestVideoPublico:
+    """Safari do iPhone só toca vídeo se o servidor entregar por pedaços (206 + Content-Range)."""
+
+    @pytest.fixture
+    def video(self, monkeypatch):
+        from blog import media
+        dados = bytes(range(256)) * 4
+        monkeypatch.setattr(media, "video_size", lambda d: len(dados) if d == "a" * 64 else None)
+        monkeypatch.setattr(media, "read_video",
+                            lambda d, start=None, end=None: dados[(start or 0):(None if end is None else end + 1)])
+        return dados
+
+    def test_sem_range_entrega_inteiro_e_avisa_que_aceita_pedaco(self, client, video):
+        res = client.get(f"/api/blog/video/{'a' * 64}.mp4")
+        assert res.status_code == 200 and res.data == video
+        assert res.headers["Accept-Ranges"] == "bytes"
+        assert res.mimetype == "video/mp4"
+
+    def test_range_entrega_206_com_o_pedaco_certo(self, client, video):
+        res = client.get(f"/api/blog/video/{'a' * 64}.mp4", headers={"Range": "bytes=0-1"})
+        assert res.status_code == 206 and res.data == video[0:2]
+        assert res.headers["Content-Range"] == f"bytes 0-1/{len(video)}"
+
+    def test_range_aberto_vai_ate_o_fim(self, client, video):
+        res = client.get(f"/api/blog/video/{'a' * 64}.mp4", headers={"Range": "bytes=1000-"})
+        assert res.status_code == 206 and res.data == video[1000:]
+
+    def test_range_fora_do_arquivo_e_416(self, client, video):
+        res = client.get(f"/api/blog/video/{'a' * 64}.mp4", headers={"Range": "bytes=99999-"})
+        assert res.status_code == 416
+
+    def test_video_inexistente_404(self, client, video):
+        assert client.get(f"/api/blog/video/{'b' * 64}.mp4").status_code == 404
+
+
+class TestRecorteNoSitePublico:
+    PRONTO = {"status": "ready", "hash": "c" * 64, "sourceUrl": "https://youtu.be/v", "title": "Roadster Event",
+              "channel": "Tesla", "start": 1340, "end": 1368, "width": 1280, "height": 720,
+              "selectedBy": "frames", "reason": ""}
+
+    def _publicado(self, clip):
+        post = service.generate("t", now=utc(2026, 9, 14, 21))
+        store.update_post(post["id"], {"clip": clip})
+        store.publish_post(post["id"], now=utc(2026, 9, 14, 22))
+        return post
+
+    def test_recorte_pronto_aparece_so_com_o_necessario_para_tocar_e_creditar(self, client, blog, admin):
+        post = self._publicado(self.PRONTO)
+        clip = client.get(f"/api/blog/posts/{post['slug']}").get_json()["post"]["clip"]
+        assert clip == {"hash": "c" * 64, "sourceUrl": "https://youtu.be/v", "title": "Roadster Event",
+                        "channel": "Tesla", "start": 1340, "end": 1368, "width": 1280, "height": 720}
+
+    def test_recorte_pendente_ou_falho_nao_aparece(self, client, blog, admin):
+        for estado in ({"status": "pending"}, {"status": "failed", "reason": "sem trecho"}):
+            post = self._publicado(estado)
+            assert "clip" not in client.get(f"/api/blog/posts/{post['slug']}").get_json()["post"]

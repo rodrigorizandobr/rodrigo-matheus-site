@@ -1,0 +1,5 @@
+# Só da rotina de recorte do Mac (api/clip_worker.py) — o Cloud Run não usa, não entra no requirements.txt.
+-r requirements.txt
+yt-dlp
+# --impersonate chrome: sem isto o YouTube devolve 429/403 até do IP de casa
+curl_cffi

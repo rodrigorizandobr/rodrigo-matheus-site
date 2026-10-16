@@ -172,15 +172,26 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     draft["image"] = (images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
                       if with_image else None)
 
+    # Recorte de vídeo sempre que possível (decisão do PO, 2026-10-16). O servidor só ACHA o
+    # vídeo; quem corta é o Mac do autor (`clip_worker.py`), porque o YouTube bloqueia download
+    # de IP de datacenter. Notícia busca pelo título em inglês (o vídeo oficial costuma estar
+    # em inglês) e só na última semana; reflexão busca pelo tema, com âncora de domínio.
     if reflection:
-        # Só busca LINK (ver blog/videos.py) — sem resultado, a reflexão sai sem vídeo,
-        # nunca trava a geração.
-        achado = videos.search_youtube(topic)
-        if achado:
-            draft["video"] = {"title": achado.title, "url": achado.url,
-                              "thumbnail": achado.thumbnail, "channel": achado.channel}
+        achado = videos.search_youtube(topic, recent=False, anchor=True)
+    else:
+        titulo_en = ((draft.get("i18n") or {}).get("en") or {}).get("title") or topic
+        achado = videos.search_youtube(titulo_en, recent=True, anchor=False, prefer=topic)
+    if achado:
+        draft["video"] = {"title": achado.title, "url": achado.url,
+                          "thumbnail": achado.thumbnail, "channel": achado.channel}
+        draft["clip"] = {"status": "pending"}
 
     post = store.create_post(draft, now=now)
+
+    # Com recorte, fica RASCUNHO, sem agendar: o PO pede autorização ao dono do vídeo antes
+    # de publicar — nada com vídeo de terceiro vai ao ar sozinho.
+    if draft.get("clip"):
+        return post
 
     if cfg.get("auto_publish"):
         return store.publish_post(post["id"], now=now) or post

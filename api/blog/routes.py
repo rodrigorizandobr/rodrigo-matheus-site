@@ -12,6 +12,7 @@ porque `DatetimeWithNanoseconds` não é serializável e o front espera texto.
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from datetime import datetime, timezone
 from functools import wraps
@@ -82,6 +83,24 @@ def public_post(slug: str):
     res = jsonify({"post": _json(post)})
     res.headers["Cache-Control"] = "public, s-maxage=300, max-age=60"
     return res
+
+
+@bp.get("/api/blog/video/<digest>.mp4")
+def public_video(digest: str):
+    """Recorte do post, por pedaços: o Safari do iPhone só toca vídeo com 206 + Content-Range."""
+    total = media.video_size(digest)
+    if not total:
+        return jsonify({"error": "not found"}), 404
+    headers = {"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=31536000, immutable"}
+    pedido = re.match(r"bytes=(\d*)-(\d*)$", request.headers.get("Range", "").strip())
+    if not pedido:
+        return Response(media.read_video(digest), mimetype="video/mp4", headers=headers)
+    ini = int(pedido[1]) if pedido[1] else max(0, total - int(pedido[2] or 0))
+    fim = min(int(pedido[2]), total - 1) if pedido[1] and pedido[2] else total - 1
+    if ini >= total or ini > fim:
+        return Response(status=416, headers={**headers, "Content-Range": f"bytes */{total}"})
+    headers["Content-Range"] = f"bytes {ini}-{fim}/{total}"
+    return Response(media.read_video(digest, ini, fim), status=206, mimetype="video/mp4", headers=headers)
 
 
 @bp.get("/api/blog/image/<digest>.jpg")

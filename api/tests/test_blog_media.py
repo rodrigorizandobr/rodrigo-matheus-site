@@ -152,3 +152,29 @@ class TestQualidadeDaCapa:
         buf = io.BytesIO(); img.save(buf, format="JPEG")
         saida, _, _ = media._jpeg(buf.getvalue())
         assert JpegImagePlugin.get_sampling(Image.open(io.BytesIO(saida))) == 0
+
+
+MP4 = b"\x00\x00\x00\x18ftypmp42" + bytes(range(256)) * 40
+
+
+class TestVideo:
+    """O recorte é guardado como os outros arquivos nossos: nome pelo hash, cache eterno."""
+
+    def test_guarda_mp4_pelo_hash(self, env):
+        bucket, _ = env
+        digest = media.store_video(MP4)
+        assert len(digest) == 64
+        obj = bucket.objects[f"{media.VIDEO_PREFIX}/{digest}.mp4"]
+        assert obj["data"] == MP4 and obj["content_type"] == "video/mp4"
+
+    def test_o_que_nao_e_mp4_e_recusado(self, env):
+        assert media.store_video(b"isto nao e video") is None
+
+    def test_tamanho_e_pedaco(self, env):
+        digest = media.store_video(MP4)
+        assert media.video_size(digest) == len(MP4)
+        assert media.read_video(digest, 10, 19) == MP4[10:20]
+
+    def test_hash_torto_nunca_vira_caminho(self, env):
+        assert media.video_size("../segredo") is None
+        assert media.read_video("../segredo") is None

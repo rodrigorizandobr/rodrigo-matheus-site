@@ -1,4 +1,4 @@
-import type { Body, Post, PostStatus, Section } from './types'
+import type { Body, Clip, Post, PostStatus, Section } from './types'
 
 /**
  * Manipulações puras do editor. Ficam fora do componente porque é aqui que se
@@ -162,3 +162,17 @@ export const hasUnsavedChanges = (current: Pick<Post, 'i18n' | 'tags'>, saved: P
   JSON.stringify([current.i18n, current.tags]) !== JSON.stringify([saved.i18n, saved.tags])
 
 export const DISCARD_QUESTION = 'Há alterações que ainda não foram salvas. Sair e perdê-las?'
+
+const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+/** Em que pé está o recorte de vídeo — o recorte roda no Mac do autor, não no servidor. */
+export function clipStatusText(clip: Clip | null | undefined): string {
+  if (!clip?.status) return ''
+  if (clip.status === 'ready') {
+    const trecho = clip.start !== undefined && clip.end !== undefined ? `, ${mmss(clip.start)}–${mmss(clip.end)}` : ''
+    return `Recorte pronto: ${clip.channel || 'YouTube'}${trecho}.`
+  }
+  if (clip.status === 'failed') return `Recorte não deu: ${clip.reason || 'motivo não registrado'}.`
+  if (clip.attempts) return `Recorte aguardando o Mac — tentativa ${clip.attempts} falhou (${clip.lastError || 'erro'}), tenta de novo na próxima rodada.`
+  return 'Recorte aguardando o Mac (roda a cada 15 min).'
+}

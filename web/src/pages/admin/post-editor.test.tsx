@@ -164,3 +164,24 @@ describe('excluir post', () => {
     expect(screen.getByRole('button', { name: /^excluir post$/i })).toBeDisabled()
   })
 })
+
+describe('recorte de vídeo no editor', () => {
+  it('pendente avisa que espera o Mac', () => {
+    render(<PostEditor {...props({ post: post({ clip: { status: 'pending' } }) })} />)
+    expect(screen.getByText(/aguardando o Mac/i)).toBeInTheDocument()
+  })
+
+  it('pronto diz canal e trecho e leva ao vídeo original no segundo certo', () => {
+    const clip = { status: 'ready' as const, hash: 'c'.repeat(64), channel: 'Tesla', title: 'Roadster Event',
+                   sourceUrl: 'https://www.youtube.com/watch?v=qt5p-_tE8d0', start: 1340, end: 1368 }
+    render(<PostEditor {...props({ post: post({ clip }) })} />)
+    expect(screen.getByText('Recorte pronto: Tesla, 22:20–22:48.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /ver o original/i }))
+      .toHaveAttribute('href', 'https://www.youtube.com/watch?v=qt5p-_tE8d0&t=1340s')
+  })
+
+  it('post sem recorte não mostra o cartão', () => {
+    render(<PostEditor {...props()} />)
+    expect(screen.queryByText(/^Vídeo$/)).toBeNull()
+  })
+})

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords, linkedinShareQuestion, deleteQuestion, statusLabel, hasUnsavedChanges, formatDay } from './editing'
+import { addSection, removeSection, moveSection, setParagraphs, parseTags, weekdayLabels, describeSchedule, nextRunHint, sectionsToText, textToSections, toggleHeading, insertSection, countWords, linkedinShareQuestion, deleteQuestion, statusLabel, hasUnsavedChanges, formatDay, clipStatusText } from './editing'
 import type { Body } from './types'
 
 const body = (): Body => ({
@@ -265,5 +265,29 @@ describe('hasUnsavedChanges — só texto e tags contam como "não salvo"', () =
 
   it('mudar estado ou capa não é edição de texto', () => {
     expect(hasUnsavedChanges(post({ status: 'published', image: { hash: 'x' } }), post())).toBe(false)
+  })
+})
+
+describe('estado do recorte de vídeo no painel', () => {
+  it('pendente diz que espera o Mac — o recorte não roda no servidor', () => {
+    expect(clipStatusText({ status: 'pending' })).toMatch(/aguardando.*Mac/i)
+  })
+
+  it('pendente depois de erro conta a tentativa e o erro', () => {
+    expect(clipStatusText({ status: 'pending', attempts: 1, lastError: 'cut: 429' })).toMatch(/tentativa 1.*cut: 429/i)
+  })
+
+  it('pronto diz o canal e o trecho em minutos', () => {
+    expect(clipStatusText({ status: 'ready', channel: 'Tesla', start: 1340, end: 1368 }))
+      .toBe('Recorte pronto: Tesla, 22:20–22:48.')
+  })
+
+  it('falhou diz o motivo', () => {
+    expect(clipStatusText({ status: 'failed', reason: 'nenhum trecho do vídeo mostra o que o post discute' }))
+      .toMatch(/não deu: nenhum trecho/i)
+  })
+
+  it('sem recorte não diz nada', () => {
+    expect(clipStatusText(null)).toBe('')
   })
 })
