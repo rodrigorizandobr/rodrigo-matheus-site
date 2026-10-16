@@ -27,7 +27,7 @@ CONFIG_DOC = "settings"
 
 # Campos que só o painel vê.
 INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic",
-                   "linkedinEnabled", "linkedinPostedAt", "linkedinUrn")
+                   "linkedinEnabled", "linkedinPostedAt", "linkedinUrn", "videoCandidates")
 
 #: da capa, o site público vê o necessário para exibir e creditar — e nada sobre
 #: como ela foi produzida
@@ -122,6 +122,8 @@ def create_post(draft: dict[str, Any], now: datetime | None = None) -> dict[str,
         # vídeo achado no YouTube (ver blog/videos.py) e o estado do recorte feito no Mac
         "video": draft.get("video"),
         "clip": draft.get("clip"),
+        # reserva: se o vídeo não servir para o recorte, o Mac passa para o próximo
+        "videoCandidates": draft.get("videoCandidates") or [],
         "topic": draft.get("topic", ""),
         "sources": draft.get("sources") or [],
         "references": draft.get("references") or [],
@@ -146,7 +148,7 @@ def get_post(post_id: str) -> dict[str, Any] | None:
 def update_post(post_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     """Atualiza campos editáveis. Status e datas mudam pelas funções próprias."""
     editable = {k: v for k, v in (patch or {}).items()
-                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "video", "clip", "topic",
+                if k in ("i18n", "tags", "imageAlt", "imagePrompt", "image", "video", "clip", "videoCandidates", "topic",
                          "references", "linkedinEnabled")}
     if "tags" in editable:
         editable["tags"] = model.clean_tags(editable["tags"])
@@ -292,3 +294,22 @@ def last_generated_at() -> datetime | None:
         if when and (latest is None or when > latest):
             latest = when
     return latest
+
+
+# ── sinal de vida da rotina de recorte (Mac do autor) ───────────────────────
+
+CLIP_WORKER_DOC = "clip_worker"
+
+
+def clip_worker_heartbeat() -> dict[str, Any]:
+    snap = _db().collection(CONFIG).document(CLIP_WORKER_DOC).get()
+    return (snap.to_dict() or {}) if snap.exists else {}
+
+
+def touch_clip_worker(now: datetime | None = None) -> None:
+    """Toda rodada do Mac grava isto — é como o servidor sabe que a rotina está viva."""
+    _db().collection(CONFIG).document(CLIP_WORKER_DOC).set({"lastRunAt": now or _now()}, merge=True)
+
+
+def mark_clip_worker_alert(now: datetime | None = None) -> None:
+    _db().collection(CONFIG).document(CLIP_WORKER_DOC).set({"stallAlertAt": now or _now()}, merge=True)

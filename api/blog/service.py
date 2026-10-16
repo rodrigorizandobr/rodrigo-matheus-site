@@ -176,14 +176,15 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     # vídeo; quem corta é o Mac do autor (`clip_worker.py`), porque o YouTube bloqueia download
     # de IP de datacenter. Notícia busca pelo título em inglês (o vídeo oficial costuma estar
     # em inglês) e só na última semana; reflexão busca pelo tema, com âncora de domínio.
+    # Vários achados: o primeiro vira o vídeo, os outros ficam de reserva para o Mac.
     if reflection:
-        achado = videos.search_youtube(topic, recent=False, anchor=True)
+        achados = videos.search_candidates(topic, recent=False, anchor=True)
     else:
         titulo_en = ((draft.get("i18n") or {}).get("en") or {}).get("title") or topic
-        achado = videos.search_youtube(titulo_en, recent=True, anchor=False, prefer=topic)
-    if achado:
-        draft["video"] = {"title": achado.title, "url": achado.url,
-                          "thumbnail": achado.thumbnail, "channel": achado.channel}
+        achados = videos.search_candidates(titulo_en, recent=True, anchor=False, prefer=topic)
+    if achados:
+        como_dict = [{"title": a.title, "url": a.url, "thumbnail": a.thumbnail, "channel": a.channel} for a in achados]
+        draft["video"], draft["videoCandidates"] = como_dict[0], como_dict[1:]
         draft["clip"] = {"status": "pending"}
 
     post = store.create_post(draft, now=now)
@@ -301,6 +302,30 @@ def check_expiry(now: datetime | None = None) -> int | None:
     return marca
 
 
+def check_clip_worker(now: datetime | None = None) -> bool:
+    """Recorte esperando e a rotina do Mac calada: manda UM e-mail por parada.
+
+    O recorte depende do Mac ligado; sem isto, o post ficaria em rascunho esperando para
+    sempre sem ninguém saber. Quem lembra se já avisou é o documento de sinal de vida.
+    """
+    now = now or _now()
+    pendentes = [p for p in store.list_posts() if (p.get("clip") or {}).get("status") == "pending"]
+    vida = store.clip_worker_heartbeat()
+    if not model.clip_worker_stalled([p["createdAt"] for p in pendentes if p.get("createdAt")],
+                                     vida.get("lastRunAt"), vida.get("stallAlertAt"), now):
+        return False
+    titulos = "\n".join(f"- {((p.get('i18n') or {}).get('pt') or {}).get('title') or p['id']}" for p in pendentes)
+    ultima = vida.get("lastRunAt")
+    notify.send(
+        "Recorte de vídeo parado: a rotina do Mac não está rodando",
+        f"{len(pendentes)} post(s) esperando o recorte de vídeo:\n{titulos}\n\n"
+        f"A rotina do Mac rodou pela última vez em {ultima.isoformat() if ultima else 'nunca'}.\n"
+        "Confira se o Mac está ligado e acordado; para rodar à mão: ./scripts/clip-worker.sh\n"
+        "Log: ~/Library/Logs/rodrigo-matheus-recorte.log")
+    store.mark_clip_worker_alert(now)
+    return True
+
+
 def _delay_a_few_minutes() -> None:
     """Espera de verdade, de 1 a 15 min, antes de publicar, compartilhar ou gerar.
 
@@ -346,6 +371,11 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
         result["notified"] = check_expiry(now=now)
     except Exception as exc:
         result["error"] = (result["error"] + " | " if result["error"] else "") + f"aviso: {exc}"
+
+    try:
+        check_clip_worker(now=now)
+    except Exception as exc:
+        result["error"] = (result["error"] + " | " if result["error"] else "") + f"recorte: {exc}"
 
     if deve_gerar:
         try:

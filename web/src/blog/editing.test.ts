@@ -290,4 +290,9 @@ describe('estado do recorte de vídeo no painel', () => {
   it('sem recorte não diz nada', () => {
     expect(clipStatusText(null)).toBe('')
   })
+
+  it('trocando de vídeo diz qual vídeo está tentando e por que o anterior não serviu', () => {
+    const tried = [{ url: 'u1', reason: 'nenhum trecho do vídeo mostra o que o post discute', kind: 'conteudo' as const }]
+    expect(clipStatusText({ status: 'pending', tried })).toMatch(/2º vídeo.*nenhum trecho/i)
+  })
 })

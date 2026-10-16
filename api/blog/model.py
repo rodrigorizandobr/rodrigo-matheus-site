@@ -336,3 +336,20 @@ def expiry_step(days_left: int, sent: list[int] | None = None) -> int | None:
     gastas = set(sent or [])
     devidas = [m for m in expiry_marks(days_left) if m not in gastas]
     return min(devidas) if devidas else None
+
+
+#: recorte esperando há mais que isto, com a rotina do Mac calada há mais que isto → parou
+CLIP_STALL_HOURS = 2
+
+
+def clip_worker_stalled(pending_since: list[datetime], last_run: datetime | None,
+                        last_alert: datetime | None, now: datetime) -> bool:
+    """A rotina de recorte parou? Avisa UMA vez por parada (até ela rodar de novo)."""
+    limite = timedelta(hours=CLIP_STALL_HOURS)
+    if not any(now - t >= limite for t in pending_since):
+        return False
+    if last_run and now - last_run < limite:
+        return False
+    if last_alert and (last_run is None or last_alert > last_run):
+        return False
+    return True

@@ -27,7 +27,7 @@ def env(monkeypatch):
     chamadas = {"gerou": [], "capa": []}
     monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
-    monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: service.videos.VideoResult())
+    monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [])
     return chamadas
 
 
@@ -587,8 +587,8 @@ class TestVideoNaReflexao:
 
     def test_achou_video_anexa_ao_post(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
-        monkeypatch.setattr(service.videos, "search_youtube",
-                            lambda q, **k: service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal"))
+        monkeypatch.setattr(service.videos, "search_candidates",
+                            lambda q, **k: [service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal")])
         store.save_config({"reflection_topics": ["liderança"]})
         post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
         assert post["video"]["url"] == "https://youtu.be/x"
@@ -596,7 +596,7 @@ class TestVideoNaReflexao:
 
     def test_sem_video_o_post_sai_mesmo_assim(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
-        monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: service.videos.VideoResult())
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [])
         store.save_config({"reflection_topics": ["liderança"]})
         post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
         assert post.get("video") is None
@@ -604,7 +604,7 @@ class TestVideoNaReflexao:
     def test_busca_o_video_pelo_tema(self, env, monkeypatch):
         self._generate_reflection(monkeypatch)
         vistos = []
-        monkeypatch.setattr(service.videos, "search_youtube", lambda q, **k: vistos.append(q) or service.videos.VideoResult())
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: vistos.append(q) or [])
         service.generate("contratar sênior", now=utc(2026, 9, 14, 21), reflection=True)
         assert vistos == ["contratar sênior"]
 
@@ -622,8 +622,9 @@ class TestRecortePendente:
         def busca(q, **k):
             if vistos is not None:
                 vistos.append((q, k))
-            return service.videos.VideoResult(title="Roadster Event", url="https://youtu.be/v", channel="Tesla")
-        monkeypatch.setattr(service.videos, "search_youtube", busca)
+            return [service.videos.VideoResult(title="Roadster Event", url="https://youtu.be/v", channel="Tesla"),
+                    service.videos.VideoResult(title="Roadster Reaction", url="https://youtu.be/w", channel="Outro")]
+        monkeypatch.setattr(service.videos, "search_candidates", busca)
 
     def test_noticia_tambem_busca_video_pelo_titulo_em_ingles_recente_e_sem_ancora(self, env, monkeypatch):
         monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho_en("Tesla puts rocket thrusters on a car"))
@@ -855,3 +856,75 @@ class TestRecorteNoLinkedIn:
         self._post_com_recorte({"status": "pending"})
         service.share_next(now=utc(2026, 9, 15, 12))
         assert enviados[0]["video"] is None and "https://youtu.be/x" in enviados[0]["texto"]
+
+
+class TestCandidatosDeVideo:
+    """Se o primeiro vídeo não servir, o Mac passa para o próximo sem nova busca."""
+
+    def test_guarda_os_outros_achados_como_reserva(self, env, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [
+            service.videos.VideoResult(title=f"V{i}", url=f"https://youtu.be/{i}", channel="C") for i in range(5)])
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        assert post["video"]["url"] == "https://youtu.be/0"
+        assert [c["url"] for c in post["videoCandidates"]] == [f"https://youtu.be/{i}" for i in range(1, 5)]
+
+    def test_reserva_nao_vai_para_o_site_publico(self, env, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [
+            service.videos.VideoResult(title="V", url="https://youtu.be/a", channel="C"),
+            service.videos.VideoResult(title="W", url="https://youtu.be/b", channel="C")])
+        post = service.generate("tesla", now=utc(2026, 9, 14, 21))
+        store.publish_post(post["id"], now=utc(2026, 9, 14, 22))
+        assert "videoCandidates" not in store.get_public_post(post["slug"])
+
+
+class TestMacParado:
+    """Recorte esperando e a rotina do Mac sem rodar: avisa por e-mail, uma vez por parada."""
+
+    def _pendente(self, now):
+        return store.create_post({"slugBase": "x", "tags": [], "i18n": {"pt": {"title": "Tesla", "excerpt": "e", "sections": []},
+                                  "en": {"title": "Tesla", "excerpt": "e", "sections": []}},
+                                  "video": {"url": "https://youtu.be/v"}, "clip": {"status": "pending"}}, now=now)
+
+    def _emails(self, monkeypatch):
+        enviados = []
+        monkeypatch.setattr(service.notify, "send", lambda assunto, corpo: enviados.append((assunto, corpo)) or True)
+        return enviados
+
+    def test_avisa_quando_o_recorte_espera_e_o_mac_nao_roda(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        self._pendente(utc(2026, 10, 16, 8))
+        assert service.check_clip_worker(now=utc(2026, 10, 16, 12)) is True
+        assert len(enviados) == 1 and "Mac" in enviados[0][0] and "Tesla" in enviados[0][1]
+
+    def test_avisa_uma_vez_so_por_parada(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        self._pendente(utc(2026, 10, 16, 8))
+        service.check_clip_worker(now=utc(2026, 10, 16, 12))
+        service.check_clip_worker(now=utc(2026, 10, 16, 13))
+        assert len(enviados) == 1
+
+    def test_mac_rodando_nao_avisa(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        self._pendente(utc(2026, 10, 16, 8))
+        store.touch_clip_worker(now=utc(2026, 10, 16, 11))
+        assert service.check_clip_worker(now=utc(2026, 10, 16, 12)) is False and not enviados
+
+    def test_mac_voltou_e_parou_de_novo_avisa_de_novo(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        self._pendente(utc(2026, 10, 16, 8))
+        service.check_clip_worker(now=utc(2026, 10, 16, 12))
+        store.touch_clip_worker(now=utc(2026, 10, 16, 13))
+        service.check_clip_worker(now=utc(2026, 10, 16, 18))
+        assert len(enviados) == 2
+
+    def test_recorte_novo_ainda_nao_e_parada(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        self._pendente(utc(2026, 10, 16, 11))
+        assert service.check_clip_worker(now=utc(2026, 10, 16, 12)) is False and not enviados
+
+    def test_a_batida_do_agendador_confere(self, env, monkeypatch):
+        enviados = self._emails(monkeypatch)
+        store.save_config({"generate_weekdays": []})
+        self._pendente(utc(2026, 10, 16, 8))
+        service.tick(now=utc(2026, 10, 16, 12))
+        assert len(enviados) == 1

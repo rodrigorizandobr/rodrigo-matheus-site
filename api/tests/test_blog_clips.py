@@ -93,3 +93,23 @@ class TestEscolhaPorNota:
 
     def test_sem_nota_continua_o_mais_longo(self):
         assert clips.choose_segment([(10, 25), (100, 140)], scores=None) == (100, 140)
+
+
+class TestJanelasEmOrdem:
+    """A conferência recusou o melhor trecho? Tenta o segundo antes de trocar de vídeo."""
+
+    def test_devolve_as_janelas_da_melhor_para_a_pior_sem_sobreposicao(self):
+        notas = {t: 3 for t in range(300, 325, 5)}
+        notas.update({t: 1 for t in range(100, 130, 5)})
+        janelas = clips.rank_segments(clips.group_segments(list(notas)), scores=notas)
+        assert janelas[0] == (300, 325)
+        assert janelas[1][0] >= 100 and janelas[1][1] <= 135
+        assert len(janelas) == 2
+
+    def test_choose_segment_e_a_primeira_da_lista(self):
+        notas = {t: 2 for t in range(100, 160, 5)}
+        trechos = clips.group_segments(list(notas))
+        assert clips.choose_segment(trechos, scores=notas) == clips.rank_segments(trechos, scores=notas)[0]
+
+    def test_nada_aproveitavel_devolve_vazio(self):
+        assert clips.rank_segments([(10, 15)]) == []

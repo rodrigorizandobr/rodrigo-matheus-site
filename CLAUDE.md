@@ -355,7 +355,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 | Peça | Onde | Papel |
 |---|---|---|
 | Achar o vídeo | `service._save_generated` → `videos.search_youtube` | Servidor. Todo post busca; achou → `video` + `clip: {status: pending}` e o post fica **rascunho, sem agendar**, mesmo com "publicar sem revisão". |
-| Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), o melhor de 10 a 45 s (`choose_segment`). |
+| Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), janelas de 10 a 45 s da melhor para a pior (`rank_segments`). |
 | Recortar | `api/clip_worker.py` | **Mac do autor**, via `launchd` de 15 em 15 min. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
 | Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. |
 | Mostrar | `PostArticle` (site e prévia), cartão "Vídeo" no editor | Pronto → o vídeo toma o lugar da capa (capa vira `poster`), crédito "Trecho de <título> · <canal>" com link no segundo exato. O público só vê recorte `ready`, por `CLIP_PUBLIC_FIELDS`. |
@@ -398,11 +398,33 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 - **Depois do corte, uma frase apresenta o vídeo** (revisão dirigida + filtro de vocabulário). Com a
   descrição colada no pedido saiu "O vídeo do evento mostra Elon Musk apresenta o esportivo…": o pedido
   manda escrever com as próprias palavras.
-- **Falha de rede tenta de novo; 429 nem conta tentativa.** Medido: o mesmo corte que falhou (ffmpeg 8)
-  funcionou na hora seguinte. Erro de rede → `pending` com `attempts`/`lastError`, desiste em
-  `MAX_ATTEMPTS` (3). 429 (teto do Gemini, rajada no YouTube) → `pending` sem gastar tentativa — com a
-  rotina de 15 em 15 min, contar faria o post desistir em 45 min. Falha que não é de rede (nenhum trecho
-  bom, conferência recusou) → `failed` com o motivo, na hora.
+- **O recorte só desiste depois de esgotar os caminhos, e avisa por e-mail** (pedido do PO, 2026-10-16:
+  "tenta mais vezes, pega outro vídeo, tenta de outro jeito… e aviso por e-mail caso nada dê certo").
+  A escada, em `clip_worker.process`:
+  1. **Outro modo de baixar, na mesma rodada** (`ESTRATEGIAS`: imitar Chrome → Safari → Chrome com o yt-dlp
+     ATUALIZADO na hora → Edge por IPv4), pausa de 5/10/20 s entre eles. Medido: os clientes `web_safari`,
+     `mweb`, `web_embedded` e `tv` do YouTube não entregam o H.264 do corte — testar um modo novo com o
+     formato do `cut` antes de pôr na lista. Todos falharam → `pending` e tenta na próxima rodada (15 min),
+     até `MAX_ATTEMPTS` (5) rodadas.
+  2. **Outra janela do mesmo vídeo**: a conferência recusou → a segunda melhor (`clips.rank_segments`,
+     `WINDOWS_TO_TRY`).
+  3. **Outro vídeo**: o servidor guarda até 5 achados (`videoCandidates`, interno, nunca público); vídeo sem
+     o assunto, ou com download esgotado, passa para o próximo NA MESMA rodada (até `VIDEOS_PER_RUN`).
+  4. **Busca nova** quando a reserva acaba (`Ferramentas.search_more`: título em português, tema, título em
+     inglês sem o recorte da semana), sem repetir vídeo. Teto: `MAX_VIDEOS` (6) por post.
+  5. **Desistiu → e-mail** "Recorte não deu" com cada vídeo tentado e o motivo, e o link do editor. O post só
+     guarda link de vídeo se algum caiu por REDE (esse mostrava o assunto); caído por conteúdo, link seria
+     pior que nada. `clip.tried` guarda a trilha; o editor mostra "tentando o 2º vídeo…".
+  - **429 continua sem gastar tentativa** (teto do Gemini, rajada no YouTube): pára a rodada e espera.
+  - **Recorte pronto também manda e-mail**, com canal e link do original no segundo exato — o post espera a
+    autorização do dono do vídeo, e o e-mail já leva o que é preciso para pedir.
+  - **Mac parado → e-mail do SERVIDOR** (`service.check_clip_worker`, na batida de hora em hora): toda rodada
+    do Mac grava `blog_config/clip_worker.lastRunAt`; recorte pendente há 2 h+ com o Mac calado há 2 h+
+    (`model.clip_worker_stalled`) → UM e-mail por parada (`stallAlertAt`, que só rearma quando o Mac volta).
+  - O Mac manda e-mail pelo mesmo SES do servidor: o instalador copia `AWS_*`, `ALERT_FROM`, `SERPER_API_KEY`
+    e o destinatário (padrão do `deploy.sh`, `BLOG_ADMIN_EMAILS`). Verificado com um e-mail de teste real.
+  - `process` não mexe em post que não está `pending` — um teste pegou a rotina "recortando" um post já
+    desistido, sem vídeo.
 - **No LinkedIn, o recorte vai como vídeo NATIVO** (pedido do PO, 2026-10-16: "quero o vídeo no LinkedIn e
   não o link"; `linkedin.upload_video`, `TestVideoNativo`, `TestRecorteNoLinkedIn`). Assets API com a receita
   `feedshare-video` → `PUT` do MP4 → espera o asset ficar `AVAILABLE` (até `VIDEO_WAIT_SECONDS`, 180 s;
@@ -556,8 +578,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 599 testes
-cd web && npm test                                  # 430 testes
+cd api && source .venv/bin/activate && pytest      # 624 testes
+cd web && npm test                                  # 431 testes
 ```
 
 **No `web/`, WebGL não roda no jsdom.** Os testes cobrem lógica pura (`character`, `repos`,

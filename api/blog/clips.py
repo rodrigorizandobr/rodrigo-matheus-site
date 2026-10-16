@@ -38,28 +38,38 @@ def _window_score(inicio: int, fim: int, scores: dict[int, int]) -> int:
     return sum(n for t, n in scores.items() if inicio <= t < fim)
 
 
-def choose_segment(segments: list[tuple[int, int]], min_len: int = MIN_CLIP,
-                   max_len: int = MAX_CLIP, scores: dict[int, int] | None = None) -> tuple[int, int] | None:
-    """O melhor trecho, até `max_len`; curto demais → None.
+def rank_segments(segments: list[tuple[int, int]], min_len: int = MIN_CLIP,
+                  max_len: int = MAX_CLIP, scores: dict[int, int] | None = None) -> list[tuple[int, int]]:
+    """Janelas de até `max_len`, da melhor para a pior, sem sobreposição; curtas demais saem.
 
-    Sem nota, vence o mais longo. Com nota, vence a janela que SOMA mais nota — medido no
-    Roadster: o mais longo era o carro só passando e terminava na filmagem aérea, e o loop e o
-    salto (o que o post discute) eram um trecho mais curto. Empate fica com o mais longo.
+    Sem nota, vence a mais longa. Com nota, vence a que SOMA mais nota — medido no Roadster: o
+    trecho mais longo era o carro só passando, e o loop e o salto eram um trecho mais curto.
+    Empate fica com a mais longa. A lista existe para a conferência: recusou a primeira, tenta
+    a segunda antes de trocar de vídeo.
     """
     candidatos = []
     for inicio, fim in segments:
         if fim - inicio < min_len:
             continue
-        # janelas de até max_len começando em cada quadro marcado do trecho
+        # janelas começando em cada quadro marcado do trecho
         partidas = sorted(t for t in (scores or {}) if inicio <= t < fim) or [inicio]
         for p in partidas:
             j_fim = min(fim, p + max_len)
             if j_fim - p >= min_len:
                 nota = _window_score(p, j_fim, scores) if scores else 0
                 candidatos.append((nota, j_fim - p, -p, (p, j_fim)))
-    if not candidatos:
-        return None
-    return max(candidatos)[3]
+    escolhidas: list[tuple[int, int]] = []
+    for *_, (p, f) in sorted(candidatos, reverse=True):
+        if all(f <= a or p >= b for a, b in escolhidas):
+            escolhidas.append((p, f))
+    return escolhidas
+
+
+def choose_segment(segments: list[tuple[int, int]], min_len: int = MIN_CLIP,
+                   max_len: int = MAX_CLIP, scores: dict[int, int] | None = None) -> tuple[int, int] | None:
+    """A melhor janela de `rank_segments`; nada aproveitável → None."""
+    janelas = rank_segments(segments, min_len, max_len, scores)
+    return janelas[0] if janelas else None
 
 
 def parse_scores(text: str, duration: int | None = None) -> dict[int, int]:

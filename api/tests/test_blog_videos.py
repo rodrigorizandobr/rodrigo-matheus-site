@@ -129,3 +129,26 @@ class TestCanalOficialPrimeiro:
             {"title": "B", "link": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "channel": "OPENAI"},
         ])
         assert videos.search_youtube("x", prefer="robô de IA da OpenAI").channel == "OPENAI"
+
+
+class TestVariosCandidatos:
+    def _itens(self):
+        return _resposta([
+            {"title": "Reação", "link": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "channel": "Canal Qualquer"},
+            {"title": "Fora", "link": "https://vimeo.com/1", "channel": "X"},
+            {"title": "Oficial", "link": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "channel": "Tesla"},
+            {"title": "Outro", "link": "https://youtu.be/ccccccccccc", "channel": "Y"},
+        ])
+
+    def test_devolve_so_youtube_com_o_oficial_primeiro(self, fake):
+        fake.payload = self._itens()
+        achados = videos.search_candidates("roadster", prefer="tesla")
+        assert [a.title for a in achados] == ["Oficial", "Reação", "Outro"]
+
+    def test_limita_a_quantidade(self, fake):
+        fake.payload = self._itens()
+        assert len(videos.search_candidates("roadster", limit=2)) == 2
+
+    def test_search_youtube_continua_devolvendo_o_primeiro(self, fake):
+        fake.payload = self._itens()
+        assert videos.search_youtube("roadster", prefer="tesla").title == "Oficial"

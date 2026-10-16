@@ -14,20 +14,45 @@ def utc(*a):
     return datetime(*a, tzinfo=timezone.utc)
 
 
+A = "https://www.youtube.com/watch?v=AAAAAAAAAAA"
+B = "https://www.youtube.com/watch?v=BBBBBBBBBBB"
+C = "https://www.youtube.com/watch?v=CCCCCCCCCCC"
+
+
 class Ferramentas:
-    """Faz de conta: o vídeo tem 1400 s e o assunto aparece de 1340 a 1365."""
+    """Faz de conta: o vídeo tem 1400 s e o assunto aparece de 1340 a 1365.
+
+    `explode_em` + `explode_vezes`: a etapa falha (como rede) nas primeiras N vezes (None = sempre).
+    `ruins`: vídeos sem nenhum quadro com o assunto. `confere`: bool, ou lista (uma resposta por corte).
+    `achados`: o que a busca nova devolve quando a reserva acaba.
+    """
+
+    estrategias = 4
 
     def __init__(self, tempos="[1340, 1345, 1350, 1355, 1360, 1365]", confere=True, janela=(1342, 1370),
-                 explode_em=None):
-        self.tempos, self.confere, self.janela, self.explode_em = tempos, confere, janela, explode_em
-        self.regioes = []
-        self.cortes = []
+                 explode_em=None, explode_vezes=None, ruins=(), achados=()):
+        self.tempos, self.confere, self.janela = tempos, confere, janela
+        self.explode_em, self.explode_vezes, self.explosoes = explode_em, explode_vezes, 0
+        self.ruins, self.achados = ruins, list(achados)
+        self.regioes, self.cortes, self.usadas, self.pausas, self.buscas, self.urls = [], [], [], 0, [], []
 
     def _talvez_explodir(self, etapa):
-        if self.explode_em == etapa:
+        if self.explode_em == etapa and (self.explode_vezes is None or self.explosoes < self.explode_vezes):
+            self.explosoes += 1
             raise RuntimeError(f"falhou em {etapa}")
 
+    def use_strategy(self, i):
+        self.usadas.append(i)
+
+    def pause(self, i):
+        self.pausas += 1
+
+    def search_more(self, post, tried):
+        self.buscas.append(sorted(tried))
+        return self.achados.pop(0) if self.achados else []
+
     def duration(self, url):
+        self.urls.append(url)
         self._talvez_explodir("duration")
         return 1400
 
@@ -36,6 +61,8 @@ class Ferramentas:
         return [(t, b"jpg") for t in range(0, 1400, step)]
 
     def ask_times(self, frames, post_text, duration):
+        if self.urls and self.urls[-1] in self.ruins:
+            return '{"tempos": []}'
         return '{"tempos": %s}' % self.tempos
 
     def refine_window(self, url, start, end, post_text):
@@ -48,7 +75,8 @@ class Ferramentas:
         return MP4, 1280, 720
 
     def verify(self, mp4, post_text):
-        return self.confere, "o carro andando grudado na parede de um loop e pulando sobre um caminhão"
+        ok = self.confere.pop(0) if isinstance(self.confere, list) else self.confere
+        return ok, "o carro andando grudado na parede de um loop e pulando sobre um caminhão"
 
 
 @pytest.fixture
@@ -65,16 +93,19 @@ def env(monkeypatch):
         return {"i18n": {"pt": novo, "en": post["i18n"]["en"]}, "tags": post.get("tags", [])}
 
     monkeypatch.setattr(service.gemini, "revise_post", revisa)
-    return {"bucket": bucket, "revisoes": revisoes}
+    emails = []
+    monkeypatch.setattr(clip_worker.notify, "send", lambda assunto, corpo: emails.append((assunto, corpo)) or True)
+    return {"bucket": bucket, "revisoes": revisoes, "emails": emails}
 
 
-def _post_pendente(clip=None, video_url="https://www.youtube.com/watch?v=qt5p-_tE8d0&xstg=lixo"):
+def _post_pendente(clip=None, video_url="https://www.youtube.com/watch?v=qt5p-_tE8d0&xstg=lixo", reserva=()):
     corpo = {"title": "Tesla bota foguete em carro", "excerpt": "e",
              "sections": [{"heading": "", "paragraphs": ["A sucção cola o carro no chão."]}]}
     return store.create_post({
         "slugBase": "tesla", "tags": ["tesla"], "i18n": {"pt": corpo, "en": corpo},
         "video": {"url": video_url, "title": "Roadster Event", "channel": "Tesla"},
         "clip": clip if clip is not None else {"status": "pending"},
+        "videoCandidates": [{"url": u, "title": f"Reserva {u[-3:]}", "channel": "Outro"} for u in reserva],
     }, now=utc(2026, 10, 16, 10))
 
 
@@ -145,7 +176,7 @@ class TestRecorte:
         clip = store.get_post(post["id"])["clip"]
         assert clip["status"] == "pending" and clip["attempts"] == 1 and etapa in clip["lastError"]
 
-    def test_desiste_depois_de_tres_tentativas_com_o_motivo(self, env):
+    def test_sem_reserva_desiste_depois_das_rodadas_com_o_motivo(self, env):
         post = _post_pendente()
         for _ in range(clip_worker.MAX_ATTEMPTS):
             clip_worker.process(store.get_post(post["id"]), Ferramentas(explode_em="cut"))
@@ -252,3 +283,98 @@ class TestNotaNaEscolha:
         (inicio, fim), = ferramentas.cortes
         assert inicio >= 1335 and fim <= 1375
 
+
+
+class TestOutroJeitoDeBaixar:
+    """Falhou o download? Na mesma rodada tenta outro modo de acesso, com uma pausa entre eles."""
+
+    def test_falha_uma_vez_e_o_proximo_modo_resolve_na_mesma_rodada(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(explode_em="cut", explode_vezes=1)
+        clip_worker.process(post, ferramentas)
+        assert store.get_post(post["id"])["clip"]["status"] == "ready"
+        assert ferramentas.usadas == [0, 1] and ferramentas.pausas == 1
+
+    def test_todos_os_modos_falhando_fica_para_a_proxima_rodada(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(explode_em="cut")
+        clip_worker.process(post, ferramentas)
+        clip = store.get_post(post["id"])["clip"]
+        assert ferramentas.usadas == [0, 1, 2, 3]
+        assert clip["status"] == "pending" and clip["attempts"] == 1 and clip["lastTriedAt"]
+
+    def test_esgotadas_as_rodadas_passa_para_o_proximo_video(self, env):
+        post = _post_pendente(reserva=[B])
+        for _ in range(clip_worker.MAX_ATTEMPTS):
+            clip_worker.process(store.get_post(post["id"]), Ferramentas(explode_em="cut"))
+        gravado = store.get_post(post["id"])
+        assert gravado["video"]["url"] == B
+        assert gravado["clip"]["tried"][0]["kind"] == "rede"
+
+
+class TestOutroTrecho:
+    def test_conferencia_recusou_o_melhor_trecho_tenta_o_segundo(self, env):
+        tempos = "[" + ", ".join(str(t) for t in [*range(100, 130, 5), *range(1340, 1370, 5)]) + "]"
+        post = _post_pendente()
+        ferramentas = Ferramentas(tempos=tempos, confere=[False, True], janela=None)
+        clip_worker.process(post, ferramentas)
+        assert len(ferramentas.cortes) == 2
+        assert store.get_post(post["id"])["clip"]["status"] == "ready"
+
+
+class TestOutroVideo:
+    def test_video_sem_o_assunto_passa_para_a_reserva_na_mesma_rodada(self, env):
+        post = _post_pendente(video_url=A, reserva=[B])
+        clip_worker.process(post, Ferramentas(ruins={A}))
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "ready" and gravado["video"]["url"] == B
+        assert gravado["clip"]["sourceUrl"] == B
+        assert gravado["clip"]["tried"][0]["url"] == A and "nenhum trecho" in gravado["clip"]["tried"][0]["reason"]
+
+    def test_reserva_esgotada_busca_de_novo_sem_repetir_video(self, env):
+        post = _post_pendente(video_url=A, reserva=[B])
+        ferramentas = Ferramentas(ruins={A, B}, achados=[[{"url": B, "title": "repetido"}, {"url": C, "title": "Novo", "channel": "Z"}]])
+        clip_worker.process(post, ferramentas)
+        gravado = store.get_post(post["id"])
+        assert gravado["video"]["url"] == C and gravado["clip"]["status"] == "ready"
+        assert ferramentas.buscas == [sorted([A, B])]
+
+    def test_nada_deu_certo_marca_falha_e_manda_email(self, env):
+        post = _post_pendente(video_url=A, reserva=[B])
+        clip_worker.process(post, Ferramentas(ruins={A, B}))
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "failed" and "2 vídeos" in gravado["clip"]["reason"]
+        (assunto, corpo), = env["emails"]
+        assert "Recorte não deu" in assunto
+        assert A in corpo and B in corpo and f"/admin/editar/{post['id']}" in corpo
+
+    def test_todos_sem_o_assunto_o_post_fica_sem_video(self, env):
+        # link de um vídeo que não mostra o assunto seria pior que nenhum
+        post = _post_pendente(video_url=A)
+        clip_worker.process(post, Ferramentas(ruins={A}))
+        assert store.get_post(post["id"]).get("video") is None
+
+    def test_para_no_limite_de_videos(self, env):
+        urls = [f"https://www.youtube.com/watch?v={str(i) * 11}" for i in range(1, 10)]
+        post = _post_pendente(video_url=A)
+        ferramentas = Ferramentas(ruins={A, *urls}, achados=[[{"url": u}] for u in urls])
+        for _ in range(5):
+            clip_worker.process(store.get_post(post["id"]), ferramentas)
+        clip = store.get_post(post["id"])["clip"]
+        assert clip["status"] == "failed" and len(clip["tried"]) == clip_worker.MAX_VIDEOS
+
+
+class TestEmailDeRecortePronto:
+    def test_avisa_com_o_canal_e_o_link_do_original_para_pedir_autorizacao(self, env):
+        post = _post_pendente()
+        clip_worker.process(post, Ferramentas())
+        (assunto, corpo), = env["emails"]
+        assert "Recorte pronto" in assunto
+        assert "Tesla" in corpo and "youtube.com/watch?v=qt5p-_tE8d0" in corpo
+        assert f"/admin/editar/{post['id']}" in corpo
+
+
+class TestSinalDeVida:
+    def test_toda_rodada_marca_que_o_mac_esta_rodando(self, env):
+        clip_worker.run_once(Ferramentas(), limit=1)
+        assert store.clip_worker_heartbeat().get("lastRunAt")

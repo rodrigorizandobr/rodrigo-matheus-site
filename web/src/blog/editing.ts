@@ -173,6 +173,10 @@ export function clipStatusText(clip: Clip | null | undefined): string {
     return `Recorte pronto: ${clip.channel || 'YouTube'}${trecho}.`
   }
   if (clip.status === 'failed') return `Recorte não deu: ${clip.reason || 'motivo não registrado'}.`
+  const tried = clip.tried ?? []
+  if (tried.length && !clip.attempts) {
+    return `Recorte aguardando o Mac — tentando o ${tried.length + 1}º vídeo (o anterior não serviu: ${tried[tried.length - 1].reason}).`
+  }
   if (clip.attempts) return `Recorte aguardando o Mac — tentativa ${clip.attempts} falhou (${clip.lastError || 'erro'}), tenta de novo na próxima rodada.`
   return 'Recorte aguardando o Mac (roda a cada 15 min).'
 }

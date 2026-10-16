@@ -46,14 +46,18 @@ def _official(channel: str, prefer: str) -> bool:
     return any(len(p) >= 4 and p in canal for p in _plain(prefer).split())
 
 
-def search_youtube(query: str, recent: bool = False, anchor: bool = True, prefer: str = "") -> VideoResult:
-    """Um vídeo real do YouTube sobre `query`, ou um resultado vazio.
+def search_candidates(query: str, recent: bool = False, anchor: bool = True, prefer: str = "",
+                      limit: int = 5) -> list[VideoResult]:
+    """Vídeos reais do YouTube sobre `query`, o canal oficial primeiro — ou lista vazia.
+
+    Vários de propósito: se o primeiro não servir para o recorte (sem o assunto, download que
+    não sai), o Mac passa para o próximo sem gastar outra busca.
 
     Filtra pro YouTube no próprio termo de busca (`site:youtube.com`) e de novo no
     link devolvido — o Serper às vezes mistura resultado de outro site na mesma lista.
     """
     if not SERPER_KEY:
-        return VideoResult()
+        return []
     # Âncora de domínio (`anchor`): medido que "arquitetura" sozinho trazia vídeo de construção
     # civil, não de software — tema de REFLEXÃO é curto e vive de palavra ambígua. Notícia não
     # leva âncora: "engenharia de software" afastaria o vídeo do evento da Tesla. `recent` pede
@@ -69,20 +73,22 @@ def search_youtube(query: str, recent: bool = False, anchor: bool = True, prefer
             timeout=SEARCH_TIMEOUT,
         )
         if not res.ok:
-            return VideoResult()
+            return []
         itens: list[dict[str, Any]] = (res.json() or {}).get("videos") or []
     except Exception:
-        return VideoResult()
+        return []
 
     candidatos = [i for i in itens if _e_do_youtube((i or {}).get("link") or "")]
-    if not candidatos:
-        return VideoResult()
     # Canal oficial primeiro: medido que a ABC News vinha antes do canal da Tesla, com faixa de
     # reportagem e "LIVE views" por cima do vídeo inteiro — a fonte original é mais limpa.
-    item = next((i for i in candidatos if prefer and _official(i.get("channel") or "", prefer)), candidatos[0])
-    return VideoResult(
-        title=(item.get("title") or "").strip(),
-        url=item.get("link") or "",
-        thumbnail=item.get("imageUrl") or "",
-        channel=item.get("channel") or "",
-    )
+    oficiais = [i for i in candidatos if prefer and _official(i.get("channel") or "", prefer)]
+    ordem = oficiais + [i for i in candidatos if i not in oficiais]
+    return [VideoResult(title=(i.get("title") or "").strip(), url=i.get("link") or "",
+                        thumbnail=i.get("imageUrl") or "", channel=i.get("channel") or "")
+            for i in ordem[:limit]]
+
+
+def search_youtube(query: str, recent: bool = False, anchor: bool = True, prefer: str = "") -> VideoResult:
+    """O melhor vídeo de `search_candidates`, ou um resultado vazio."""
+    achados = search_candidates(query, recent=recent, anchor=anchor, prefer=prefer, limit=1)
+    return achados[0] if achados else VideoResult()

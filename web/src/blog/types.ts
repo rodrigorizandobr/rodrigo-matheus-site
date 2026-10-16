@@ -34,6 +34,8 @@ export type Clip = {
   reason?: string
   attempts?: number
   lastError?: string
+  /** vídeos que não serviram, em ordem — o Mac passa para o próximo sozinho */
+  tried?: { url: string; title?: string; channel?: string; reason: string; kind: 'rede' | 'conteudo' }[]
 }
 
 /** Fonte usada pela pesquisa, com o que a ABNT pede para citar. */
