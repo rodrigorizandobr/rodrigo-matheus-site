@@ -493,10 +493,15 @@ vazio = escrever (`claude.TEXT_MODEL`), preenchido = conferir/olhar imagem (`cla
 `GeminiError`, que as rotas já tratam. A decisão por imagem da rotina do Mac (`Ferramentas._gemini`) passa pelo
 mesmo caminho (`gemini.FREE_JSON` = JSON livre). **Capa por IA continua no Gemini** (`images.py`): o Claude não gera imagem.
 
-- **Chave `sk-ant-usr-…` não tem workspace** e a API recusa com 400 ("not scoped to a workspace"): é preciso
-  `ANTHROPIC_WORKSPACE_ID` (cabeçalho `anthropic-workspace-id`) ou uma chave criada dentro de um workspace.
-  Enquanto isso o `.env` fica com `BLOG_LLM=gemini` — **não tire sem antes ver o Claude responder**, senão o
-  deploy troca o motor para um que devolve 400 e a geração para.
+- **Chave `sk-ant-usr-…` não tem workspace** e a API recusa com 400 ("not scoped to a workspace"): por isso
+  `ANTHROPIC_WORKSPACE_ID` (cabeçalho `anthropic-workspace-id`) vive no `.env` ao lado da chave. Em produção
+  desde 2026-10-17; para voltar ao Gemini sem mexer em código: `BLOG_LLM=gemini` no `.env` + `./deploy.sh`.
+- **O Claude atual recusa `temperature`** (400 "is deprecated for this model") — só o teste ao vivo mostrou,
+  o simulado não pegaria. `claude.complete` não manda o campo; `gemini._call` ainda recebe `temperature` por
+  causa do caminho do Gemini. Mudou de modelo? Faça uma chamada real antes de confiar nos fakes.
+- **Primeiro post medido (robô Arcanjo, 22 s):** estrutura e schema certos, mas parágrafos de 30 a 62 palavras
+  (pedido: 40 a 50) e uma memória inventada ("Eu já geri sistema crítico…", verbo que a lista não tinha) —
+  `MEMORY_CLAIMS` ganhou geri/gerenciei/coordenei/conduzi/construí/operei. Visão e JSON livre conferidos ao vivo.
 - Os prompts foram afinados e medidos no flash-lite. Ao virar para o Claude, gere 3 posts de verdade e leia
   (tom, tamanho por parágrafo, clichês) antes de confiar.
 - `conftest.isolate` zera `claude.API_KEY`: quem rodou `source .env` não manda teste de Gemini para o Claude.

@@ -213,12 +213,13 @@ def provider() -> str:
 def _call(prompt: str, system: str, schema: dict[str, Any] | None = None, model_name: str | None = None,
           temperature: float = 0.9, images: list[bytes] | None = None, timeout: int | None = None) -> dict[str, Any]:
     """Uma chamada de texto/visão que devolve JSON. `model_name` vazio = o modelo de escrever; preenchido =
-    o de conferir/olhar imagem (no Claude o nome do modelo do Gemini não vale, só o papel dele)."""
+    o de conferir/olhar imagem (no Claude o nome do modelo do Gemini não vale, só o papel dele).
+    O Claude não recebe `temperature`: os modelos atuais recusam o campo com 400."""
     if provider() == "anthropic":
         try:
             return claude.complete(prompt, system, schema or POST_SCHEMA,
                                    claude.TEXT_MODEL if model_name is None else claude.CHECK_MODEL,
-                                   temperature, images=images, timeout=timeout)
+                                   images=images, timeout=timeout)
         except claude.ClaudeError as exc:  # as rotas e o agendador já tratam GeminiError
             raise GeminiError(str(exc)) from exc
 

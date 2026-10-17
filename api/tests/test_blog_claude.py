@@ -30,7 +30,7 @@ def fake(monkeypatch, chave):
 
 class TestPedidoAoClaude:
     def test_fala_com_a_api_de_mensagens_e_manda_a_chave(self, fake):
-        claude.complete("oi", "sistema", {"type": "OBJECT", "properties": {}}, "claude-x", 0.5)
+        claude.complete("oi", "sistema", {"type": "OBJECT", "properties": {}}, "claude-x")
         chamada = fake.calls[0]
         assert chamada["url"] == "https://api.anthropic.com/v1/messages"
         assert chamada["headers"]["x-api-key"] == "chave-claude"
@@ -39,20 +39,20 @@ class TestPedidoAoClaude:
 
     def test_chave_de_usuario_leva_o_workspace(self, fake, monkeypatch):
         monkeypatch.setattr(claude, "WORKSPACE_ID", "wrkspc_123")
-        claude.complete("oi", "sistema", {"type": "OBJECT"}, "claude-x", 0.5)
+        claude.complete("oi", "sistema", {"type": "OBJECT"}, "claude-x")
         assert fake.calls[0]["headers"]["anthropic-workspace-id"] == "wrkspc_123"
 
     def test_saida_estruturada_vem_de_ferramenta_obrigatoria(self, fake):
-        claude.complete("oi", "sistema", gemini.POST_SCHEMA, "claude-x", 0.9)
+        claude.complete("oi", "sistema", gemini.POST_SCHEMA, "claude-x")
         corpo = fake.calls[0]["json"]
         assert corpo["tool_choice"] == {"type": "tool", "name": "responder"}
         assert corpo["tools"][0]["name"] == "responder"
         assert corpo["model"] == "claude-x"
-        assert corpo["temperature"] == 0.9
+        assert "temperature" not in corpo  # medido: "`temperature` is deprecated for this model" (400)
         assert corpo["system"] == "sistema"
 
     def test_o_schema_do_gemini_vira_json_schema_em_minusculas(self, fake):
-        claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x", 0)
+        claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x")
         esquema = fake.calls[0]["json"]["tools"][0]["input_schema"]
         assert esquema["type"] == "object"
         assert esquema["properties"]["tags"] == {"type": "array", "items": {"type": "string"}}
@@ -60,11 +60,11 @@ class TestPedidoAoClaude:
         assert "pt" in esquema["required"]
 
     def test_json_livre_vira_objeto_sem_propriedades(self, fake):
-        claude.complete("oi", "s", gemini.FREE_JSON, "claude-x", 0)
+        claude.complete("oi", "s", gemini.FREE_JSON, "claude-x")
         assert fake.calls[0]["json"]["tools"][0]["input_schema"] == {"type": "object"}
 
     def test_imagens_vao_antes_do_texto_em_base64(self, fake):
-        claude.complete("qual?", "s", {"type": "OBJECT"}, "claude-x", 0, images=[b"\xff\xd8abc"])
+        claude.complete("qual?", "s", {"type": "OBJECT"}, "claude-x", images=[b"\xff\xd8abc"])
         partes = fake.calls[0]["json"]["messages"][0]["content"]
         assert partes[0]["type"] == "image"
         assert partes[0]["source"] == {"type": "base64", "media_type": "image/jpeg",
@@ -72,30 +72,30 @@ class TestPedidoAoClaude:
         assert partes[-1] == {"type": "text", "text": "qual?"}
 
     def test_sem_sistema_o_campo_nem_vai(self, fake):
-        claude.complete("oi", "", {"type": "OBJECT"}, "claude-x", 0)
+        claude.complete("oi", "", {"type": "OBJECT"}, "claude-x")
         assert "system" not in fake.calls[0]["json"]
 
     def test_devolve_o_que_a_ferramenta_preencheu(self, fake):
-        assert claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x", 0) == POST_OK
+        assert claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x") == POST_OK
 
 
 class TestFalhas:
     def test_sem_chave(self, monkeypatch):
         monkeypatch.setattr(claude, "API_KEY", "")
         with pytest.raises(claude.ClaudeError, match="ANTHROPIC_API_KEY"):
-            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x", 0)
+            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x")
 
     def test_erro_http_diz_o_status_e_o_motivo(self, monkeypatch, chave):
         monkeypatch.setattr(claude.requests, "post", FakePost(
             {"error": {"message": "credit balance is too low"}}, status=400))
         with pytest.raises(claude.ClaudeError, match="400.*credit balance"):
-            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x", 0)
+            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x")
 
     def test_resposta_cortada_nao_vira_post_pela_metade(self, monkeypatch, chave):
         monkeypatch.setattr(claude.requests, "post", FakePost(
             {"stop_reason": "max_tokens", "content": [{"type": "text", "text": "..."}]}))
         with pytest.raises(claude.ClaudeError, match="sem"):
-            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x", 0)
+            claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x")
 
 
 class TestEscolhaDoProvedor:
@@ -109,7 +109,6 @@ class TestEscolhaDoProvedor:
         fake.payload = _tool({"serve": True, "motivo": "ok"})
         assert gemini.photo_fits(b"x", "assunto") is True
         assert fake.calls[0]["json"]["model"] == claude.CHECK_MODEL
-        assert fake.calls[0]["json"]["temperature"] == 0
 
     def test_sem_chave_do_claude_continua_no_gemini(self, monkeypatch):
         monkeypatch.setattr(claude, "API_KEY", "")

@@ -205,6 +205,13 @@ class TestMemoriaEmPrimeiraPessoa:
             "Já vi muita diretoria errar. Como quem já passou anos nisso, acho que sim."]}]}
         assert model.banned_found(corpo, model.MEMORY_CLAIMS)
 
+    def test_pega_os_verbos_de_gestao_que_o_claude_usou(self):
+        # medido no primeiro post escrito pelo Claude (2026-10-17): "Eu já geri sistema crítico…"
+        for frase in ("Eu já geri sistema crítico.", "Já gerenciei times assim.", "Já coordenei operações.",
+                      "Já conduzi migrações.", "Já construí produto parecido.", "Já operei plantão."):
+            corpo = {"title": "", "excerpt": "", "sections": [{"heading": "", "paragraphs": [frase]}]}
+            assert model.banned_found(corpo, model.MEMORY_CLAIMS), frase
+
     def test_nao_pega_frase_comum_de_noticia(self):
         corpo = {"title": "", "excerpt": "", "sections": [{"heading": "", "paragraphs": [
             "O prazo já passou e a empresa viu as vendas caírem."]}]}

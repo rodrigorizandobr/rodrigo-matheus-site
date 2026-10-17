@@ -232,6 +232,7 @@ def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | 
 MEMORY_CLAIMS = (
     "já vi", "já passei", "como quem já", "no meu time", "na minha carreira",
     "na minha experiência", "já liderei", "quando liderei", "já trabalhei", "na minha época",
+    "já geri", "já gerenciei", "já coordenei", "já conduzi", "já construí", "já operei",
 )
 
 

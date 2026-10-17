@@ -42,7 +42,7 @@ def to_json_schema(schema: Any) -> Any:
     return schema
 
 
-def complete(prompt: str, system: str, schema: dict[str, Any], model: str, temperature: float,
+def complete(prompt: str, system: str, schema: dict[str, Any], model: str,
              images: list[bytes] | None = None, timeout: int | None = None) -> dict[str, Any]:
     if not API_KEY:
         raise ClaudeError("ANTHROPIC_API_KEY não configurada no serviço")
@@ -54,7 +54,6 @@ def complete(prompt: str, system: str, schema: dict[str, Any], model: str, tempe
     body: dict[str, Any] = {
         "model": model,
         "max_tokens": MAX_TOKENS,
-        "temperature": temperature,
         "messages": [{"role": "user", "content": [
             *({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                            "data": base64.b64encode(raw).decode()}} for raw in images or []),
