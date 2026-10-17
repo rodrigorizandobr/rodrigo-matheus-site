@@ -8,6 +8,7 @@ renderizar sem sanitizar e sem confiar em marcação vinda do modelo.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 from typing import Any
@@ -159,8 +160,16 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    atrás do outro, como post de LinkedIn escrito por gente — subtítulo no meio é o que
    entrega texto de máquina. Os três movimentos acima são a ordem dos parágrafos, não seções.
 7. OPINIÃO COM LASTRO. Deixe claro o que é opinião, com verbos de quem opina ("acho",
-   "aposto", "desconfio"). Onde houver o outro
-   lado, dê a ele uma frase honesta. Boato ou notícia sem confirmação vira "segundo o
+   "aposto", "imagino"). Onde houver o outro
+   lado, dê a ele uma frase honesta.
+   TOM DA CRÍTICA. Aceite a PREMISSA do produto: se a coisa foi feita para um trabalho, não
+   ponha em dúvida a capacidade dela de fazê-lo — isso é duvidar do que o próprio projeto
+   se propõe a ser. A dúvida honesta mira no que cerca a coisa: custo, regras de uso, quem
+   controla, como o resultado será medido, o que acontece quando dá errado. Quem construiu
+   não é ingênuo nem alvo de piada; o humor da regra 4 nunca aponta para eles nem para a
+   capacidade do produto. O tom é de curiosidade e cuidado, de quem quer ver dar certo, e a
+   pergunta que fecha o post convida o leitor a pensar junto, em vez de desafiá-lo ou
+   acusar alguém. Boato ou notícia sem confirmação vira "segundo o
    veículo X", nunca fato.
 8. SEM MARCAÇÃO. Texto puro nos parágrafos: nada de HTML, markdown, asteriscos ou emoji.
 9. OS DOIS IDIOMAS DIZEM O MESMO. Tudo em `pt` é português,
@@ -173,7 +182,7 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    que não estejam nele. NUNCA afirme algo que Rodrigo viveu, viu ou fez se não estiver
    escrito no material — nada de "já vi", "já passei", "no meu time", "na minha carreira"
    sem o fato ali. Quando o material é notícia, não há nada sobre ele: a voz dele aparece
-   só como opinião ("acho", "aposto", "desconfio"). Opinião sim, memória inventada nunca.
+   só como opinião ("acho", "aposto", "imagino"). Opinião sim, memória inventada nunca.
 11. IMAGEM. `imagePrompt` em INGLÊS. A capa é uma METÁFORA VISUAL da história, não o retrato
    do assunto. Fórmula: pegue UMA imagem que já está no seu texto (o detalhe mais estranho,
    o número, a comparação do meio do texto) e transforme-a numa cena física, montada com objetos
@@ -193,13 +202,16 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
 
 
 def _call(prompt: str, system: str, schema: dict[str, Any] | None = None, model_name: str | None = None,
-          temperature: float = 0.9) -> dict[str, Any]:
+          temperature: float = 0.9, images: list[bytes] | None = None) -> dict[str, Any]:
     if not API_KEY:
         raise GeminiError("GEMINI_API_KEY não configurada no serviço")
 
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": [
+            {"text": prompt},
+            *({"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(raw).decode()}} for raw in images or []),
+        ]}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": schema or POST_SCHEMA,
@@ -446,3 +458,27 @@ def unsupported_claims(body: dict[str, Any], material: str) -> list[dict[str, st
         if trecho and _squash(trecho) in corrido:
             achados.append({"trecho": trecho, "porque": (item.get("porque") or "").strip()})
     return achados[:8]
+
+
+PHOTO_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {"serve": {"type": "BOOLEAN"}, "motivo": {"type": "STRING"}},
+    "required": ["serve", "motivo"],
+}
+
+PHOTO_RULES = """Você confere uma foto candidata a capa de um post de blog. Responda `serve: true` SÓ se:
+- a foto mostra o assunto do post (a coisa, o produto, o evento ou as pessoas de que ele trata), e não
+  outro assunto parecido;
+- é uma fotografia ou um quadro de vídeo, não logotipo, ilustração, infográfico, capa de revista,
+  captura de tela com texto, nem imagem de banco de imagens com marca d'água.
+Na dúvida, `serve: false`. `motivo`: uma frase curta."""
+
+
+def photo_fits(raw: bytes, subject: str) -> bool:
+    """A foto serve de capa para este assunto? Erro ou dúvida reprova: o próximo candidato é grátis."""
+    try:
+        resposta = _call(f"ASSUNTO DO POST: {subject}", PHOTO_RULES, schema=PHOTO_SCHEMA,
+                         model_name=CHECK_MODEL, temperature=0, images=[raw])
+    except Exception:
+        return False
+    return resposta.get("serve") is True

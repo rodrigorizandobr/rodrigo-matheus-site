@@ -28,6 +28,7 @@ def env(monkeypatch):
     monkeypatch.setattr(service.gemini, "generate_post", lambda topic, context="", avoid_titles=None, avoid_covers=None, author_topic=False: (chamadas["gerou"].append(topic), dict(DRAFT))[1])
     monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: (chamadas["capa"].append(p), {"hash": "h" * 64, "provider": "gemini", "credit": "c", "sourceUrl": "", "alt": a})[1])
     monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [])
+    monkeypatch.setattr(service.photos, "find", lambda *a, **k: None)
     monkeypatch.setattr(service.gemini, "unsupported_claims", lambda corpo, material: [])
     return chamadas
 
@@ -995,3 +996,117 @@ class TestAfirmacoesSemFonte:
                             lambda c, m: (_ for _ in ()).throw(service.gemini.GeminiError("503")))
         post = service.generate("tesla", now=utc(2026, 9, 14, 21))
         assert post["id"] and post["generation"]["unsupportedLeft"] is None
+
+
+FOTO = {"hash": "f" * 64, "provider": "web", "credit": "Foto: g1.globo.com", "sourceUrl": "https://g1.globo.com/m",
+        "alt": "T", "width": 1280, "height": 720}
+
+
+class TestEscadaDeMidia:
+    """Notícia: recorte de vídeo → foto real → imagem de IA. Reflexão (sem fonte): IA primeiro.
+    Pedido do PO, 2026-10-17: só criar imagem quando não houver vídeo nem foto real."""
+
+    def _foto(self, monkeypatch, achou=FOTO):
+        vistos = []
+        monkeypatch.setattr(service.photos, "find", lambda *a, **k: vistos.append((a, k)) or achou)
+        return vistos
+
+    def _video(self, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_candidates",
+                            lambda q, **k: [service.videos.VideoResult(title="V", url="https://youtu.be/v", channel="C")])
+
+    def _pesquisa(self, monkeypatch):
+        achado = service.research.Research(
+            context="material", sources=["https://g1.globo.com/m", "https://outro.com/n"],
+            references=[{"url": "https://g1.globo.com/m", "title": "t", "site": "g1", "published": ""}], pages_read=1)
+        monkeypatch.setattr(service.research, "search_web", lambda qs: achado)
+
+    def test_noticia_sem_video_usa_foto_real_e_nao_gera_imagem(self, env, monkeypatch):
+        self._foto(monkeypatch)
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["image"]["provider"] == "web" and post["image"]["credit"] == "Foto: g1.globo.com"
+        assert env["capa"] == [], "IA só como última opção"
+
+    def test_foto_e_buscada_pelo_titulo_em_ingles_e_em_portugues_com_as_paginas_lidas(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho_en("Robot kicks a door"))
+        self._pesquisa(monkeypatch)
+        vistos = self._foto(monkeypatch)
+        service.generate("tema", now=utc(2026, 9, 14, 21))
+        (subject, queries, paginas), k = vistos[0][0][:3], vistos[0][1]
+        assert subject.startswith("Título")
+        assert queries == ["Robot kicks a door", "Título"]
+        assert paginas == ["https://g1.globo.com/m", "https://outro.com/n"], "as lidas primeiro, sem repetir"
+
+    def test_sem_foto_cai_para_a_imagem_de_ia(self, env, monkeypatch):
+        self._foto(monkeypatch, achou=None)
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert env["capa"] == ["cena"] and post["image"]["provider"] == "gemini"
+
+    def test_com_video_nao_cria_imagem_nem_busca_foto(self, env, monkeypatch):
+        self._video(monkeypatch)
+        vistos = self._foto(monkeypatch)
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["image"] is None and vistos == [] and env["capa"] == []
+        assert post["clip"] == {"status": "pending"}
+
+    def test_com_video_guarda_o_prompt_da_capa_para_o_caso_de_o_recorte_desistir(self, env, monkeypatch):
+        self._video(monkeypatch)
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["imagePrompt"] == "cena"
+
+    def test_foto_de_terceiro_deixa_o_post_em_rascunho_mesmo_publicando_sem_revisao(self, env, monkeypatch):
+        self._foto(monkeypatch)
+        store.save_config({"auto_publish": True})
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["status"] == "draft" and post.get("scheduledFor") is None
+
+    def test_imagem_de_ia_continua_publicando_sozinha(self, env, monkeypatch):
+        self._foto(monkeypatch, achou=None)
+        store.save_config({"auto_publish": True})
+        assert service.generate("tema", now=utc(2026, 9, 14, 21))["status"] == "published"
+
+    def test_reflexao_comeca_pela_ia_e_nunca_busca_foto(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection", lambda *a, **k: dict(DRAFT))
+        vistos = self._foto(monkeypatch)
+        store.save_config({"reflection_topics": ["liderança"]})
+        post = service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert vistos == [] and env["capa"] == ["cena"] and post["image"]["provider"] == "gemini"
+
+    def test_sem_imagem_pedida_nao_busca_foto(self, env, monkeypatch):
+        vistos = self._foto(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection", lambda *a, **k: dict(DRAFT))
+        service.generate("tema", now=utc(2026, 9, 14, 21), with_image=False)
+        assert vistos == [] and env["capa"] == []
+
+
+class TestCapaQuandoORecorteDesiste:
+    """O recorte falhou (ou o vídeo nunca vem): o post precisa de capa — foto real, depois IA."""
+
+    def _post_sem_capa(self, env):
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        store.update_post(post["id"], {"image": None, "references": [{"url": "https://g1.globo.com/m", "title": "t", "site": "g1"}],
+                                       "sources": ["https://g1.globo.com/m", "https://x.com/n"]})
+        return post["id"]
+
+    def test_usa_a_foto_real_quando_acha(self, env, monkeypatch):
+        post_id = self._post_sem_capa(env)
+        monkeypatch.setattr(service.photos, "find", lambda *a, **k: FOTO)
+        env["capa"].clear()
+        assert service.ensure_cover(post_id)["image"]["provider"] == "web"
+        assert env["capa"] == []
+
+    def test_cai_para_a_ia_com_o_prompt_guardado(self, env, monkeypatch):
+        post_id = self._post_sem_capa(env)
+        env["capa"].clear()
+        post = service.ensure_cover(post_id)
+        assert env["capa"] == ["cena"] and post["image"]["provider"] == "gemini"
+
+    def test_post_que_ja_tem_capa_nao_e_tocado(self, env, monkeypatch):
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        monkeypatch.setattr(service.photos, "find", lambda *a, **k: (_ for _ in ()).throw(AssertionError("não devia buscar")))
+        env["capa"].clear()
+        assert service.ensure_cover(post["id"])["image"]["hash"] == post["image"]["hash"]
+        assert env["capa"] == []
+
+    def test_post_inexistente_devolve_none(self, env):
+        assert service.ensure_cover("nao-existe") is None

@@ -378,3 +378,66 @@ class TestSinalDeVida:
     def test_toda_rodada_marca_que_o_mac_esta_rodando(self, env):
         clip_worker.run_once(Ferramentas(), limit=1)
         assert store.clip_worker_heartbeat().get("lastRunAt")
+
+
+FOTO = {"hash": "f" * 64, "provider": "web", "credit": "Foto: g1.globo.com", "sourceUrl": "https://g1.globo.com/m",
+        "alt": "t", "width": 1280, "height": 720}
+
+
+class TestCapaDoPost:
+    """Escada de mídia: o recorte é a primeira opção. Se desiste, o post ganha foto real e, sem ela, imagem
+    de IA; se dá certo e o post não tem capa, o quadro de abertura do vídeo vira o pôster."""
+
+    def test_desistiu_e_acha_foto_real(self, env, monkeypatch):
+        monkeypatch.setattr(service.photos, "find", lambda *a, **k: FOTO)
+        post = _post_pendente(video_url=A)
+        clip_worker.process(post, Ferramentas(ruins={A}))
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "failed" and gravado["image"]["credit"] == "Foto: g1.globo.com"
+        assert "Foto: g1.globo.com" in env["emails"][0][1]
+
+    def test_desistiu_sem_foto_cai_para_a_ia(self, env, monkeypatch):
+        monkeypatch.setattr(service.photos, "find", lambda *a, **k: None)
+        monkeypatch.setattr(service.images, "build_cover", lambda p, a, keywords=None: {
+            "hash": "g" * 64, "provider": "gemini", "credit": "", "sourceUrl": "", "alt": a, "width": 1, "height": 1})
+        post = _post_pendente(video_url=A)
+        clip_worker.process(post, Ferramentas(ruins={A}))
+        assert store.get_post(post["id"])["image"]["provider"] == "gemini"
+        assert "imagem criada" in env["emails"][0][1]
+
+    def test_erro_ao_buscar_capa_nao_derruba_a_desistencia(self, env, monkeypatch):
+        monkeypatch.setattr(service, "ensure_cover", lambda pid: (_ for _ in ()).throw(RuntimeError("boom")))
+        post = _post_pendente(video_url=A)
+        clip_worker.process(post, Ferramentas(ruins={A}))
+        assert store.get_post(post["id"])["clip"]["status"] == "failed"
+        assert env["emails"] and "Recorte não deu" in env["emails"][0][0]
+
+    def test_recorte_pronto_sem_capa_usa_o_quadro_do_video(self, env, monkeypatch):
+        pedidos = []
+        monkeypatch.setattr(clip_worker.photos, "youtube_poster", lambda url: pedidos.append(url) or b"POSTER")
+        guardou = []
+        monkeypatch.setattr(clip_worker.media, "store_image", lambda raw, provider, **k: guardou.append((raw, provider)) or {
+            "hash": "p" * 64, "provider": provider, "credit": "", "sourceUrl": "", "alt": k.get("alt", ""),
+            "width": 1280, "height": 720})
+        post = _post_pendente()
+        clip_worker.process(post, Ferramentas())
+        gravado = store.get_post(post["id"])
+        assert guardou == [(b"POSTER", "youtube")] and "qt5p-_tE8d0" in pedidos[0]
+        assert gravado["image"]["hash"] == "p" * 64 and gravado["image"]["credit"] == ""
+
+    def test_recorte_pronto_com_capa_nao_troca_a_capa(self, env, monkeypatch):
+        def nao(url):
+            raise AssertionError("não devia buscar pôster")
+        monkeypatch.setattr(clip_worker.photos, "youtube_poster", nao)
+        post = _post_pendente()
+        store.update_post(post["id"], {"image": FOTO})
+        clip_worker.process(store.get_post(post["id"]), Ferramentas())
+        assert store.get_post(post["id"])["image"]["hash"] == "f" * 64
+
+    def test_poster_que_falha_nao_derruba_o_recorte(self, env, monkeypatch):
+        def fora(url):
+            raise OSError("fora")
+        monkeypatch.setattr(clip_worker.photos, "youtube_poster", fora)
+        post = _post_pendente()
+        clip_worker.process(post, Ferramentas())
+        assert store.get_post(post["id"])["clip"]["status"] == "ready"

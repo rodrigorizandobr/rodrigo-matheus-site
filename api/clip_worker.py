@@ -33,7 +33,7 @@ from typing import Any
 
 from datetime import datetime, timezone
 
-from blog import clips, gemini, media, notify, service, store, videos
+from blog import clips, gemini, media, notify, photos, service, store, videos
 
 PROJECT = "rodrigo-matheus"
 #: no máximo isto por rodada: o YouTube dá 429 para quem baixa em rajada
@@ -167,6 +167,10 @@ def _ready(post: dict[str, Any], video: dict[str, Any], url: str, achado: dict[s
         patch["i18n"] = revisado["i18n"]
     except Exception:
         pass  # sem a frase, o clipe aparece do mesmo jeito; não vale perder o corte
+    if not post.get("image"):
+        capa = _poster_cover(post, url)
+        if capa:
+            patch["image"] = capa
     store.update_post(post["id"], patch)
     # o post espera a autorização do dono do vídeo: o e-mail já leva o que é preciso para pedir
     notify.send(f"Recorte pronto: {_title(post)}", (
@@ -177,6 +181,30 @@ def _ready(post: dict[str, Any], video: dict[str, Any], url: str, achado: dict[s
     return clip
 
 
+def _poster_cover(post: dict[str, Any], url: str) -> dict[str, Any] | None:
+    """Post de notícia com vídeo nasce sem capa; pronto o recorte, o quadro do vídeo faz esse papel."""
+    try:
+        raw = photos.youtube_poster(url)
+        item = media.store_image(raw, provider="youtube", alt=_title(post)) if raw else None
+        return media.as_cover(item)
+    except Exception:
+        return None
+
+
+def _cover_line(post: dict[str, Any]) -> str:
+    """Desistiu do vídeo: o post não pode ficar sem capa. Foto real primeiro, imagem criada por último."""
+    try:
+        gravado = service.ensure_cover(post["id"])
+    except Exception:
+        return "Capa: não consegui definir uma; ajuste pelo painel."
+    capa = (gravado or {}).get("image") or {}
+    if capa.get("provider") == "web":
+        return f"Capa: {capa.get('credit') or 'foto real'} ({capa.get('sourceUrl', '')})."
+    if capa:
+        return "Capa: imagem criada por IA (não achei foto real)."
+    return "Capa: não consegui definir uma; ajuste pelo painel."
+
+
 def _give_up(post: dict[str, Any], tried: list[dict[str, Any]]) -> dict[str, Any]:
     """Nada deu certo: falha com o motivo, e o post só fica com link de vídeo se algum mostrava o assunto."""
     motivo = f"{tried[-1]['reason']} — tentei {len(tried)} vídeo{'s' if len(tried) > 1 else ''}"
@@ -185,10 +213,12 @@ def _give_up(post: dict[str, Any], tried: list[dict[str, Any]]) -> dict[str, Any
     por_rede = next((t for t in tried if t["kind"] == "rede"), None)
     video = {k: por_rede[k] for k in ("url", "title", "channel") if por_rede.get(k)} if por_rede else None
     store.update_post(post["id"], {"clip": clip, "video": video})
+    capa = _cover_line(post)
     linhas = "\n".join(f"- {t['url']} ({t.get('title') or 'sem título'}): {t['reason']}" for t in tried)
     notify.send(f"Recorte não deu: {_title(post)}", (
         f"Nenhum vídeo serviu para o recorte do post “{_title(post)}”. Tentei:\n{linhas}\n\n"
         "O post continua em rascunho, " + ("com o link do vídeo no texto." if video else "sem vídeo.") + "\n"
+        f"{capa}\n"
         f"Abra no painel para decidir: {_editor_link(post)}"))
     return clip
 

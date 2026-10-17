@@ -557,3 +557,65 @@ class TestAfirmacoesSemFonte:
         # medido em 3 posts reais: escapavam "proibido na rua porque arremessa pedras" e "alertas
         # chegam aos gabinetes de compliance" — regra/proibição e funcionamento interno disfarçado
         assert "proibição" in gemini.CLAIMS_RULES and "por dentro" in gemini.CLAIMS_RULES
+
+
+class TestFotoServeDeCapa:
+    """Foto real achada na web: a visão confere se mostra o assunto do post, sem logo,
+    ilustração, captura de tela nem marca d'água. Na dúvida (ou erro), reprova."""
+
+    def _fake(self, monkeypatch, resposta):
+        f = FakePost({"candidates": [{"content": {"parts": [{"text": json.dumps(resposta)}]}}]})
+        monkeypatch.setattr(gemini.requests, "post", f)
+        monkeypatch.setattr(gemini, "API_KEY", "k")
+        return f
+
+    def test_manda_a_imagem_e_o_assunto_ao_modelo_de_conferencia_em_temperatura_zero(self, monkeypatch):
+        f = self._fake(monkeypatch, {"serve": True, "motivo": "mostra o robô"})
+        assert gemini.photo_fits(b"JPEGBYTES", "Arcanjo, o robô policial") is True
+        chamada = f.calls[0]
+        assert gemini.CHECK_MODEL in chamada["url"]
+        assert chamada["json"]["generationConfig"]["temperature"] == 0
+        partes = chamada["json"]["contents"][0]["parts"]
+        assert any("inlineData" in p or "inline_data" in p for p in partes)
+        assert "Arcanjo, o robô policial" in "".join(p.get("text", "") for p in partes)
+
+    def test_reprovada_devolve_falso(self, monkeypatch):
+        self._fake(monkeypatch, {"serve": False, "motivo": "é um logotipo"})
+        assert gemini.photo_fits(b"x", "assunto") is False
+
+    def test_erro_do_modelo_reprova_em_vez_de_aprovar_no_escuro(self, monkeypatch):
+        monkeypatch.setattr(gemini, "API_KEY", "k")
+        monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: (_ for _ in ()).throw(OSError("fora")))
+        assert gemini.photo_fits(b"x", "assunto") is False
+
+    def test_sem_chave_reprova(self, monkeypatch):
+        monkeypatch.setattr(gemini, "API_KEY", "")
+        assert gemini.photo_fits(b"x", "assunto") is False
+
+
+class TestCriticaQueAceitaAPremissa:
+    """Post do robô policial (2026-10-13): fechou duvidando que o robô andasse em rua esburacada, sendo que
+    ele foi feito justamente para rua e para derrubar porta. A crítica deve aceitar o que o produto se
+    propõe a fazer e olhar para o que o cerca."""
+
+    def test_manda_aceitar_a_premissa_do_produto(self, fake):
+        gemini.generate_post("Robô")
+        regras = _corrido(fake)
+        assert "TOM DA CRÍTICA" in regras and "PREMISSA" in regras
+
+    def test_duvida_vai_para_custo_regra_e_controle_nao_para_a_capacidade(self, fake):
+        gemini.generate_post("Robô")
+        regras = _corrido(fake)
+        assert "custo" in regras and "quem controla" in regras and "capacidade" in regras
+
+    def test_nao_zomba_de_quem_construiu(self, fake):
+        gemini.generate_post("Robô")
+        assert "quem construiu" in _corrido(fake).lower()
+
+    def test_o_fecho_convida_em_vez_de_desafiar(self, fake):
+        gemini.generate_post("Robô")
+        assert "convida" in _corrido(fake)
+
+    def test_desconfio_nao_e_mais_verbo_sugerido_de_opiniao(self, fake):
+        gemini.generate_post("Robô")
+        assert "desconfio" not in _corrido(fake)

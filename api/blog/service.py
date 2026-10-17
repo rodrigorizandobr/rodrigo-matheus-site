@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, images, linkedin, media, model, notify, profile, research, store, videos
+from . import gemini, images, linkedin, media, model, notify, photos, profile, research, store, videos
 
 
 class NoTopicError(RuntimeError):
@@ -127,7 +127,7 @@ def _check_claims(draft: dict[str, Any], material: str) -> tuple[dict[str, Any],
     try:
         revisado = gemini.revise_post(draft, (
             "Estes trechos afirmam fatos que o material da pesquisa não sustenta: " + lista + ". "
-            "Para cada um: corte, ou transforme em opinião explícita do autor (acho, desconfio, aposto) "
+            "Para cada um: corte, ou transforme em opinião explícita do autor (acho, imagino, aposto) "
             "ou em pergunta ao leitor — nunca troque por outro fato, número ou nome, e não acrescente "
             "informação nenhuma, nem sobre o que alguém disse ou deixou de dizer. Ajuste a frase "
             "vizinha só se precisar para o texto continuar fluindo. Não mude mais nada, nos dois idiomas."))
@@ -165,7 +165,7 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
                        "assim): " + "; ".join(f"«{a}…»" for a in palavras) + ".")
     if lembrancas:
         pedidos.append("O material não fala da vida do autor: tire as frases em que ele conta algo que "
-                       "teria visto, vivido ou feito — transforme em opinião (acho, aposto, desconfio) "
+                       "teria visto, vivido ou feito — transforme em opinião (acho, aposto, imagino) "
                        "ou corte. Começam assim: " + "; ".join(f"«{a}…»" for a in lembrancas) + ".")
     try:
         revisado = gemini.revise_post(draft, " ".join(pedidos))
@@ -203,8 +203,10 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     # gravada aqui — é quando a página foi de fato lida, e a norma pede essa data.
     draft["references"] = [{**ref, "accessedAt": now.isoformat()} for ref in found.references[:8]]
     draft["sources"] = found.sources[:8]
+    # Reflexão não tem fonte: a imagem de IA é a primeira opção. Notícia só cria imagem
+    # quando não há vídeo nem foto real (escada abaixo, depois da busca do vídeo).
     draft["image"] = (images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
-                      if with_image else None)
+                      if with_image and reflection else None)
 
     # Recorte de vídeo sempre que possível (decisão do PO, 2026-10-16). O servidor só ACHA o
     # vídeo; quem corta é o Mac do autor (`clip_worker.py`), porque o YouTube bloqueia download
@@ -220,17 +222,50 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
         como_dict = [{"title": a.title, "url": a.url, "thumbnail": a.thumbnail, "channel": a.channel} for a in achados]
         draft["video"], draft["videoCandidates"] = como_dict[0], como_dict[1:]
         draft["clip"] = {"status": "pending"}
+    elif with_image and not reflection:
+        # Sem vídeo: foto real do assunto; só se não houver, a IA desenha (decisão do PO, 2026-10-17).
+        # Com vídeo, a capa espera: se o recorte desistir, `ensure_cover` faz esta mesma escada.
+        draft["image"] = _news_cover(draft, found)
 
     post = store.create_post(draft, now=now)
 
-    # Com recorte, fica RASCUNHO, sem agendar: o PO pede autorização ao dono do vídeo antes
-    # de publicar — nada com vídeo de terceiro vai ao ar sozinho.
-    if draft.get("clip"):
+    # Com recorte de vídeo ou foto de terceiro, fica RASCUNHO, sem agendar: o PO pede
+    # autorização ao dono antes de publicar — nada de terceiro vai ao ar sozinho.
+    if draft.get("clip") or (draft.get("image") or {}).get("provider") == "web":
         return post
 
     if cfg.get("auto_publish"):
         return store.publish_post(post["id"], now=now) or post
     return store.schedule_post(post["id"], model.scheduled_for(now, cfg)) or post
+
+
+def _news_cover(draft: dict[str, Any], found: research.Research) -> dict[str, Any] | None:
+    """Foto real do assunto e, se não houver, a imagem de IA (que tem o prompt escrito com o texto)."""
+    pt = (draft.get("i18n") or {}).get("pt") or {}
+    en = (draft.get("i18n") or {}).get("en") or {}
+    paginas = list(dict.fromkeys([r["url"] for r in found.references] + list(found.sources)))
+    return _real_photo_or_ai(pt.get("title", ""), pt.get("excerpt", ""), en.get("title", ""), paginas,
+                             draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
+
+
+def _real_photo_or_ai(title: str, excerpt: str, title_en: str, pages: list[str],
+                      image_prompt: str, image_alt: str) -> dict[str, Any] | None:
+    queries = [q for q in dict.fromkeys([title_en, title]) if q]
+    foto = photos.find(f"{title}. {excerpt}".strip(". "), queries, pages, alt=title)
+    return foto or images.build_cover(image_prompt, image_alt)
+
+
+def ensure_cover(post_id: str) -> dict[str, Any] | None:
+    """Dá capa a um post que ficou sem: quando o recorte de vídeo desistiu, foto real e depois IA."""
+    post = store.get_post(post_id)
+    if not post or post.get("image"):
+        return post
+    pt = (post.get("i18n") or {}).get("pt") or {}
+    en = (post.get("i18n") or {}).get("en") or {}
+    paginas = list(dict.fromkeys([r.get("url", "") for r in post.get("references") or []] + list(post.get("sources") or [])))
+    capa = _real_photo_or_ai(pt.get("title", ""), pt.get("excerpt", ""), en.get("title", ""), paginas,
+                             post.get("imagePrompt", ""), post.get("imageAlt", ""))
+    return store.update_post(post_id, {"image": capa}) if capa else post
 
 
 def revise(post_id: str, instruction: str) -> dict[str, Any] | None:

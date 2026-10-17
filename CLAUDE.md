@@ -454,6 +454,34 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   **Ainda não validado contra o LinkedIn de verdade** — o primeiro compartilhamento de post com recorte é
   o teste; conferir o post no perfil logo depois.
 
+## Escada de mídia da capa (2026-10-17)
+
+Pedido do PO, depois do post do robô policial: "vídeo real, senão imagem real, imagem criada só por último".
+
+- **Post de NOTÍCIA:** recorte de vídeo → **foto real** → imagem de IA. **Reflexão** (sem fontes): imagem de IA
+  primeiro, como antes (e ainda busca vídeo).
+- **Foto real = `blog/photos.py`.** Candidatas: a `og:image` das páginas que fundamentaram o texto (a da própria
+  matéria vem primeiro) e depois a busca de imagens do Serper (`/images`, Brasil). Descarta banco de imagens com
+  marca d'água (`STOCK`) e miniatura de vídeo/rede social (`SKIP`: o Instagram nega o download, a miniatura do
+  YouTube traz letreiro). Só serve paisagem >= 900 px, razão 1,25–2,4 (`usable`). Cada candidata passa por um
+  **juiz de visão** (`gemini.photo_fits`, `CHECK_MODEL`, temperatura 0; na dúvida ou em erro = não serve): o termo
+  vigiado traz várias histórias, e a `og:image` de uma página lida pode ser de outra. A consulta de busca sai dos
+  títulos pt/en do post. Grava sempre por `media.store_image` (JPEG, hash) — nunca linka arquivo de terceiro.
+  Crédito "Foto: <veículo>" + `sourceUrl` da página.
+- **POLÍTICA: foto de terceiro deixa o post em RASCUNHO**, como o recorte de vídeo (`image.provider == "web"` em
+  `_save_generated`): o PO pede autorização ao dono da foto antes de publicar. Para liberar a publicação
+  automática, tire `or (draft.get("image") or {}).get("provider") == "web"` da condição de retorno.
+- **Post com vídeo nasce SEM capa**: a IA não é gerada à toa. Se o recorte desiste, `clip_worker._give_up` chama
+  `service.ensure_cover` (foto real, depois IA) e o e-mail "Recorte não deu" diz qual capa ficou. Se o recorte
+  fica pronto e o post não tem capa, `_ready` usa o quadro do vídeo (`photos.youtube_poster`, só a `maxresdefault`)
+  como pôster, sem crédito (o crédito do vídeo já aparece). Nunca sobrescreve capa existente.
+- **Validado contra a realidade (robô policial):** a `og:image` do g1 baixa e serve; a busca de vídeo acha o
+  Arcanjo (SBT Brasília). **Não validado:** o juiz de visão em foto real (o Gemini estava sem crédito — 402 — na hora).
+- **Tom da crítica** (`gemini.RULES` item 7, `TestCriticaQueAceitaAPremissa`): aceitar a PREMISSA do produto — o
+  fecho do robô policial duvidava de ele andar em rua esburacada, sendo que foi feito para rua. A dúvida vai para
+  custo, regras de uso, quem controla, como se mede o resultado; sem ironia com quem construiu; a pergunta final
+  convida em vez de desafiar. "desconfio" saiu da lista de verbos de opinião ("imagino" entrou).
+
 ## Git dentro do Google Drive
 
 O repositório vive numa pasta do Google Drive. Em 2026-10-16 o Drive deixou 23 arquivos do `.git` como
@@ -597,7 +625,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 634 testes
+cd api && source .venv/bin/activate && pytest      # 692 testes
 cd web && npm test                                  # 433 testes
 ```
 
