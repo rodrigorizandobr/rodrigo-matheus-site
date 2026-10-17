@@ -332,6 +332,12 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   Nunca abra uma porta pública para post não publicado. O texto ainda não salvo atravessa para a aba nova
   pelo `localStorage` (`stashPreview`/`readStashedPreview`, validade de 1 h); sem armazenamento, a prévia
   mostra a última versão salva.
+  **A prévia é uma página em fluxo, não um overlay `fixed`** (`.preview-page`, `preview-css.test.ts`): dentro do
+  `<main z-10>` o overlay ficava preso no contexto de empilhamento, o `<main>` tinha altura zero e o rodapé do site
+  subia para logo abaixo do header, por cima da capa. A barra de controles é `sticky` com `top: var(--header-h)`;
+  `.preview-overlay`/`.preview-body` continuam existindo só para os modais de imagem (`ImagePicker`, `MediaPage`).
+- **O cartão "Criar post" da lista nasce recolhido** (`AdminPage`, `aria-expanded`): os criadores ficam montados
+  com `hidden`, então o que foi digitado sobrevive a recolher/abrir.
 - **Toda tela do painel tem URL** (`pages/admin/adminRoute.ts`, testado): `/admin`, `/admin/midia`,
   `/admin/configuracao`, `/admin/editar/<id>`, `/admin/visualizar/<id>`. Refresh volta ao mesmo lugar (o
   Hosting serve o `index.html` em `**`); voltar/avançar anda entre telas via `popstate`, e sair do editor com
@@ -651,7 +657,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 692 testes
-cd web && npm test                                  # 433 testes
+cd web && npm test                                  # 440 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

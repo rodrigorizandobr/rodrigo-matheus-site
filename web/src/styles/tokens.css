@@ -455,18 +455,23 @@ body::before {
   .badge[data-status="published"] { border-color: var(--red); color: var(--red); }
   .badge[data-status="scheduled"] { border-color: #b8860b; color: #8a6508; }
 
-  /* Prévia do post: cobre a tela inteira, com a barra de controles fixa no topo.
-     Opaca de propósito — o objetivo é ver o post como o leitor vê, sem o painel atrás. */
+  /* Modais de tela cheia (escolher imagem, editar imagem): opacos, com a barra de controles no topo.
+     A prévia do post NÃO usa isto — ver .preview-bar abaixo. */
   .preview-overlay {
     position: fixed; inset: 0; z-index: 70; background: var(--bg);
     display: flex; flex-direction: column;
   }
+  .preview-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
   .preview-bar {
     display: flex; align-items: center; justify-content: space-between; gap: .75rem;
     padding: .6rem clamp(.75rem, 4vw, 1.5rem); border-bottom: 1px solid var(--line);
     background: var(--surface); flex-wrap: wrap;
   }
-  .preview-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  /* Prévia do post: página em fluxo. A barra gruda logo abaixo do header sticky (que mede
+     --header-h) e é opaca, para o texto rolar por baixo sem aparecer. Só aqui: nos modais
+     acima ela é item de um flex em coluna, e o `top` a empurraria para fora do lugar. */
+  .preview-page > .preview-bar { position: sticky; top: var(--header-h); z-index: 40; }
 
   /* Botão de dia da semana / alternância curta. */
   .toggle-chip {

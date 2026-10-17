@@ -170,7 +170,7 @@ describe('cada tela do painel tem URL', () => {
   it('/admin/visualizar/<id> mostra a prévia do post', async () => {
     window.history.replaceState(null, '', '/admin/visualizar/p1')
     render(<AdminPage />)
-    expect(await screen.findByRole('dialog', { name: /prévia do post/i })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: /prévia do post/i })).toBeInTheDocument()
   })
 
   it('a prévia mostra o texto ainda não salvo que o editor deixou para ela', async () => {
@@ -180,5 +180,35 @@ describe('cada tela do painel tem URL', () => {
     render(<AdminPage />)
     expect(await screen.findByText('Texto digitado')).toBeInTheDocument()
     localStorage.clear()
+  })
+})
+
+describe('cartão de criar posts', () => {
+  it('nasce recolhido: só o cabeçalho aparece, os criadores não', async () => {
+    render(<AdminPage />)
+    const toggle = await screen.findByRole('button', { name: /criar post/i })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /gerar das últimas notícias/i })).toBeNull()
+  })
+
+  it('abre e recolhe no mesmo botão', async () => {
+    render(<AdminPage />)
+    const toggle = await screen.findByRole('button', { name: /criar post/i })
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /gerar das últimas notícias/i })).toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /gerar das últimas notícias/i })).toBeNull()
+  })
+
+  it('recolher não desmonta os criadores: o que foi digitado continua lá', async () => {
+    render(<AdminPage />)
+    const toggle = await screen.findByRole('button', { name: /criar post/i })
+    await userEvent.click(toggle)
+    await userEvent.type(screen.getByPlaceholderText(/apagão em datacenter/i), 'tema pela metade')
+    await userEvent.click(toggle)
+    await userEvent.click(toggle)
+    expect(screen.getByPlaceholderText(/apagão em datacenter/i)).toHaveValue('tema pela metade')
   })
 })

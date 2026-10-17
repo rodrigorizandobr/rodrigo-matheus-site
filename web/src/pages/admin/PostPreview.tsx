@@ -14,7 +14,9 @@ function readingMinutes(post: Post, lang: Lang): number {
 }
 
 /**
- * Prévia do post dentro do painel, com o MESMO componente da página pública.
+ * Prévia do post dentro do painel, com o MESMO componente da página pública. É uma página em
+ * fluxo (header, barra de controles colada nele, post, rodapé) — não um overlay: dentro do
+ * `<main>` um overlay fixo deixava o rodapé do site por cima da capa (ver preview-css.test.ts).
  *
  * Por que não abrir `/blog/<slug>` numa aba: o site público não serve rascunho —
  * e não deve mesmo. Abrir aqui, com o post que o painel já tem em mãos, permite
@@ -27,13 +29,11 @@ export function PostPreview({ post, onClose }: { post: Post; onClose: () => void
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = previous }
+    return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
   return (
-    <div className="preview-overlay" role="dialog" aria-modal="true" aria-label="Prévia do post">
+    <section className="preview-page" aria-label="Prévia do post">
       <div className="preview-bar">
         <div className="flex items-center gap-2 min-w-0">
           <span className="badge shrink-0" data-status={post.status}>{post.status}</span>
@@ -54,11 +54,9 @@ export function PostPreview({ post, onClose }: { post: Post; onClose: () => void
                   className="cta !py-2 !px-4 font-display font-semibold text-[11px] uppercase tracking-wider">fechar</button>
         </div>
       </div>
-      <div className="preview-body">
-        <div className="w-[min(var(--max),92vw)] mx-auto py-8 md:py-12">
-          <PostArticle post={post} lang={lang} minutes={minutes} />
-        </div>
+      <div className="w-[min(var(--max),92vw)] mx-auto py-8 md:py-12">
+        <PostArticle post={post} lang={lang} minutes={minutes} />
       </div>
-    </div>
+    </section>
   )
 }

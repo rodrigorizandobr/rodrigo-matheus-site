@@ -54,4 +54,10 @@ describe('PostPreview — vê o post como o leitor veria', () => {
     render(<PostPreview post={longo} onClose={vi.fn()} />)
     expect(screen.getByText(/3 min/)).toBeInTheDocument()
   })
+
+  it('não trava a rolagem da página: a prévia é uma página, não um overlay', () => {
+    render(<PostPreview post={post()} onClose={vi.fn()} />)
+    expect(document.body.style.overflow).toBe('')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
 })

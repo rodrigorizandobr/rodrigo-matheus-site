@@ -35,6 +35,7 @@ export function AdminPage() {
   const [editing, setEditing] = useState<Post | null>(null)
   const [saved, setSaved] = useState<Post | null>(null)
   const [pickingCover, setPickingCover] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [research, setResearch] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
@@ -293,7 +294,14 @@ export function AdminPage() {
 
       {tab === 'posts' && !editing && !view.editId && (
         <>
-          <div className="panel p-5 grid gap-5 mb-6">
+          <div className="panel mb-6">
+            <button type="button" aria-expanded={creating} aria-controls="criar-post"
+                    onClick={() => setCreating((open) => !open)}
+                    className="w-full flex items-center justify-between gap-3 p-5 text-left cursor-pointer">
+              <span className="font-display font-semibold text-[13px] uppercase tracking-wider text-heading">Criar post</span>
+              <span aria-hidden="true" className="font-mono text-[16px] text-muted leading-none">{creating ? '−' : '+'}</span>
+            </button>
+            <div id="criar-post" hidden={!creating} className="px-5 pb-5 grid gap-5 border-t border-line pt-5">
             {/* Três caminhos: o robô escolhe a notícia da vez, o autor escolhe o tema, ou o autor aponta uma notícia. */}
             <div className="grid gap-2">
               <div>
@@ -364,6 +372,7 @@ export function AdminPage() {
                   em branco
                 </button>
               </div>
+            </div>
             </div>
           </div>
 
