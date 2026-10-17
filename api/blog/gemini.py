@@ -279,6 +279,9 @@ def _normalize(raw: dict[str, Any]) -> dict[str, Any]:
             # é o que mais entrega texto de máquina (pedido do PO, 2026-10-16).
             "sections": [{**sec, "heading": ""} for sec in model.clean_sections(body.get("sections") or [])],
         }
+    for lang, body in i18n.items():
+        if not body["title"] or not any(sec["paragraphs"] for sec in body["sections"]):
+            raise GeminiError(f"Texto incompleto: o modelo devolveu '{lang}' sem título ou sem parágrafos")
     return {
         "slugBase": model.slugify(raw.get("slugBase") or i18n["pt"]["title"]),
         "tags": model.clean_tags(raw.get("tags") or []),

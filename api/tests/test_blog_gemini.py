@@ -49,6 +49,23 @@ def fake(monkeypatch):
     return f
 
 
+class TestPostIncompleto:
+    """Medido ao vivo com o Claude: um post saiu com título vazio. Post pela metade não é gravado."""
+
+    @pytest.mark.parametrize("lang,campo", [("pt", "title"), ("en", "title")])
+    def test_sem_titulo_em_um_idioma_nao_vira_post(self, fake, lang, campo):
+        fake.payload = _resposta({**POST_OK, lang: {**POST_OK[lang], campo: "  "}})
+        with pytest.raises(gemini.GeminiError, match="incompleto"):
+            gemini.generate_post("tema")
+
+    @pytest.mark.parametrize("lang", ["pt", "en"])
+    def test_sem_nenhum_paragrafo_nao_vira_post(self, fake, lang):
+        fake.payload = _resposta({**POST_OK, lang: {**POST_OK[lang], "sections": [
+            {"heading": "", "paragraphs": []}]}})
+        with pytest.raises(gemini.GeminiError, match="incompleto"):
+            gemini.generate_post("tema")
+
+
 class TestGeracaoDePost:
     def test_usa_flash_lite_e_manda_a_chave_no_header(self, fake):
         gemini.generate_post("liderança em IA")

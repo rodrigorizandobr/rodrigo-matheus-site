@@ -233,6 +233,8 @@ MEMORY_CLAIMS = (
     "já vi", "já passei", "como quem já", "no meu time", "na minha carreira",
     "na minha experiência", "já liderei", "quando liderei", "já trabalhei", "na minha época",
     "já geri", "já gerenciei", "já coordenei", "já conduzi", "já construí", "já operei",
+    "como alguém que já", "já lidei", "já tratei", "já enfrentei", "já presenciei",
+    "já participei", "já fiz", "acompanhei",
 )
 
 

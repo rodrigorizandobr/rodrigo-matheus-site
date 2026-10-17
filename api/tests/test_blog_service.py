@@ -801,6 +801,26 @@ class TestMemoriaInventada:
         assert len(pedidos) == 1 and "opinião" in pedidos[0]
         assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Muita diretoria erra."]
 
+    @pytest.mark.parametrize("frase", [
+        "Como alguém que já teve que lidar com gente de dentro, digo que a ameaça tem crachá.",
+        "Já lidei com isso em outro time.",
+        "Já tratei incidente parecido.",
+        "Já enfrentei decisão assim.",
+        "Já presenciei essa cena.",
+        "Já participei de projeto desse tipo.",
+        "Acompanhei caso igual de perto.",
+        "Já fiz essa escolha.",
+    ])
+    def test_outros_jeitos_de_inventar_memoria_tambem_disparam(self, env, monkeypatch, frase):
+        """Medido nos posts de teste com Claude: a lista só tinha 'já vi', 'já liderei'…"""
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho(frase))
+        pedidos = self._revisor(monkeypatch, "Opinião sem memória.")
+        store.save_config({"banned_phrases": []})
+        service.generate("openai", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1
+
     def test_reflexao_pode_contar_cena_real_da_carreira(self, env, monkeypatch):
         monkeypatch.setattr(service.gemini, "generate_reflection",
                             lambda *a, **k: _rascunho("Quando liderei a tribo de crédito, aprendi."))

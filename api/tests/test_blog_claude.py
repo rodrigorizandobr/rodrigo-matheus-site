@@ -71,6 +71,17 @@ class TestPedidoAoClaude:
                                        "data": base64.b64encode(b"\xff\xd8abc").decode()}
         assert partes[-1] == {"type": "text", "text": "qual?"}
 
+    @pytest.mark.parametrize("cabecalho,tipo", [
+        (b"\xff\xd8\xff\xe0", "image/jpeg"),
+        (b"\x89PNG\r\n\x1a\n", "image/png"),
+        (b"RIFF\x8c\xc4\x08\x00WEBP", "image/webp"),
+        (b"GIF89a", "image/gif"),
+    ])
+    def test_a_imagem_vai_com_o_tipo_que_ela_tem(self, fake, cabecalho, tipo):
+        """A API devolve 400 se o tipo declarado não bate com os bytes (medido: og:image em webp e png)."""
+        claude.complete("qual?", "s", {"type": "OBJECT"}, "claude-x", images=[cabecalho + b"resto"])
+        assert fake.calls[0]["json"]["messages"][0]["content"][0]["source"]["media_type"] == tipo
+
     def test_sem_sistema_o_campo_nem_vai(self, fake):
         claude.complete("oi", "", {"type": "OBJECT"}, "claude-x")
         assert "system" not in fake.calls[0]["json"]
@@ -96,6 +107,90 @@ class TestFalhas:
             {"stop_reason": "max_tokens", "content": [{"type": "text", "text": "..."}]}))
         with pytest.raises(claude.ClaudeError, match="sem"):
             claude.complete("oi", "s", {"type": "OBJECT"}, "claude-x")
+
+
+class Sequencia:
+    """Devolve uma resposta diferente a cada chamada (a última se repete)."""
+
+    def __init__(self, *payloads):
+        self.payloads, self.calls = list(payloads), []
+
+    def __call__(self, url, **kwargs):
+        self.calls.append({"url": url, **kwargs})
+        payload = self.payloads[min(len(self.calls), len(self.payloads)) - 1]
+        return type("R", (), {"status_code": 200, "ok": True, "json": lambda _s: payload,
+                              "text": json.dumps(payload)})()
+
+
+class TestEstruturaQuebrada:
+    """Medido ao vivo (1 em ~8 posts): o Claude devolve `pt` como TEXTO, e às vezes com o `en` dentro."""
+
+    def test_objeto_mandado_como_texto_json_volta_a_ser_objeto(self, monkeypatch, chave):
+        torto = {**POST_OK, "pt": json.dumps(POST_OK["pt"])}
+        monkeypatch.setattr(claude.requests, "post", Sequencia(_tool(torto)))
+        assert claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x") == POST_OK
+
+    def test_en_que_veio_dentro_do_texto_do_pt_e_recuperado(self, monkeypatch, chave):
+        dentro = json.dumps(POST_OK["pt"]) + ',"en":' + json.dumps(POST_OK["en"])
+        torto = {k: v for k, v in POST_OK.items() if k != "en"} | {"pt": dentro}
+        monkeypatch.setattr(claude.requests, "post", Sequencia(_tool(torto)))
+        assert claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x") == POST_OK
+
+    def test_estrutura_irrecuperavel_tenta_de_novo_e_devolve_a_boa(self, monkeypatch, chave):
+        ruim = {**POST_OK, "pt": '{"title": "cortado'}
+        seq = Sequencia(_tool(ruim), _tool(POST_OK))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x") == POST_OK
+        assert len(seq.calls) == 2
+
+    def test_campo_obrigatorio_ausente_tambem_tenta_de_novo(self, monkeypatch, chave):
+        sem_en = {k: v for k, v in POST_OK.items() if k != "en"}
+        seq = Sequencia(_tool(sem_en), _tool(POST_OK))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x") == POST_OK
+        assert len(seq.calls) == 2
+
+    def test_desiste_depois_de_algumas_tentativas(self, monkeypatch, chave):
+        ruim = {**POST_OK, "pt": '{"title": "cortado'}
+        seq = Sequencia(_tool(ruim))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        with pytest.raises(claude.ClaudeError, match="estrutura"):
+            claude.complete("oi", "s", gemini.POST_SCHEMA, "claude-x")
+        assert len(seq.calls) == claude.MAX_ATTEMPTS
+
+    def test_lista_omitida_nao_e_defeito(self, monkeypatch, chave):
+        """O conferidor omite `semFonte` quando não acha nada; quem chama já trata ausente como vazio."""
+        seq = Sequencia(_tool({}))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.CLAIMS_SCHEMA, "claude-x") == {}
+        assert len(seq.calls) == 1
+
+    ITEM = {"trecho": "frase", "porque": "sem apoio"}
+
+    def test_lista_embrulhada_num_objeto_de_mesmo_nome_e_desembrulhada(self, monkeypatch, chave):
+        """Medido: o Sonnet devolveu {"semFonte": {"semFonte": [...]}} e o conferidor quebrava."""
+        monkeypatch.setattr(claude.requests, "post", Sequencia(_tool({"semFonte": {"semFonte": [self.ITEM]}})))
+        assert claude.complete("oi", "s", gemini.CLAIMS_SCHEMA, "claude-x") == {"semFonte": [self.ITEM]}
+
+    def test_lista_mandada_como_texto_com_o_involucro_dentro_e_desembrulhada(self, monkeypatch, chave):
+        """Medido em 3 de 5 posts reais: o Sonnet mandou `semFonte` como TEXTO JSON que traz `{"semFonte": [...]}`."""
+        texto = json.dumps({"semFonte": [self.ITEM]})
+        seq = Sequencia(_tool({"semFonte": texto}))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.CLAIMS_SCHEMA, "claude-x") == {"semFonte": [self.ITEM]}
+        assert len(seq.calls) == 1
+
+    def test_lista_que_veio_como_objeto_estranho_tenta_de_novo(self, monkeypatch, chave):
+        seq = Sequencia(_tool({"semFonte": {"outra": 1}}), _tool({"semFonte": [self.ITEM]}))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.CLAIMS_SCHEMA, "claude-x") == {"semFonte": [self.ITEM]}
+        assert len(seq.calls) == 2
+
+    def test_json_livre_nao_e_validado(self, monkeypatch, chave):
+        seq = Sequencia(_tool({"inicio": 3}))
+        monkeypatch.setattr(claude.requests, "post", seq)
+        assert claude.complete("oi", "s", gemini.FREE_JSON, "claude-x") == {"inicio": 3}
+        assert len(seq.calls) == 1
 
 
 class TestEscolhaDoProvedor:

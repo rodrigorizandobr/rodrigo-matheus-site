@@ -508,6 +508,18 @@ mesmo caminho (`gemini.FREE_JSON` = JSON livre). **Capa por IA continua no Gemin
 - **Primeiro post medido (robô Arcanjo, 22 s):** estrutura e schema certos, mas parágrafos de 30 a 62 palavras
   (pedido: 40 a 50) e uma memória inventada ("Eu já geri sistema crítico…", verbo que a lista não tinha) —
   `MEMORY_CLAIMS` ganhou geri/gerenciei/coordenei/conduzi/construí/operei. Visão e JSON livre conferidos ao vivo.
+- **A saída do Claude vem torta em ~1 de cada 8 chamadas** (medido ao vivo, 5 posts + conferidores): objeto mandado
+  como TEXTO JSON, `en` embutido dentro do texto do `pt`, lista embrulhada num objeto de mesmo nome
+  (`{"semFonte": {"semFonte": [...]}}`) ou como texto que traz o invólucro inteiro — o Sonnet fez isso em 3 de 5
+  conferências. `claude.repair` conserta o que dá e `claude.complete` refaz até `MAX_ATTEMPTS` (3); só objeto
+  OBRIGATÓRIO ausente é defeito (lista ausente = vazia: o conferidor omite `semFonte` quando não acha nada).
+  Título ou parágrafos vazios viram `GeminiError` em `_normalize` (antes gravava post em branco). Imagem vai
+  com o tipo REAL (`claude.media_type`): a API devolve 400 se o declarado não bate (webp como jpeg).
+- **Sonnet x Haiku nos conferidores — medido (2026-10-17), ficou Sonnet em tudo.** Tempo igual (3–7 s), achados de
+  volume parecido mas em frases diferentes, sem gabarito para dizer quem acerta; o custo do conferidor é uma
+  chamada curta por post, então a economia do Haiku é desprezível. O juiz de foto é onde o Haiku PIORA: mais
+  leniente com robô errado. `BLOG_CLAUDE_CHECK_MODEL` governa conferidor, juiz de foto e a escolha de quadros do
+  Mac juntos; separar só valeria se um dia o custo pesasse.
 - Os prompts foram afinados e medidos no flash-lite. Ao virar para o Claude, gere 3 posts de verdade e leia
   (tom, tamanho por parágrafo, clichês) antes de confiar.
 - `conftest.isolate` zera `claude.API_KEY`: quem rodou `source .env` não manda teste de Gemini para o Claude.
@@ -656,7 +668,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 692 testes
+cd api && source .venv/bin/activate && pytest      # 738 testes
 cd web && npm test                                  # 440 testes
 ```
 
