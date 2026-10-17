@@ -1,4 +1,4 @@
-"""Geração e revisão de posts com o Gemini Flash Lite.
+"""Geração e revisão de posts: Claude quando há `ANTHROPIC_API_KEY`, Gemini Flash Lite senão.
 
 Um post é UM documento bilíngue produzido numa chamada só: pedir português e
 inglês em duas chamadas dobra o custo e deixa as duas versões dizendo coisas
@@ -15,7 +15,7 @@ from typing import Any
 
 import requests
 
-from . import model
+from . import claude, model
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -23,6 +23,9 @@ TEXT_MODEL = os.environ.get("BLOG_TEXT_MODEL", "gemini-3.5-flash-lite")
 #: conferir fato contra fonte pede mais que escrever: o flash-lite é o mesmo que inventou
 CHECK_MODEL = os.environ.get("BLOG_CHECK_MODEL", "gemini-3.8-flash")
 TIMEOUT = 120
+#: "anthropic" ou "gemini" força o motor; vazio escolhe sozinho (Claude se houver chave)
+LLM_CHOICE = os.environ.get("BLOG_LLM", "").strip().lower()
+FREE_JSON = claude.FREE_JSON
 
 # Teto alto de propósito: post cortado no meio foi o defeito mais comum no
 # projeto irmão, e um post de duas línguas gasta o dobro de saída.
@@ -201,29 +204,48 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    `imageAlt` em português, descrevendo a imagem para quem não a vê."""
 
 
+def provider() -> str:
+    if LLM_CHOICE in ("anthropic", "gemini"):
+        return LLM_CHOICE
+    return "anthropic" if claude.API_KEY else "gemini"
+
+
 def _call(prompt: str, system: str, schema: dict[str, Any] | None = None, model_name: str | None = None,
-          temperature: float = 0.9, images: list[bytes] | None = None) -> dict[str, Any]:
+          temperature: float = 0.9, images: list[bytes] | None = None, timeout: int | None = None) -> dict[str, Any]:
+    """Uma chamada de texto/visão que devolve JSON. `model_name` vazio = o modelo de escrever; preenchido =
+    o de conferir/olhar imagem (no Claude o nome do modelo do Gemini não vale, só o papel dele)."""
+    if provider() == "anthropic":
+        try:
+            return claude.complete(prompt, system, schema or POST_SCHEMA,
+                                   claude.TEXT_MODEL if model_name is None else claude.CHECK_MODEL,
+                                   temperature, images=images, timeout=timeout)
+        except claude.ClaudeError as exc:  # as rotas e o agendador já tratam GeminiError
+            raise GeminiError(str(exc)) from exc
+
     if not API_KEY:
         raise GeminiError("GEMINI_API_KEY não configurada no serviço")
 
-    body = {
-        "systemInstruction": {"parts": [{"text": system}]},
+    config: dict[str, Any] = {
+        "responseMimeType": "application/json",
+        "maxOutputTokens": MAX_OUTPUT_TOKENS,
+        "temperature": temperature,
+    }
+    if schema is not FREE_JSON:
+        config["responseSchema"] = schema or POST_SCHEMA
+    body: dict[str, Any] = {
         "contents": [{"role": "user", "parts": [
             {"text": prompt},
             *({"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(raw).decode()}} for raw in images or []),
         ]}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": schema or POST_SCHEMA,
-            "maxOutputTokens": MAX_OUTPUT_TOKENS,
-            "temperature": temperature,
-        },
+        "generationConfig": config,
     }
+    if system:
+        body["systemInstruction"] = {"parts": [{"text": system}]}
     res = requests.post(
         f"{BASE}/models/{model_name or TEXT_MODEL}:generateContent",
         headers={"x-goog-api-key": API_KEY, "content-type": "application/json"},
         json=body,
-        timeout=TIMEOUT,
+        timeout=timeout or TIMEOUT,
     )
     if not res.ok:
         raise GeminiError(f"Gemini respondeu {res.status_code}: {res.text[:300]}")

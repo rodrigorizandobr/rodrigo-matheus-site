@@ -482,6 +482,26 @@ Pedido do PO, depois do post do robô policial: "vídeo real, senão imagem real
   custo, regras de uso, quem controla, como se mede o resultado; sem ironia com quem construiu; a pergunta final
   convida em vez de desafiar. "desconfio" saiu da lista de verbos de opinião ("imagino" entrou).
 
+## Claude no lugar do Gemini (2026-10-17)
+
+Pedido do PO: usar os créditos da Anthropic. `blog/claude.py` é a API de mensagens; `gemini._call` continua sendo
+a porta única de texto/visão e escolhe o motor por `gemini.provider()`: `BLOG_LLM=anthropic|gemini` força; vazio =
+Claude se houver `ANTHROPIC_API_KEY`, senão Gemini. Saída estruturada = ferramenta obrigatória (`tool_choice`), com
+o schema do Gemini convertido para minúsculas (`to_json_schema`). Papel, não nome, escolhe o modelo: `model_name`
+vazio = escrever (`claude.TEXT_MODEL`), preenchido = conferir/olhar imagem (`claude.CHECK_MODEL`); ambos
+`claude-sonnet-5`, trocáveis por `BLOG_CLAUDE_TEXT_MODEL`/`BLOG_CLAUDE_CHECK_MODEL`. Erro do Claude sobe como
+`GeminiError`, que as rotas já tratam. A decisão por imagem da rotina do Mac (`Ferramentas._gemini`) passa pelo
+mesmo caminho (`gemini.FREE_JSON` = JSON livre). **Capa por IA continua no Gemini** (`images.py`): o Claude não gera imagem.
+
+- **Chave `sk-ant-usr-…` não tem workspace** e a API recusa com 400 ("not scoped to a workspace"): é preciso
+  `ANTHROPIC_WORKSPACE_ID` (cabeçalho `anthropic-workspace-id`) ou uma chave criada dentro de um workspace.
+  Enquanto isso o `.env` fica com `BLOG_LLM=gemini` — **não tire sem antes ver o Claude responder**, senão o
+  deploy troca o motor para um que devolve 400 e a geração para.
+- Os prompts foram afinados e medidos no flash-lite. Ao virar para o Claude, gere 3 posts de verdade e leia
+  (tom, tamanho por parágrafo, clichês) antes de confiar.
+- `conftest.isolate` zera `claude.API_KEY`: quem rodou `source .env` não manda teste de Gemini para o Claude.
+- Rotina do Mac: o instalador copia `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID` e `BLOG_LLM`; rode-o de novo.
+
 ## Git dentro do Google Drive
 
 O repositório vive numa pasta do Google Drive. Em 2026-10-16 o Drive deixou 23 arquivos do `.git` como

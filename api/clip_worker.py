@@ -314,7 +314,6 @@ ESTRATEGIAS: list[list[str]] = [
 # Medido em 2026-10-16 contra o vídeo da Tesla: os clientes web_safari, mweb, web_embedded e tv
 # do YouTube NÃO entregam o formato H.264 que o corte pede — não entram na lista.
 UPGRADE_AT = 2
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{VISION_MODEL}:generateContent"
 
 # Medido: a primeira versão ("mostra o acontecimento do post?") recusou o loop da sucção porque o
 # texto falava de salto. O papel da conferência é barrar corte SEM o assunto, não cobrar detalhe.
@@ -414,13 +413,9 @@ class Ferramentas:
 
     @staticmethod
     def _gemini(imagens: list[bytes], pergunta: str) -> str:
-        import requests
-        partes = [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(i).decode()}} for i in imagens]
-        res = requests.post(GEMINI_URL, headers={"x-goog-api-key": gemini.API_KEY}, timeout=300, json={
-            "contents": [{"parts": [*partes, {"text": pergunta}]}],
-            "generationConfig": {"responseMimeType": "application/json"}})
-        res.raise_for_status()
-        return res.json()["candidates"][0]["content"]["parts"][0]["text"]
+        """Decisão por imagem: vai pelo motor escolhido em `gemini.provider()` (Claude ou Gemini)."""
+        return json.dumps(gemini._call(pergunta, "", schema=gemini.FREE_JSON, model_name=VISION_MODEL,
+                                       temperature=0, images=imagens, timeout=300))
 
     def ask_times(self, frames: list[tuple[int, bytes]], post_text: str, duration: int) -> str:
         return self._gemini(self._mosaicos(frames), (

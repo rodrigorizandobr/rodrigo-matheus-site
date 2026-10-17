@@ -270,7 +270,7 @@ class TestModeloDaVisao:
     def test_escolha_de_trecho_usa_modelo_mais_forte_que_o_do_texto(self):
         # medido: o flash-lite deu janelas de 3 s e "viu" salto onde não havia; o 3.8-flash acertou
         assert clip_worker.VISION_MODEL != clip_worker.gemini.TEXT_MODEL
-        assert clip_worker.VISION_MODEL in clip_worker.GEMINI_URL
+        assert clip_worker.VISION_MODEL == clip_worker.gemini.CHECK_MODEL
 
 
 class TestNotaNaEscolha:

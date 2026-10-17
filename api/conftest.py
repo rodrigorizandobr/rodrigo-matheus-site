@@ -14,12 +14,15 @@ os.environ.setdefault("GITHUB_TOKEN", "test-token")
 sys.path.insert(0, str(Path(__file__).parent))
 
 import server  # noqa: E402
-from blog import service  # noqa: E402
+from blog import claude, gemini, service  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def isolate(monkeypatch, tmp_path):
     """No GCS, no shared cache file, no leaked i18n memo between tests."""
+    # quem rodou `source .env` não pode mandar teste de Gemini para o Claude por acidente
+    monkeypatch.setattr(claude, "API_KEY", "")
+    monkeypatch.setattr(gemini, "LLM_CHOICE", "")
     monkeypatch.setattr(server, "_gcs_blob", lambda *a, **kw: None)
     monkeypatch.setattr(server, "CACHE_FILE", tmp_path / "github_cache.json")
     monkeypatch.setattr(server, "REFRESH_KEY", "test-refresh-key")

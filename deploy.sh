@@ -67,6 +67,9 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "GITHUB_TOKEN=${GITHUB_TOKEN}" \
     --set-env-vars "GCS_BUCKET=${GCS_BUCKET:-rodrigo-matheus-cache}" \
     --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:-}" \
+    --set-env-vars "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
+    --set-env-vars "ANTHROPIC_WORKSPACE_ID=${ANTHROPIC_WORKSPACE_ID:-}" \
+    --set-env-vars "BLOG_LLM=${BLOG_LLM:-}" \
     --set-env-vars "BLOG_TICK_KEY=${BLOG_TICK_KEY:-}" \
     --set-env-vars "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
     --set-env-vars "SERPER_API_KEY=${SERPER_API_KEY:-}" \
