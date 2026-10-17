@@ -163,6 +163,13 @@ def list_posts() -> list[dict[str, Any]]:
     return sorted((r for r in rows if r), key=lambda p: p.get("createdAt") or _now(), reverse=True)
 
 
+def list_pending_clips() -> list[dict[str, Any]]:
+    """Posts à espera do recorte. Consulta filtrada: sem pendente, não lê documento nenhum."""
+    rows = _db().collection(POSTS).where(filter=FieldFilter("clip.status", "==", "pending")).stream()
+    posts = [p for p in (_doc_to_post(s) for s in rows) if p]
+    return sorted(posts, key=lambda p: p.get("createdAt") or _now(), reverse=True)
+
+
 def _public_view(post: dict[str, Any]) -> dict[str, Any]:
     limpo = {k: v for k, v in post.items() if k not in INTERNAL_FIELDS}
     imagem = limpo.get("image")

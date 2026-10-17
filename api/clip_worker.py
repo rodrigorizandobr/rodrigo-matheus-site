@@ -71,8 +71,7 @@ def check_project() -> None:
 # ── fila e coreografia ──────────────────────────────────────────────────────
 
 def pending_posts() -> list[dict[str, Any]]:
-    return [p for p in store.list_posts()
-            if (p.get("clip") or {}).get("status") == "pending" and (p.get("video") or {}).get("url")]
+    return [p for p in store.list_pending_clips() if (p.get("video") or {}).get("url")]
 
 
 def _post_text(post: dict[str, Any]) -> str:

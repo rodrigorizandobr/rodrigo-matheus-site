@@ -397,6 +397,10 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   instalador de novo** — a cópia não se atualiza sozinha. À mão, da pasta do projeto: `./scripts/clip-worker.sh`.
   Log: `~/Library/Logs/rodrigo-matheus-recorte.log`. `ProcessType=Standard`: com `Background` o corte de
   40 s levou 20 min.
+- **A rodada de 15 min NÃO toca o Cloud Run** (conferido: `clip_worker.py` não faz requisição HTTP ao serviço; só
+  Firestore, yt-dlp, Gemini/Claude e SES). Ela era cara em outra coisa: lia a coleção inteira de posts a cada batida.
+  Hoje `pending_posts` usa `store.list_pending_clips` (consulta `clip.status == "pending"`): rodada ociosa lê ZERO
+  documentos e só grava o sinal de vida. Em silêncio a rotina custa ~96 escritas/dia, dentro da cota grátis.
 - **Projeto fixo e conferido:** `clip_worker.check_project()` recusa rodar se o Firestore não for
   `rodrigo-matheus` (o cliente sem projeto cai no padrão do gcloud — já gravou em `br51-app`).
 - **Como o trecho é escolhido:** vídeo inteiro em 240p, um quadro a cada 5 s com o tempo GRAVADO no quadro
@@ -668,7 +672,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 738 testes
+cd api && source .venv/bin/activate && pytest      # 739 testes
 cd web && npm test                                  # 440 testes
 ```
 

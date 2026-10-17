@@ -64,7 +64,9 @@ class FakeQuery:
 
 
 def _matches(data: dict[str, Any], f) -> bool:
-    value = data.get(f.field)
+    value: Any = data
+    for part in f.field.split("."):  # caminho com ponto entra no mapa, como no Firestore
+        value = value.get(part) if isinstance(value, dict) else None
     if f.op == "==":
         return value == f.value
     if f.op == "<=":

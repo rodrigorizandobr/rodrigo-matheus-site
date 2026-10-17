@@ -116,6 +116,17 @@ class TestFila:
         _post_pendente(clip={"status": "failed", "reason": "r"})
         assert [p["id"] for p in clip_worker.pending_posts()] == [a["id"]]
 
+    def test_pergunta_so_pelos_pendentes_sem_ler_a_colecao_inteira(self, env, monkeypatch):
+        # a rodada roda de 15 em 15 min: em silêncio ela não pode custar uma leitura por post do blog
+        a = _post_pendente()
+        _post_pendente(clip={"status": "ready", "hash": "x" * 64})
+
+        def lista_tudo():
+            raise AssertionError("leu a coleção inteira")
+
+        monkeypatch.setattr(store, "list_posts", lista_tudo)
+        assert [p["id"] for p in clip_worker.pending_posts()] == [a["id"]]
+
 
 class TestRecorte:
     def test_caminho_feliz_grava_o_clipe_e_marca_pronto(self, env):
