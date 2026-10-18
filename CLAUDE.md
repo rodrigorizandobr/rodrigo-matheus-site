@@ -390,7 +390,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 | Achar o vídeo | `service._save_generated` → `videos.search_youtube` | Servidor. Todo post busca; achou → `video` + `clip: {status: pending}` e o post fica **rascunho, sem agendar**, mesmo com "publicar sem revisão". |
 | Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), janelas da melhor para a pior (`rank_segments`): mínimo 10 s e **sem limite de tempo** — o assunto decide o tamanho; só vale o teto de 600 s (`MAX_CLIP`), que é o do vídeo nativo do LinkedIn. |
 | Recortar | `api/clip_worker.py` | **Mac do autor**, serviço `launchd` sempre ligado que ESCUTA o Firestore. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
-| Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. |
+| Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. **O navegador a chama DIRETO no Cloud Run (`LONG_BASE` em `clipUrl`, CSP `media-src`)**: pelo Hosting o CDN responde 200 com o arquivo inteiro a um `Range` (medido 2026-10-18; o Cloud Run sozinho dá 206). |
 | Mostrar | `PostArticle` (site e prévia), cartão "Vídeo" no editor | Pronto → o vídeo toma o lugar da capa (capa vira `poster`), crédito "Trecho de <título> · <canal>" com link no segundo exato. O público só vê recorte `ready`, por `CLIP_PUBLIC_FIELDS`. |
 
 - **Por que no Mac:** o YouTube bloqueia download de IP de datacenter; mesmo do IP de casa deu 429/403
@@ -712,7 +712,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 812 testes
-cd web && npm test                                  # 464 testes
+cd web && npm test                                  # 465 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

@@ -1,3 +1,4 @@
+import { LONG_BASE } from '../../blog/api'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -192,7 +193,7 @@ describe('player do recorte no editor', () => {
     const { container } = render(<PostEditor {...props({ post: post({ clip }) })} />)
     const video = container.querySelector('video')
     expect(video).not.toBeNull()
-    expect(video!.getAttribute('src')).toBe(`/api/blog/video/${'c'.repeat(64)}.mp4`)
+    expect(video!.getAttribute('src')).toBe(`${LONG_BASE}/api/blog/video/${'c'.repeat(64)}.mp4`)
     expect(video!.hasAttribute('controls')).toBe(true)
   })
 

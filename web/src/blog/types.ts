@@ -1,4 +1,5 @@
 /** Forma do post, espelhando api/blog/store.py. Datas chegam como ISO-8601. */
+import { LONG_BASE } from './api'
 export type Lang = 'pt' | 'en'
 export type Section = { heading: string; paragraphs: string[] }
 export type Body = { title: string; excerpt: string; sections: Section[] }
@@ -158,9 +159,13 @@ export type LinkedInStatus = {
 export const coverUrl = (image: { hash: string } | null): string | null =>
   image ? `/api/blog/image/${image.hash}.jpg` : null
 
-/** URL do recorte pronto (o público vem sem `status`, o painel vem com) — ou null. */
+/**
+ * URL do recorte pronto (o público vem sem `status`, o painel vem com) — ou null.
+ * Vai direto ao Cloud Run: pelo Hosting o CDN responde 200 com o arquivo inteiro a um pedido de
+ * `Range`, e o Safari do iPhone só toca vídeo com 206.
+ */
 export const clipUrl = (clip: Clip | null | undefined): string | null =>
-  clip?.hash && (clip.status === undefined || clip.status === 'ready') ? `/api/blog/video/${clip.hash}.mp4` : null
+  clip?.hash && (clip.status === undefined || clip.status === 'ready') ? `${LONG_BASE}/api/blog/video/${clip.hash}.mp4` : null
 
 /** Link do vídeo original já no segundo em que o trecho começa. */
 export const clipSourceAt = (clip: Clip): string =>

@@ -1,3 +1,4 @@
+import { LONG_BASE } from './api'
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { PostArticle } from './PostArticle'
@@ -41,7 +42,7 @@ describe('PostArticle — recorte de vídeo', () => {
   it('recorte pronto vira o destaque do post, com a capa como quadro inicial', () => {
     const { container } = render(<PostArticle post={{ ...post(capa), clip: recorte }} lang="pt" minutes={1} />)
     const video = container.querySelector('video')!
-    expect(video.getAttribute('src')).toBe(`/api/blog/video/${'c'.repeat(64)}.mp4`)
+    expect(video.getAttribute('src')).toBe(`${LONG_BASE}/api/blog/video/${'c'.repeat(64)}.mp4`)
     expect(video.getAttribute('poster')).toBe(`/api/blog/image/${'a'.repeat(64)}.jpg`)
     expect(video).toHaveAttribute('controls')
     expect(video).toHaveAttribute('playsinline')
