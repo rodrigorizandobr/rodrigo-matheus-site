@@ -5,7 +5,8 @@ rotina pega os pendentes, escolhe o trecho que mostra o que o post discute, cort
 editar, guarda no bucket e marca `ready` (ou `failed`, com o motivo). Roda no Mac porque o
 YouTube bloqueia download de IP de datacenter — mesmo daqui precisou `--impersonate chrome`.
 
-Uso:  ./scripts/clip-worker.sh        (uma rodada; o launchd chama de 15 em 15 min)
+Uso:  ./scripts/clip-worker.sh        (uma rodada, à mão)
+      python clip_worker.py           (serviço: escuta o Firestore, o launchd mantém ligado)
 
 Como o trecho é escolhido (lições da prova manual, 2026-10-16):
 - o Gemini "assistindo" pela URL inventa tempo; aqui ele marca QUADROS que têm o tempo
@@ -27,6 +28,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -299,6 +301,39 @@ def run_once(tools: Any, limit: int = LIMIT) -> int:
     return feitos
 
 
+# ── serviço sempre ligado: escuta o Firestore em vez de bater de tempos em tempos ──────────
+
+#: sem aviso nenhum, ainda assim roda uma rodada: grava o sinal de vida (o servidor reclama por e-mail
+#: se o Mac calar 2 h) e serve de rede de segurança se o ouvinte cair em silêncio
+HEARTBEAT_SECONDS = 30 * 60
+#: pendente que não saiu (download falhou) volta a ser tentado neste ritmo, como antes
+RETRY_SECONDS = 15 * 60
+
+
+class PendingWatcher:
+    """Só pendente NOVO acorda a rotina. A rodada regrava o post a cada tentativa; reagir a isso queimaria
+    todas as tentativas de uma vez."""
+
+    def __init__(self) -> None:
+        self._known: set[str] = set()
+
+    def has_news(self, ids: set[str]) -> bool:
+        novos = ids - self._known
+        self._known = set(ids)
+        return bool(novos)
+
+
+def serve(tools: Any, wake: Any, stop: Any = lambda: False, limit: int = LIMIT) -> None:
+    """Uma rodada a cada aviso do ouvinte; sem aviso, a rodada vem pelo sinal de vida (ou pela nova tentativa)."""
+    while not stop():
+        wake.clear()  # antes da rodada: aviso que chegar durante ela vira outra rodada logo em seguida
+        feitos = run_once(tools, limit)
+        print(f"[recorte] {feitos} post(s) processado(s)", flush=True)
+        if stop():
+            break
+        wake.wait(RETRY_SECONDS if pending_posts() else HEARTBEAT_SECONDS)
+
+
 # ── ferramentas de verdade: yt-dlp, ffmpeg, Pillow, Gemini ──────────────────
 
 YTDLP = [sys.executable, "-m", "yt_dlp", "--no-warnings", "-q"]
@@ -468,4 +503,14 @@ class Ferramentas:
 if __name__ == "__main__":
     os.environ["GOOGLE_CLOUD_PROJECT"] = PROJECT
     check_project()
-    print(f"[recorte] {run_once(Ferramentas())} post(s) processado(s)")
+    if "--once" in sys.argv:
+        print(f"[recorte] {run_once(Ferramentas())} post(s) processado(s)")
+    else:
+        acordar = threading.Event()
+        vigia = PendingWatcher()
+        assinante = store.watch_pending_clips(lambda ids: vigia.has_news(ids) and acordar.set())
+        print("[recorte] escutando o Firestore", flush=True)
+        try:
+            serve(Ferramentas(), acordar)
+        finally:
+            assinante.unsubscribe()

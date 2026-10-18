@@ -1,5 +1,6 @@
 #!/bin/bash
-# Instala (ou atualiza) a rotina de recorte no launchd, de 15 em 15 min.
+# Instala (ou atualiza) a rotina de recorte no launchd: um serviço SEMPRE LIGADO que escuta o Firestore
+# (post com recorte pendente acorda a rotina em segundos; sem nada a fazer ela fica parada).
 #
 # Por que copia em vez de rodar daqui: o macOS NÃO deixa processo em segundo plano ler a pasta do
 # Google Drive (~/Library/CloudStorage) — o launchd morreu com "Operation not permitted". Dar
@@ -53,16 +54,18 @@ cat > "$PLIST" <<PLIST
   <key>Label</key><string>$ROTULO</string>
   <key>ProgramArguments</key>
   <array><string>/bin/bash</string><string>$DEST/run.sh</string></array>
-  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
   <key>StandardOutPath</key><string>$LOG</string>
   <key>StandardErrorPath</key><string>$LOG</string>
   <!-- Standard, não Background: com Background o macOS dá prioridade mínima e o corte que leva
-       40 s à mão levou 20 min (medido). Roda poucos minutos a cada 15. -->
+       40 s à mão levou 20 min (medido). O serviço fica ligado; pesa só quando corta. -->
   <key>ProcessType</key><string>Standard</string>
 </dict>
 </plist>
 PLIST
 launchctl bootout "gui/$(id -u)/$ROTULO" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "instalado: $ROTULO (a cada 15 min), código copiado para $DEST"
+echo "instalado: $ROTULO (sempre ligado, escutando o Firestore), código copiado para $DEST"
 echo "log: $LOG — mudou a rotina? rode este script de novo."

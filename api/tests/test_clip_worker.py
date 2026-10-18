@@ -452,3 +452,56 @@ class TestCapaDoPost:
         post = _post_pendente()
         clip_worker.process(post, Ferramentas())
         assert store.get_post(post["id"])["clip"]["status"] == "ready"
+
+
+class TestOuvinte:
+    def test_post_novo_acorda_a_rotina(self):
+        vigia = clip_worker.PendingWatcher()
+        assert vigia.has_news({"a"}) is True
+        assert vigia.has_news({"a", "b"}) is True
+
+    def test_regravar_o_mesmo_pendente_nao_acorda(self):
+        # a própria rodada regrava o post a cada tentativa; acordar de novo queimaria as tentativas em laço
+        vigia = clip_worker.PendingWatcher()
+        vigia.has_news({"a"})
+        assert vigia.has_news({"a"}) is False
+
+    def test_pendente_que_sai_da_fila_nao_acorda(self):
+        vigia = clip_worker.PendingWatcher()
+        vigia.has_news({"a", "b"})
+        assert vigia.has_news({"a"}) is False
+        assert vigia.has_news({"a", "b"}) is True, "voltou à fila: é novidade de novo"
+
+
+class FakeEvent:
+    def __init__(self):
+        self.waits, self.cleared = [], 0
+
+    def clear(self):
+        self.cleared += 1
+
+    def wait(self, timeout=None):
+        self.waits.append(timeout)
+
+
+class TestServico:
+    def _serve(self, monkeypatch, pendentes, rodadas=2):
+        feitas = []
+        monkeypatch.setattr(clip_worker, "run_once", lambda tools, limit=3: feitas.append(1) or 0)
+        monkeypatch.setattr(clip_worker, "pending_posts", lambda: pendentes)
+        evento = FakeEvent()
+        clip_worker.serve(object(), evento, stop=lambda: len(feitas) >= rodadas)
+        return evento, feitas
+
+    def test_roda_assim_que_acordada_e_depois_espera_o_proximo_aviso(self, monkeypatch):
+        evento, feitas = self._serve(monkeypatch, pendentes=[])
+        assert len(feitas) == 2 and evento.cleared == 2
+        assert evento.waits == [clip_worker.HEARTBEAT_SECONDS]
+
+    def test_com_pendente_que_falhou_tenta_de_novo_em_15_min(self, monkeypatch):
+        evento, _ = self._serve(monkeypatch, pendentes=[{"id": "x"}])
+        assert evento.waits == [clip_worker.RETRY_SECONDS] and clip_worker.RETRY_SECONDS == 900
+
+    def test_sem_aviso_ainda_bate_o_sinal_de_vida(self, monkeypatch):
+        # o servidor avisa por e-mail se o Mac calar por 2 h; meia hora sobra de folga
+        assert clip_worker.HEARTBEAT_SECONDS <= 30 * 60

@@ -170,6 +170,12 @@ def list_pending_clips() -> list[dict[str, Any]]:
     return sorted(posts, key=lambda p: p.get("createdAt") or _now(), reverse=True)
 
 
+def watch_pending_clips(on_change):
+    """Escuta a fila de recortes. `on_change(ids)` recebe os ids pendentes a cada mudança. Devolve o assinante (`.unsubscribe()`)."""
+    query = _db().collection(POSTS).where(filter=FieldFilter("clip.status", "==", "pending"))
+    return query.on_snapshot(lambda docs, changes, read_time: on_change({d.id for d in docs}))
+
+
 def _public_view(post: dict[str, Any]) -> dict[str, Any]:
     limpo = {k: v for k, v in post.items() if k not in INTERNAL_FIELDS}
     imagem = limpo.get("image")
