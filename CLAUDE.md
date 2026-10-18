@@ -468,8 +468,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   (um post do LinkedIn leva um tipo de mídia só) e sem o link do YouTube: a fonte vai creditada em texto
   ("Vídeo: trecho de “título”, canal."). Envio ou processamento falhou, ou o MP4 sumiu do bucket → **nada é
   publicado** e o próximo tick tenta de novo. Recorte pendente/falho → comportamento antigo (link no texto).
-  **Ainda não validado contra o LinkedIn de verdade** — o primeiro compartilhamento de post com recorte é
-  o teste; conferir o post no perfil logo depois.
+  **Validado contra o LinkedIn de verdade** (PO, 2026-10-17: "testei o vídeo nativo, ficou ótimo").
 
 ## Escada de mídia da capa (2026-10-17)
 
