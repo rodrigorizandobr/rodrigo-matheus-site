@@ -121,20 +121,31 @@ def _stage(nome: str, fn: Any, *args: Any) -> Any:
         raise RuntimeError(f"{nome}: {exc}") from exc
 
 
+def _speech(url: str, tools: Any) -> list[tuple[float, float, str]]:
+    """A fala do vídeo é ajuda, nunca exigência: sem legenda (ou com erro) o recorte segue só pelos quadros."""
+    try:
+        return tools.transcript(url)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[recorte] sem legenda ({exc}); seguindo só pelos quadros", flush=True)
+        return []
+
+
 def _attempt(url: str, texto: str, tools: Any) -> dict[str, Any]:
     """Uma tentativa completa num vídeo. Erro de rede levanta; vídeo que não serve, `_ContentError`."""
     duracao = _stage("duration", tools.duration, url)
     quadros = _stage("frames", tools.frames, url, clips.STEP)
-    notas = clips.parse_scores(_stage("escolha", tools.ask_times, quadros, texto, duracao), duration=duracao)
+    falas = _speech(url, tools)
+    notas = clips.parse_scores(_stage("escolha", tools.ask_times, quadros, texto, duracao, falas), duration=duracao)
     janelas = clips.rank_segments(clips.group_segments(list(notas)), scores=notas)[:WINDOWS_TO_TRY]
     if not janelas:
         raise _ContentError("nenhum trecho do vídeo mostra o que o post discute")
     recusas = []
     for inicio, fim in janelas:
         regiao = (max(0, inicio - MARGIN_BEFORE), min(duracao, fim + MARGIN_AFTER))
-        janela = _stage("refino", tools.refine_window, url, *regiao, texto)
+        janela = _stage("refino", tools.refine_window, url, *regiao, texto, falas)
         if _valid_window(janela, regiao):
             inicio, fim = janela[0], min(janela[1], janela[0] + clips.MAX_CLIP)
+        inicio, fim = clips.snap_to_sentences(inicio, fim, falas)
         mp4, largura, altura = _stage("cut", tools.cut, url, inicio, fim)
         ok, descricao = _stage("conferência", tools.verify, mp4, texto)
         if not ok:
@@ -359,6 +370,49 @@ VERIFY_PROMPT = (
     "Responda só JSON: {\"mostra\": bool, \"descricao\": \"uma frase em português do que se VÊ no recorte\"}")
 
 
+def times_prompt(post_text: str, falas: list[tuple[float, float, str]]) -> str:
+    fala = ""
+    if falas:
+        fala = (" A FALA do vídeo (transcrição, com o tempo de cada frase) está depois do post: o quadro também "
+                "vale quando a fala, naquele momento, trata do assunto do post — mesmo que a imagem seja "
+                "gráfico, animação, tela de site ou a pessoa falando; nesse caso a exclusão de pessoas "
+                "falando e animação gráfica não vale.")
+    corpo = (
+        "Estes mosaicos são quadros de um vídeo, um a cada 5 segundos; o tempo em segundos está "
+        "escrito em amarelo no canto de cada quadro. Abaixo está o post que este vídeo vai "
+        "acompanhar. Liste TODOS os tempos (os números amarelos) cujos quadros mostram o assunto "
+        "do post — mesmo escuro, com fumaça, de longe ou em movimento borrado; deixe de fora só "
+        "pessoas falando no palco, plateia, logotipo, animação gráfica e outro produto." + fala +
+        " Depois dê a cada tempo uma nota: 3 = mostra exatamente o que o texto destaca acontecendo; "
+        "2 = o assunto em ação; 1 = o assunto aparece, mas parado ou distante. Na dúvida, liste "
+        "com nota 1 — a nota escolhe, a lista não pode ter buracos. "
+        "Responda só JSON: {\"tempos\": [{\"t\": int, \"nota\": int}, ...]}\n\n"
+        f"POST:\n{post_text[:2000]}")
+    if falas:
+        corpo += f"\n\nFALA DO VÍDEO:\n{clips.transcript_text(falas)}"
+    return corpo
+
+
+def refine_prompt(post_text: str, falas: list[tuple[float, float, str]],
+                  start: float | None = None, end: float | None = None) -> str:
+    corpo = (
+        "Quadros de um trecho de vídeo, um por segundo, com o tempo em amarelo. Escolha o trecho "
+        f"CONTÍNUO, de no mínimo {clips.MIN_CLIP} segundos e sem limite de tempo, que mostra por inteiro "
+        "o que o post abaixo destaca — pegue o tempo que o assunto precisa para ser entendido, nem "
+        "um trecho curto que deixe a explicação pela metade, nem enchimento. Comece no primeiro "
+        "quadro em que o assunto já aparece e termine no último; corte o que é só o produto "
+        "parado, filmagem distante sem ação, palco ou plateia. ")
+    if falas:
+        corpo += ("O assunto pode estar só na FALA (transcrição abaixo, com o tempo de cada frase), com gráfico ou "
+                  "animação na tela: vale o trecho em que ele é explicado por inteiro. Comece no início de uma "
+                  "frase e termine no fim de uma frase, nunca no meio. ")
+    corpo += ("Use os números amarelos. Responda só JSON: {\"inicio\": int, \"fim\": int}\n\n"
+              f"POST:\n{post_text[:1500]}")
+    if falas:
+        corpo += f"\n\nFALA DO TRECHO:\n{clips.transcript_text(falas, start, end)}"
+    return corpo
+
+
 class Ferramentas:
     estrategias = len(ESTRATEGIAS)
 
@@ -451,30 +505,37 @@ class Ferramentas:
         return json.dumps(gemini._call(pergunta, "", schema=gemini.FREE_JSON, model_name=VISION_MODEL,
                                        temperature=0, images=imagens, timeout=300))
 
-    def ask_times(self, frames: list[tuple[int, bytes]], post_text: str, duration: int) -> str:
-        return self._gemini(self._mosaicos(frames), (
-            "Estes mosaicos são quadros de um vídeo, um a cada 5 segundos; o tempo em segundos está "
-            "escrito em amarelo no canto de cada quadro. Abaixo está o post que este vídeo vai "
-            "acompanhar. Liste TODOS os tempos (os números amarelos) cujos quadros mostram o assunto "
-            "do post — mesmo escuro, com fumaça, de longe ou em movimento borrado; deixe de fora só "
-            "pessoas falando no palco, plateia, logotipo, animação gráfica e outro produto. Depois dê "
-            "a cada tempo uma nota: 3 = mostra exatamente o que o texto destaca acontecendo; "
-            "2 = o assunto em ação; 1 = o assunto aparece, mas parado ou distante. Na dúvida, liste "
-            "com nota 1 — a nota escolhe, a lista não pode ter buracos. "
-            "Responda só JSON: {\"tempos\": [{\"t\": int, \"nota\": int}, ...]}\n\n"
-            f"POST:\n{post_text[:2000]}"))
+    def transcript(self, url: str) -> list[tuple[float, float, str]]:
+        """Legenda do vídeo em frases: a automática do idioma original; sem ela, a feita à mão. Nunca a
+        tradução automática (o YouTube responde 429). Sem legenda ou com erro, lista vazia."""
+        for auto, langs in ((True, ".*-orig"), (False, "en.*,pt.*")):
+            pasta = Path(tempfile.mkdtemp(dir=self.dir))
+            try:
+                # o yt-dlp sai com erro se UMA faixa falha, mesmo com as outras já no disco: lê o que baixou
+                subprocess.run([*YTDLP, *self._modo, "--skip-download",
+                                "--write-auto-subs" if auto else "--write-subs", "--sub-langs", langs,
+                                "--sub-format", "json3", "-o", str(pasta / "v.%(ext)s"), url],
+                               capture_output=True, timeout=180)
+            except (subprocess.SubprocessError, OSError):
+                pass
+            for arquivo in sorted(pasta.glob("v.*.json3")):
+                try:
+                    falas = clips.parse_captions(json.loads(arquivo.read_text(encoding="utf-8")))
+                except (OSError, ValueError):
+                    continue
+                if falas:
+                    return falas
+        return []
 
-    def refine_window(self, url: str, start: int, end: int, post_text: str) -> tuple[int, int] | None:
+    def ask_times(self, frames: list[tuple[int, bytes]], post_text: str, duration: int,
+                  falas: list[tuple[float, float, str]] = ()) -> str:  # type: ignore[assignment]
+        return self._gemini(self._mosaicos(frames), times_prompt(post_text, list(falas)))
+
+    def refine_window(self, url: str, start: int, end: int, post_text: str,
+                      falas: list[tuple[float, float, str]] = ()) -> tuple[int, int] | None:  # type: ignore[assignment]
         quadros = self._quadros(self._baixa(url), start, end, "1")
-        resposta = json.loads(self._gemini(self._mosaicos([(start + i, q) for i, q in enumerate(quadros)]), (
-            "Quadros de um trecho de vídeo, um por segundo, com o tempo em amarelo. Escolha o trecho "
-            f"CONTÍNUO, de no mínimo {clips.MIN_CLIP} segundos e sem limite de tempo, que mostra por inteiro "
-            "o que o post abaixo destaca — pegue o tempo que o assunto precisa para ser entendido, nem "
-            "um trecho curto que deixe a explicação pela metade, nem enchimento. Comece no primeiro "
-            "quadro em que o assunto já aparece e termine no último; corte o que é só o produto "
-            "parado, filmagem distante sem ação, palco ou plateia. "
-            "Use os números amarelos. Responda só JSON: {\"inicio\": int, \"fim\": int}\n\n"
-            f"POST:\n{post_text[:1500]}")))
+        resposta = json.loads(self._gemini(self._mosaicos([(start + i, q) for i, q in enumerate(quadros)]),
+                                           refine_prompt(post_text, list(falas), start, end)))
         inicio, fim = resposta.get("inicio"), resposta.get("fim")
         return (inicio, fim) if isinstance(inicio, int) and isinstance(fim, int) else None
 

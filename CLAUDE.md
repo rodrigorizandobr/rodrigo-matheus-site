@@ -434,6 +434,18 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   largada com o 0–100 na tela, o carro subindo a rampa vertical, o salto, o drift). São poucas imagens
   por post. **Pedir nota ao flash-lite deixou a marcação avarenta** (5 quadros em vez de ~20): o prompt
   manda listar TODOS, "na dúvida, nota 1 — a nota escolhe, a lista não pode ter buracos".
+- **A fala do vídeo entra na escolha e o corte abre/fecha em fronteira de frase** (`clips.parse_captions`,
+  `clips.snap_to_sentences`, `Ferramentas.transcript`, `TestFalaNoRecorte`). Medido (2026-10-17, post do Argon): o
+  corte de 15 s abria no meio de "Google also says…" e fechava no meio da frase seguinte; o vídeo era explicação com
+  animação e narração, e o prompt de marcação jogava fora "animação gráfica" e "pessoa falando" — só 3 quadros
+  marcados. Hoje a rotina baixa a legenda automática do idioma ORIGINAL (`--sub-langs ".*-orig"`; sem ela, a feita à
+  mão), vai ao prompt de marcação (quadro vale quando a fala trata do assunto) e ao do refino (só a região), e o
+  corte final é ajustado às frases: ponta no meio da frase leva a frase inteira (até `SNAP_REACH` 15 s); ponta que
+  só raspa a borda (`SNAP_GRAZE` 1,5 s) vai para a fronteira mais próxima. **Nunca peça `pt.*`/tradução automática:**
+  o YouTube responde 429, o yt-dlp sai com erro e a legenda original já baixada era jogada fora — por isso o erro do
+  processo é ignorado e se lê o que caiu no disco. Legenda é ajuda, nunca exigência: sem ela, ou com erro, o recorte
+  segue só pelos quadros. Limite conhecido: se o vídeo só trata do assunto por 14 s, o corte tem 14 s — o tamanho é do
+  assunto, não do gosto.
 - **A conferência barra corte SEM o assunto, não cobra detalhe** (`VERIFY_PROMPT`): a primeira versão
   recusou o loop da sucção porque o texto falava de salto.
 - **Canal oficial primeiro** (`search_youtube(prefer=topic)`): a ABC News vinha antes do canal da Tesla, com

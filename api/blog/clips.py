@@ -10,6 +10,8 @@ tempo gravado nele. Um quadro a cada `STEP` segundos.
 from __future__ import annotations
 
 import json
+import math
+import re
 from typing import Any
 
 STEP = 5
@@ -110,3 +112,85 @@ def hms(seconds: int) -> str:
     h, resto = divmod(int(seconds), 3600)
     m, s = divmod(resto, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
+
+#: pausa entre duas palavras que fecha a frase quando a legenda não tem pontuação
+PAUSE = 2.5
+#: o corte só recua/avança até a fronteira de frase se ela estiver a até isto de distância
+SNAP_REACH = 15
+#: ponta a até isto da borda de uma frase só raspa nela
+SNAP_GRAZE = 1.5
+_END_OF_SENTENCE = re.compile(r"[.?!][\"')\]]*$")
+
+
+def parse_captions(data: Any) -> list[tuple[float, float, str]]:
+    """Legenda json3 do YouTube → frases `(início, fim, texto)` em segundos.
+
+    Sem a fala o corte só enxerga quadros: num vídeo de explicação (gráfico, animação, alguém
+    falando) o assunto está no que é DITO. Legenda ausente ou torta → lista vazia, nunca erro.
+    """
+    if not isinstance(data, dict):
+        return []
+    palavras: list[tuple[float, str]] = []
+    for ev in data.get("events") or []:
+        if not isinstance(ev, dict) or not isinstance(ev.get("tStartMs"), (int, float)):
+            continue
+        for seg in ev.get("segs") or []:
+            texto = str(seg.get("utf8", "")).strip() if isinstance(seg, dict) else ""
+            if texto:
+                palavras.append(((ev["tStartMs"] + seg.get("tOffsetMs", 0)) / 1000, texto))
+    palavras.sort(key=lambda p: p[0])
+    grupos: list[list[tuple[float, str]]] = []
+    atual: list[tuple[float, str]] = []
+    for i, (t, texto) in enumerate(palavras):
+        atual.append((t, texto))
+        proxima = palavras[i + 1][0] if i + 1 < len(palavras) else None
+        if _END_OF_SENTENCE.search(texto) or proxima is None or proxima - t > PAUSE:
+            grupos.append(atual)
+            atual = []
+    frases = []
+    for i, g in enumerate(grupos):
+        fim = g[-1][0] + 2.0
+        if i + 1 < len(grupos):
+            fim = min(fim, grupos[i + 1][0][0])
+        frases.append((g[0][0], fim, " ".join(p[1] for p in g)))
+    return frases
+
+
+def transcript_text(falas: list[tuple[float, float, str]], start: float | None = None,
+                    end: float | None = None, limit: int = 60000) -> str:
+    """Frases com o tempo de cada uma, para o prompt; `start`/`end` recortam a região."""
+    linhas, total = [], 0
+    for ini, fim, texto in falas:
+        if (end is not None and ini >= end) or (start is not None and fim <= start):
+            continue
+        linha = f"[{int(ini)}s] {texto}"
+        total += len(linha) + 1
+        if total > limit:
+            break
+        linhas.append(linha)
+    return "\n".join(linhas)
+
+
+def snap_to_sentences(start: int, end: int, falas: list[tuple[float, float, str]],
+                      reach: int = SNAP_REACH) -> tuple[int, int]:
+    """Corte que abre ou fecha no meio de uma frase soa quebrado (o do Argon abria em "…it can now
+    write" e fechava em "Now, in most of the benchmarks"). Ponta no meio da frase leva a frase
+    inteira; ponta que só raspa a borda (cauda da anterior, começo da seguinte) vai para a
+    fronteira mais próxima em vez de arrastar a frase toda. Frase longa demais, corte que fica
+    curto demais ou passa do teto da plataforma: o corte fica como veio."""
+    novo_inicio, novo_fim = start, end
+    for ini, fim, _ in falas:
+        if ini < start < fim:
+            if fim - start <= SNAP_GRAZE:
+                novo_inicio = math.ceil(fim)
+            elif start - ini <= reach:
+                novo_inicio = math.floor(ini)
+        if ini < end < fim:
+            if end - ini <= SNAP_GRAZE:
+                novo_fim = math.floor(ini)
+            elif fim - end <= reach:
+                novo_fim = math.ceil(fim)
+    if not MIN_CLIP <= novo_fim - novo_inicio <= MAX_CLIP:
+        return start, end
+    return novo_inicio, novo_fim

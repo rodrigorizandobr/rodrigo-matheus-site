@@ -30,8 +30,9 @@ class Ferramentas:
     estrategias = 4
 
     def __init__(self, tempos="[1340, 1345, 1350, 1355, 1360, 1365]", confere=True, janela=(1342, 1370),
-                 explode_em=None, explode_vezes=None, ruins=(), achados=()):
+                 explode_em=None, explode_vezes=None, ruins=(), achados=(), falas=()):
         self.tempos, self.confere, self.janela = tempos, confere, janela
+        self.falas, self.falas_vistas = list(falas), []
         self.explode_em, self.explode_vezes, self.explosoes = explode_em, explode_vezes, 0
         self.ruins, self.achados = ruins, list(achados)
         self.regioes, self.cortes, self.usadas, self.pausas, self.buscas, self.urls = [], [], [], 0, [], []
@@ -60,13 +61,19 @@ class Ferramentas:
         self._talvez_explodir("frames")
         return [(t, b"jpg") for t in range(0, 1400, step)]
 
-    def ask_times(self, frames, post_text, duration):
+    def transcript(self, url):
+        self._talvez_explodir("legenda")
+        return self.falas
+
+    def ask_times(self, frames, post_text, duration, falas=()):
+        self.falas_vistas.append(("tempos", list(falas)))
         if self.urls and self.urls[-1] in self.ruins:
             return '{"tempos": []}'
         return '{"tempos": %s}' % self.tempos
 
-    def refine_window(self, url, start, end, post_text):
+    def refine_window(self, url, start, end, post_text, falas=()):
         self.regioes.append((start, end))
+        self.falas_vistas.append(("janela", list(falas)))
         return self.janela
 
     def cut(self, url, start, end):
@@ -284,9 +291,62 @@ class TestJanelaFina:
         assert ferramentas.cortes == [(1335, 1355)]
 
     def test_pergunta_do_trecho_nao_impoe_limite_de_segundos(self):
-        import inspect
-        fonte = inspect.getsource(clip_worker.Ferramentas.refine_window)
-        assert "MAX_CLIP" not in fonte and "sem limite" in fonte
+        pergunta = clip_worker.refine_prompt("texto do post", [])
+        assert "sem limite de tempo" in pergunta and "MAX_CLIP" not in pergunta
+
+
+class TestFalaNoRecorte:
+    """Vídeo de explicação (gráfico, animação, alguém falando): o assunto está no que é DITO. O recorte
+    do Argon (105–120) abria no meio de uma frase e fechava no meio de outra, e a marcação por quadro
+    só achou 3 quadros porque o prompt jogava fora animação e gente falando."""
+
+    FALAS = [(1330.0, 1342.0, "Primeira ideia inteira."), (1342.0, 1372.0, "Segunda ideia, a que importa."),
+             (1372.0, 1380.0, "Já outro assunto.")]
+
+    def test_corte_abre_e_fecha_em_fronteira_de_frase(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(falas=self.FALAS, janela=(1335, 1360))
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1330, 1372)]
+
+    def test_a_fala_vai_nas_duas_perguntas_ao_modelo(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(falas=self.FALAS)
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.falas_vistas == [("tempos", self.FALAS), ("janela", self.FALAS)]
+
+    def test_janela_invalida_do_modelo_tambem_fecha_em_frase(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(falas=self.FALAS, janela=None)
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1330, 1372)]
+
+    def test_sem_legenda_o_corte_e_o_de_antes(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas()
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1342, 1370)]
+
+    def test_legenda_que_falha_nao_derruba_o_recorte(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(explode_em="legenda")
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1342, 1370)]
+        assert store.get_post(post["id"])["clip"]["status"] == "ready"
+
+    def test_marcacao_vale_o_quadro_quando_a_fala_trata_do_assunto(self):
+        pergunta = clip_worker.times_prompt("texto do post", [(10.0, 14.0, "frase dita")])
+        assert "[10s] frase dita" in pergunta and "a fala" in pergunta.lower()
+
+    def test_sem_legenda_a_marcacao_nao_menciona_fala(self):
+        pergunta = clip_worker.times_prompt("texto do post", [])
+        assert "FALA" not in pergunta and "transcrição" not in pergunta
+
+    def test_pergunta_da_janela_leva_so_a_fala_da_regiao_e_pede_frase_inteira(self):
+        falas = [(10.0, 14.0, "dentro."), (900.0, 904.0, "fora.")]
+        pergunta = clip_worker.refine_prompt("texto do post", falas, 0, 100)
+        assert "[10s] dentro." in pergunta and "fora." not in pergunta
+        assert "frase" in pergunta
 
 
 class TestModeloDaVisao:
@@ -517,3 +577,49 @@ class TestServico:
     def test_sem_aviso_ainda_bate_o_sinal_de_vida(self, monkeypatch):
         # o servidor avisa por e-mail se o Mac calar por 2 h; meia hora sobra de folga
         assert clip_worker.HEARTBEAT_SECONDS <= 30 * 60
+
+
+class TestLegendaDoYoutube:
+    """Medido ao vivo: `--sub-langs pt.*` pedia a TRADUÇÃO automática, o YouTube devolvia 429 e o yt-dlp
+    saía com erro mesmo com a legenda original já no disco — que a rotina jogava fora."""
+
+    LEGENDA = {"events": [{"tStartMs": 1000, "segs": [{"utf8": "Hello there.", "tOffsetMs": 0}]}]}
+
+    def _fake_run(self, monkeypatch, escreve, sai_com_erro):
+        import json
+        import subprocess
+        chamadas = []
+
+        def run(cmd, **kw):
+            chamadas.append(cmd)
+            pasta = cmd[cmd.index("-o") + 1].rsplit("/", 1)[0]
+            for nome in (escreve if len(chamadas) == 1 else []):
+                with open(f"{pasta}/{nome}", "w") as f:
+                    json.dump(self.LEGENDA, f)
+            if sai_com_erro:
+                raise subprocess.CalledProcessError(1, cmd)
+            return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+        monkeypatch.setattr(clip_worker.subprocess, "run", run)
+        return chamadas
+
+    def test_erro_do_yt_dlp_nao_joga_fora_a_legenda_que_ja_baixou(self, monkeypatch, tmp_path):
+        self._fake_run(monkeypatch, ["v.en-orig.json3"], sai_com_erro=True)
+        falas = clip_worker.Ferramentas(str(tmp_path)).transcript("https://www.youtube.com/watch?v=AAAAAAAAAAA")
+        assert [f[2] for f in falas] == ["Hello there."]
+
+    def test_pede_so_a_legenda_original_nunca_a_traducao_automatica(self, monkeypatch, tmp_path):
+        chamadas = self._fake_run(monkeypatch, ["v.en-orig.json3"], sai_com_erro=False)
+        clip_worker.Ferramentas(str(tmp_path)).transcript("https://www.youtube.com/watch?v=AAAAAAAAAAA")
+        primeira = chamadas[0]
+        assert primeira[primeira.index("--sub-langs") + 1] == ".*-orig" and "--write-auto-subs" in primeira
+
+    def test_sem_original_tenta_a_legenda_feita_a_mao(self, monkeypatch, tmp_path):
+        chamadas = self._fake_run(monkeypatch, [], sai_com_erro=False)
+        assert clip_worker.Ferramentas(str(tmp_path)).transcript("https://www.youtube.com/watch?v=AAAAAAAAAAA") == []
+        assert len(chamadas) == 2
+        assert "--write-auto-subs" not in chamadas[1] and "--write-subs" in chamadas[1]
+
+    def test_nada_baixado_devolve_vazio_sem_levantar(self, monkeypatch, tmp_path):
+        self._fake_run(monkeypatch, [], sai_com_erro=True)
+        assert clip_worker.Ferramentas(str(tmp_path)).transcript("https://www.youtube.com/watch?v=AAAAAAAAAAA") == []

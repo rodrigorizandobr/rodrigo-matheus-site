@@ -118,3 +118,89 @@ class TestJanelasEmOrdem:
 
     def test_nada_aproveitavel_devolve_vazio(self):
         assert clips.rank_segments([(10, 15)]) == []
+
+
+def _legenda(*frases):
+    """json3 do YouTube: cada evento traz palavras com `tOffsetMs`. `frases`: (início_s, texto)."""
+    eventos = []
+    for inicio, texto in frases:
+        palavras = texto.split()
+        eventos.append({"tStartMs": int(inicio * 1000), "dDurationMs": 4000,
+                        "segs": [{"utf8": (" " if i else "") + p, "tOffsetMs": i * 400}
+                                 for i, p in enumerate(palavras)]})
+    return {"events": [{"tStartMs": 0, "dDurationMs": 100}, *eventos]}
+
+
+class TestFalasDoVideo:
+    def test_legenda_vira_frases_com_inicio_e_fim(self):
+        falas = clips.parse_captions(_legenda((100, "Google also says it can write a lot."),
+                                              (104, "That means more room. Now the charts.")))
+        assert [f[2] for f in falas] == ["Google also says it can write a lot.", "That means more room.",
+                                         "Now the charts."]
+        assert falas[0][0] == 100 and falas[1][0] > falas[0][0]
+        assert falas[0][1] <= falas[1][0] + 1
+
+    def test_frase_pode_atravessar_eventos(self):
+        falas = clips.parse_captions(_legenda((10, "o modelo aguenta"), (12, "um milhão de tokens.")))
+        assert [f[2] for f in falas] == ["o modelo aguenta um milhão de tokens."]
+
+    def test_pausa_longa_tambem_fecha_a_frase_quando_nao_ha_pontuacao(self):
+        falas = clips.parse_captions(_legenda((10, "primeira ideia sem ponto"), (30, "segunda ideia")))
+        assert [f[2] for f in falas] == ["primeira ideia sem ponto", "segunda ideia"]
+
+    def test_legenda_vazia_ou_estranha_nao_quebra(self):
+        assert clips.parse_captions({}) == []
+        assert clips.parse_captions({"events": [{"tStartMs": 5}]}) == []
+        assert clips.parse_captions("lixo") == []
+
+    def test_texto_das_falas_leva_o_tempo_de_cada_frase_e_so_a_regiao_pedida(self):
+        falas = [(100, 104, "um."), (104, 108, "dois."), (300, 304, "três.")]
+        assert clips.transcript_text(falas, 90, 200) == "[100s] um.\n[104s] dois."
+        assert clips.transcript_text(falas) == "[100s] um.\n[104s] dois.\n[300s] três."
+        assert clips.transcript_text([]) == ""
+
+
+class TestCorteEmFronteiraDeFrase:
+    # o post do Argon: o corte 105–120 abria no meio de "Google also says…" e fechava no meio da frase seguinte
+    FALAS = [(100.0, 112.0, "Google also says it can write 1 million tokens."),
+             (112.0, 118.0, "It just means more room."),
+             (118.0, 128.0, "Now, in most benchmarks, Argon wins.")]
+
+    def test_comeco_no_meio_da_frase_recua_para_o_comeco_dela(self):
+        assert clips.snap_to_sentences(105, 118, self.FALAS)[0] == 100
+
+    def test_fim_no_meio_da_frase_avanca_para_o_fim_dela(self):
+        assert clips.snap_to_sentences(105, 120, self.FALAS)[1] == 128
+
+    def test_ponta_que_ja_esta_numa_fronteira_fica_onde_esta(self):
+        assert clips.snap_to_sentences(112, 118, self.FALAS) == (112, 118)
+
+    def test_nao_corre_mais_que_o_alcance_atras_de_uma_frase_gigante(self):
+        longa = [(0.0, 90.0, "Uma frase que nunca acaba.")]
+        assert clips.snap_to_sentences(40, 60, longa, reach=15) == (40, 60)
+
+    def test_sem_legenda_o_corte_fica_como_veio(self):
+        assert clips.snap_to_sentences(105, 120, []) == (105, 120)
+
+    def test_passar_do_teto_da_plataforma_devolve_o_corte_original(self, monkeypatch):
+        monkeypatch.setattr(clips, "MAX_CLIP", 20)
+        assert clips.snap_to_sentences(105, 120, self.FALAS) == (105, 120)
+
+
+class TestPontaQueSoRaspaAFrase:
+    # medido no Argon: a frase anterior ia de 97,3 a 104,4 e o corte começava em 104 — recuava 7 s por meio segundo
+    FALAS = [(97.3, 104.4, "Frase anterior sobre preço."), (104.4, 118.6, "O trecho que importa."),
+             (118.6, 124.5, "Já são os benchmarks.")]
+
+    def test_comeco_que_so_pega_a_cauda_da_frase_anterior_avanca_para_a_proxima(self):
+        assert clips.snap_to_sentences(104, 118, self.FALAS)[0] == 105
+
+    def test_fim_que_so_pega_o_comeco_da_frase_seguinte_recua_para_antes_dela(self):
+        assert clips.snap_to_sentences(104, 119, self.FALAS)[1] == 118
+
+    def test_meio_da_frase_continua_incluindo_a_frase_inteira(self):
+        assert clips.snap_to_sentences(100, 121, self.FALAS) == (97, 125)
+
+    def test_ajuste_que_deixa_o_corte_curto_demais_devolve_o_original(self):
+        falas = [(0.0, 20.0, "Uma."), (20.0, 30.0, "Duas.")]
+        assert clips.snap_to_sentences(19, 21, falas) == (19, 21)
