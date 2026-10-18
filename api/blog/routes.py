@@ -27,6 +27,21 @@ bp = Blueprint("blog", __name__)
 
 TICK_KEY = os.environ.get("BLOG_TICK_KEY", "")
 
+#: o painel chama as operações longas (gerar post, revisar) direto no Cloud Run: o Hosting corta o rewrite em 60 s
+CORS_ORIGINS = {"https://rodrigomatheus.com.br", "https://www.rodrigomatheus.com.br", "http://localhost:5173"}
+
+
+@bp.after_request
+def admin_cors(res):
+    origin = request.headers.get("Origin", "")
+    if origin in CORS_ORIGINS and request.path.startswith("/api/blog/admin/"):
+        res.headers["Access-Control-Allow-Origin"] = origin
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+        res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        res.headers["Access-Control-Max-Age"] = "3600"
+        res.headers.add("Vary", "Origin")
+    return res
+
 # 12 MB: acima disso é foto de câmera sem tratamento, e o Cloud Run tem 512 MB de RAM
 # para converter a imagem — recusar cedo é melhor do que morrer no meio.
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024

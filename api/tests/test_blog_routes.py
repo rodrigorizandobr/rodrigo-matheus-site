@@ -281,3 +281,31 @@ class TestRecorteNoSitePublico:
         for estado in ({"status": "pending"}, {"status": "failed", "reason": "sem trecho"}):
             post = self._publicado(estado)
             assert "clip" not in client.get(f"/api/blog/posts/{post['slug']}").get_json()["post"]
+
+
+class TestCorsDoPainel:
+    """O painel chama as operações longas direto no Cloud Run: o Hosting corta o rewrite em 60 s."""
+
+    URL = "/api/blog/admin/generate"
+    SITE = "https://rodrigomatheus.com.br"
+
+    def test_preflight_do_site_e_liberado(self, client, blog):
+        res = client.options(self.URL, headers={
+            "Origin": self.SITE, "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type"})
+        assert res.status_code in (200, 204)
+        assert res.headers["Access-Control-Allow-Origin"] == self.SITE
+        assert "POST" in res.headers["Access-Control-Allow-Methods"]
+        assert "authorization" in res.headers["Access-Control-Allow-Headers"].lower()
+
+    def test_resposta_real_tambem_leva_o_cabecalho(self, client, blog, admin):
+        res = client.post(self.URL, json={"topic": "tema"}, headers={"Origin": self.SITE})
+        assert res.headers["Access-Control-Allow-Origin"] == self.SITE
+
+    def test_origem_desconhecida_nao_ganha_cabecalho(self, client, blog, admin):
+        res = client.post(self.URL, json={"topic": "tema"}, headers={"Origin": "https://malvado.example"})
+        assert "Access-Control-Allow-Origin" not in res.headers
+
+    def test_rota_publica_nao_ganha_cors(self, client, blog):
+        res = client.get("/api/blog/posts", headers={"Origin": self.SITE})
+        assert "Access-Control-Allow-Origin" not in res.headers

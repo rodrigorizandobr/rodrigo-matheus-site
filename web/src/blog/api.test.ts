@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { blogApi, ApiError } from './api'
+import { blogApi, ApiError, LONG_BASE } from './api'
 import { coverUrl, bodyFor } from './types'
 import type { Post } from './types'
 
@@ -149,7 +149,7 @@ describe('escrever sobre um tema', () => {
     const f = fetchOk({ post: post() }, 201)
     vi.stubGlobal('fetch', f)
     await blogApi.admin(token).generateFromTopic('RAG em produção')
-    expect(f.mock.calls[0][0]).toBe('/api/blog/admin/generate')
+    expect(f.mock.calls[0][0]).toBe(`${LONG_BASE}/api/blog/admin/generate`)
     expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ topic: 'RAG em produção', mode: 'topic' })
   })
 
@@ -190,5 +190,30 @@ describe('LinkedIn', () => {
     vi.stubGlobal('fetch', f)
     await blogApi.admin(token).update('1', { linkedinEnabled: false })
     expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ linkedinEnabled: false })
+  })
+})
+
+describe('operações longas vão direto ao Cloud Run (o Hosting corta em 60 s)', () => {
+  const token = async () => 'jwt-123'
+  const urlOf = async (run: () => Promise<unknown>, body: unknown = { post: post() }) => {
+    const f = fetchOk(body, 200)
+    vi.stubGlobal('fetch', f)
+    await run()
+    return f.mock.calls[0][0] as string
+  }
+
+  it.each([
+    ['gerar', () => blogApi.admin(token).generate('t'), '/api/blog/admin/generate'],
+    ['gerar por tema', () => blogApi.admin(token).generateFromTopic('t'), '/api/blog/admin/generate'],
+    ['reflexão', () => blogApi.admin(token).generateReflection('t'), '/api/blog/admin/generate'],
+    ['revisar', () => blogApi.admin(token).revise('9', 'mais curto'), '/api/blog/admin/posts/9/revise'],
+    ['capa por IA', () => blogApi.admin(token).cover('9', 'cena'), '/api/blog/admin/posts/9/cover'],
+    ['compartilhar no LinkedIn', () => blogApi.admin(token).shareToLinkedin('9'), '/api/blog/admin/posts/9/linkedin/share'],
+  ])('%s', async (_nome, run, path) => {
+    expect(await urlOf(run)).toBe(`${LONG_BASE}${path}`)
+  })
+
+  it('leituras e edições simples continuam no mesmo domínio', async () => {
+    expect(await urlOf(() => blogApi.admin(token).list(), { posts: [] })).toBe('/api/blog/admin/posts')
   })
 })

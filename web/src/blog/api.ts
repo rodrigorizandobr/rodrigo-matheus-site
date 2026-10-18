@@ -32,6 +32,13 @@ const json = (method: string, token: string, body?: unknown): RequestInit => ({
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
 })
 
+/**
+ * O Firebase Hosting corta o rewrite para o Cloud Run em 60 s, e gerar um post leva 60-70 s:
+ * o servidor terminava e o painel recebia 504. Operações longas vão direto ao Cloud Run (limite
+ * de 1000 s); o backend libera CORS para o site nas rotas de `/api/blog/admin/`.
+ */
+export const LONG_BASE = 'https://portfolio-api-isf23x3ntq-rj.a.run.app'
+
 export type TokenGetter = () => Promise<string>
 
 export const blogApi = {
@@ -52,6 +59,8 @@ export const blogApi = {
   admin(getToken: TokenGetter) {
     const call = async <T>(url: string, method = 'GET', body?: unknown): Promise<T> =>
       request<T>(url, json(method, await getToken(), body))
+    const callLong = async <T>(url: string, method: string, body?: unknown): Promise<T> =>
+      call<T>(`${LONG_BASE}${url}`, method, body)
 
     return {
       list: async () => (await call<{ posts: Post[] }>('/api/blog/admin/posts')).posts,
@@ -60,22 +69,22 @@ export const blogApi = {
         (await call<{ config: BlogConfig }>('/api/blog/admin/config', 'PATCH', patch)).config,
 
       generate: async (topic = '', research?: boolean) =>
-        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, context: '', research })).post,
+        (await callLong<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, context: '', research })).post,
       /** o autor escolhe o tema; o servidor pesquisa na internet e escreve sobre ELE */
       generateFromTopic: async (topic: string) =>
-        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'topic' })).post,
+        (await callLong<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'topic' })).post,
       /** reflexão curta, sem notícia; tema vazio gira entre os cadastrados no servidor */
       generateReflection: async (topic = '', withImage = true) =>
-        (await call<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'reflection', withImage })).post,
+        (await callLong<{ post: Post }>('/api/blog/admin/generate', 'POST', { topic, mode: 'reflection', withImage })).post,
       create: async (draft: NewPost) =>
         (await call<{ post: Post }>('/api/blog/admin/posts', 'POST', draft)).post,
       update: async (id: string, patch: Partial<Post>) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}`, 'PATCH', patch)).post,
       revise: async (id: string, instruction: string) =>
-        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/revise`, 'POST', { instruction })).post,
+        (await callLong<{ post: Post }>(`/api/blog/admin/posts/${id}/revise`, 'POST', { instruction })).post,
       /** gera uma capa nova com IA a partir de um prompt */
       cover: async (id: string, prompt?: string) =>
-        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { prompt })).post,
+        (await callLong<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { prompt })).post,
       /** escolhe uma imagem já catalogada — `null` tira a capa */
       setCover: async (id: string, hash: string | null) =>
         (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/cover`, 'POST', { hash })).post,
@@ -95,7 +104,7 @@ export const blogApi = {
 
       /** manda ESTE post ao LinkedIn agora; o servidor recusa rascunho e post já compartilhado */
       shareToLinkedin: async (id: string) =>
-        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/linkedin/share`, 'POST')).post,
+        (await callLong<{ post: Post }>(`/api/blog/admin/posts/${id}/linkedin/share`, 'POST')).post,
 
       media: {
         list: async () => (await call<{ items: MediaItem[] }>('/api/blog/admin/media')).items,
