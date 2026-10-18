@@ -381,7 +381,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 |---|---|---|
 | Achar o vídeo | `service._save_generated` → `videos.search_youtube` | Servidor. Todo post busca; achou → `video` + `clip: {status: pending}` e o post fica **rascunho, sem agendar**, mesmo com "publicar sem revisão". |
 | Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), janelas de 10 a 45 s da melhor para a pior (`rank_segments`). |
-| Recortar | `api/clip_worker.py` | **Mac do autor**, via `launchd` de 15 em 15 min. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
+| Recortar | `api/clip_worker.py` | **Mac do autor**, serviço `launchd` sempre ligado que ESCUTA o Firestore. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
 | Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. |
 | Mostrar | `PostArticle` (site e prévia), cartão "Vídeo" no editor | Pronto → o vídeo toma o lugar da capa (capa vira `poster`), crédito "Trecho de <título> · <canal>" com link no segundo exato. O público só vê recorte `ready`, por `CLIP_PUBLIC_FIELDS`. |
 
@@ -397,10 +397,17 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   instalador de novo** — a cópia não se atualiza sozinha. À mão, da pasta do projeto: `./scripts/clip-worker.sh`.
   Log: `~/Library/Logs/rodrigo-matheus-recorte.log`. `ProcessType=Standard`: com `Background` o corte de
   40 s levou 20 min.
-- **A rodada de 15 min NÃO toca o Cloud Run** (conferido: `clip_worker.py` não faz requisição HTTP ao serviço; só
-  Firestore, yt-dlp, Gemini/Claude e SES). Ela era cara em outra coisa: lia a coleção inteira de posts a cada batida.
-  Hoje `pending_posts` usa `store.list_pending_clips` (consulta `clip.status == "pending"`): rodada ociosa lê ZERO
-  documentos e só grava o sinal de vida. Em silêncio a rotina custa ~96 escritas/dia, dentro da cota grátis.
+- **Serviço sempre ligado, escutando o Firestore** (pedido do PO, 2026-10-17: "algo mais eventual" que bater de
+  15 em 15 min). `launchd` com `KeepAlive` mantém `python clip_worker.py` vivo; `store.watch_pending_clips`
+  (`on_snapshot` em `clip.status == "pending"`) acorda a rotina em segundos quando entra recorte novo. NUNCA
+  tocou o Cloud Run (nenhuma requisição HTTP ao serviço; só Firestore, yt-dlp, IA e SES), e rodada ociosa lê ZERO
+  documentos (`store.list_pending_clips`, consulta filtrada em vez de varrer a coleção).
+  **`PendingWatcher` só acorda por pendente NOVO**: a própria rodada regrava o post a cada tentativa, e reagir a
+  isso queimaria todas as tentativas num laço. Pendente que não saiu (download falhou) volta a ser tentado a cada
+  `RETRY_SECONDS` (15 min), como antes; sem nada pendente, `HEARTBEAT_SECONDS` (30 min) ainda roda uma rodada que
+  grava `lastRunAt` (o servidor avisa se o Mac calar 2 h) e serve de rede de segurança se o ouvinte cair em silêncio.
+  `python clip_worker.py --once` (ou `./scripts/clip-worker.sh`) faz uma rodada à mão. `ThrottleInterval 30`:
+  se o processo morrer, o launchd o levanta.
 - **Projeto fixo e conferido:** `clip_worker.check_project()` recusa rodar se o Firestore não for
   `rodrigo-matheus` (o cliente sem projeto cai no padrão do gcloud — já gravou em `br51-app`).
 - **Como o trecho é escolhido:** vídeo inteiro em 240p, um quadro a cada 5 s com o tempo GRAVADO no quadro
@@ -672,7 +679,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 739 testes
+cd api && source .venv/bin/activate && pytest      # 745 testes
 cd web && npm test                                  # 440 testes
 ```
 
