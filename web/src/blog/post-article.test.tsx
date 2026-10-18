@@ -70,3 +70,21 @@ describe('PostArticle — recorte de vídeo', () => {
     expect(container.querySelector('video')).not.toBeNull()
   })
 })
+
+describe('PostArticle — a mídia fica entre as tags e o corpo', () => {
+  const antes = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+  it.each([
+    ['capa', post(capa), 'img'],
+    ['recorte', { ...post(capa), clip: recorte }, 'video'],
+  ])('%s vem depois do título e das tags e antes do texto', (_nome, p, seletor) => {
+    const { container } = render(<PostArticle post={p} lang="pt" minutes={1} />)
+    const midia = container.querySelector(seletor)!
+    const titulo = container.querySelector('h1')!
+    const tag = screen.getByText('#ia')
+    const corpo = container.querySelector('.post-body')!
+    expect(antes(titulo, midia)).toBe(true)
+    expect(antes(tag, midia)).toBe(true)
+    expect(antes(midia, corpo)).toBe(true)
+  })
+})

@@ -18,38 +18,6 @@ export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; m
 
   return (
     <article className="max-w-[72ch] mx-auto">
-      {/* Com recorte pronto, o vídeo é o destaque e a capa vira o quadro inicial dele. */}
-      {video && post.clip && (
-        <figure className="mb-7 md:mb-8">
-          <video src={video} poster={cover || undefined} controls playsInline preload="metadata"
-                 width={post.clip.width || undefined} height={post.clip.height || undefined}
-                 className="w-full aspect-[16/9] bg-heading border border-line" />
-          <figcaption className="font-mono text-[10.5px] text-muted mt-2">
-            {lang === 'pt' ? 'Trecho de ' : 'Clip from '}
-            <a href={clipSourceAt(post.clip)} rel="noopener nofollow" target="_blank" className="hover:text-red">
-              {post.clip.title || 'YouTube'}
-            </a>
-            {post.clip.channel && <> · {post.clip.channel}</>}
-          </figcaption>
-        </figure>
-      )}
-
-      {cover && !video && (
-        <figure className="mb-7 md:mb-8">
-          <img src={cover} alt={post.image?.alt || post.imageAlt} loading="lazy" decoding="async"
-               width={post.image?.width || undefined} height={post.image?.height || undefined}
-               className="w-full aspect-[16/9] object-cover border border-line" />
-          {/* Crédito só existe quando há a quem creditar: banco de imagens tem, ilustração da casa não. */}
-          {post.image?.credit && (
-            <figcaption className="font-mono text-[10.5px] text-muted mt-2">
-              {post.image.sourceUrl
-                ? <a href={post.image.sourceUrl} rel="noopener nofollow" target="_blank" className="hover:text-red">{post.image.credit}</a>
-                : post.image.credit}
-            </figcaption>
-          )}
-        </figure>
-      )}
-
       <div className="flex items-center gap-3 font-mono text-[11px] text-muted">
         <span>{date}</span><span aria-hidden="true">·</span><span>{minutes} min</span>
       </div>
@@ -64,6 +32,39 @@ export function PostArticle({ post, lang, minutes }: { post: Post; lang: Lang; m
             <span key={tag} className="font-mono text-[10.5px] px-1.5 py-0.5 border border-line text-muted">#{tag}</span>
           ))}
         </div>
+      )}
+
+      {/* Título, resumo e tags abrem o post; a mídia vem logo depois, antes do texto. Com recorte
+          pronto, o vídeo é o destaque e a capa vira o quadro inicial dele. */}
+      {video && post.clip && (
+        <figure className="panel p-1.5 sm:p-2 mt-7 md:mt-8">
+          <video src={video} poster={cover || undefined} controls playsInline preload="metadata"
+                 width={post.clip.width || undefined} height={post.clip.height || undefined}
+                 className="block w-full aspect-[16/9] bg-heading" />
+          <figcaption className="font-mono text-[10.5px] text-muted px-1.5 sm:px-1 pt-2 pb-1">
+            {lang === 'pt' ? 'Trecho de ' : 'Clip from '}
+            <a href={clipSourceAt(post.clip)} rel="noopener nofollow" target="_blank" className="hover:text-red">
+              {post.clip.title || 'YouTube'}
+            </a>
+            {post.clip.channel && <> · {post.clip.channel}</>}
+          </figcaption>
+        </figure>
+      )}
+
+      {cover && !video && (
+        <figure className="panel p-1.5 sm:p-2 mt-7 md:mt-8">
+          <img src={cover} alt={post.image?.alt || post.imageAlt} loading="lazy" decoding="async"
+               width={post.image?.width || undefined} height={post.image?.height || undefined}
+               className="block w-full aspect-[16/9] object-cover" />
+          {/* Crédito só existe quando há a quem creditar: banco de imagens tem, ilustração da casa não. */}
+          {post.image?.credit && (
+            <figcaption className="font-mono text-[10.5px] text-muted px-1.5 sm:px-1 pt-2 pb-1">
+              {post.image.sourceUrl
+                ? <a href={post.image.sourceUrl} rel="noopener nofollow" target="_blank" className="hover:text-red">{post.image.credit}</a>
+                : post.image.credit}
+            </figcaption>
+          )}
+        </figure>
       )}
 
       <div className="panel p-5 sm:p-6 md:p-10 mt-7 md:mt-8 prose-log post-body">
