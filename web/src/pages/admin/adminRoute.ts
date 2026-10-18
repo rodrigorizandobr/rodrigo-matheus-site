@@ -50,3 +50,14 @@ export function readStashedPreview<T>(id: string): T | null {
     return null
   }
 }
+
+/**
+ * O servidor manda no que muda sozinho (recorte de vídeo, capa, status); a cópia guardada só
+ * vale pelo texto ainda não salvo. Usar a cópia inteira escondia o vídeo que ficou pronto
+ * depois de ela ser guardada, por até 1 h.
+ */
+export function resolvePreview<T extends { i18n: unknown; tags: unknown }>(fresh: T | undefined, stashed: T | null): T | null {
+  if (!fresh) return stashed
+  if (!stashed) return fresh
+  return { ...fresh, i18n: stashed.i18n, tags: stashed.tags }
+}

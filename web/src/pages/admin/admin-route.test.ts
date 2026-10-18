@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { adminPath, parseAdminPath, previewPath } from './adminRoute'
+import { adminPath, parseAdminPath, previewPath, resolvePreview } from './adminRoute'
 
 describe('URL do painel', () => {
   it.each([
@@ -26,5 +26,27 @@ describe('URL do painel', () => {
   it('id com caractere estranho é codificado', () => {
     expect(previewPath('a/b')).toBe('/admin/visualizar/a%2Fb')
     expect(parseAdminPath('/admin/visualizar/a%2Fb').previewId).toBe('a/b')
+  })
+})
+
+describe('prévia: texto não salvo da cópia, o resto do servidor', () => {
+  const pending = { id: '1', clip: { status: 'pending' }, i18n: { pt: { title: 'velho' } }, tags: ['a'] }
+  const ready = { id: '1', clip: { status: 'ready', hash: 'abc' }, i18n: { pt: { title: 'salvo' } }, tags: ['a'] }
+
+  it('recorte que ficou pronto depois de a cópia ser guardada aparece na prévia', () => {
+    const out = resolvePreview(ready, pending)
+    expect(out?.clip).toEqual({ status: 'ready', hash: 'abc' })
+  })
+
+  it('o texto digitado e não salvo vem da cópia', () => {
+    const out = resolvePreview(ready, { ...pending, i18n: { pt: { title: 'rascunho digitado' } }, tags: ['b'] })
+    expect(out?.i18n).toEqual({ pt: { title: 'rascunho digitado' } })
+    expect(out?.tags).toEqual(['b'])
+  })
+
+  it('sem cópia, vale o post do servidor; sem servidor ainda, vale a cópia; sem nada, nulo', () => {
+    expect(resolvePreview(ready, null)).toBe(ready)
+    expect(resolvePreview(undefined, pending)).toBe(pending)
+    expect(resolvePreview(undefined, null)).toBeNull()
   })
 })

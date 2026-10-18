@@ -13,7 +13,7 @@ import { TopicComposer } from './admin/TopicComposer'
 import { ReflectionComposer } from './admin/ReflectionComposer'
 import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
 import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
-import { adminPath, parseAdminPath, readStashedPreview, stashPreview, type AdminTab as Tab, type AdminView } from './admin/adminRoute'
+import { adminPath, parseAdminPath, readStashedPreview, resolvePreview, stashPreview, type AdminTab as Tab, type AdminView } from './admin/adminRoute'
 type Session = { email: string } | null
 
 /**
@@ -165,7 +165,7 @@ export function AdminPage() {
   // /admin/visualizar/<id>: a prévia abre sozinha numa aba própria (o editor fica na outra).
   if (view.previewId) {
     const id = view.previewId
-    const post = readStashedPreview<Post>(id) ?? posts.find((p) => p.id === id)
+    const post = resolvePreview(posts.find((p) => p.id === id), readStashedPreview<Post>(id))
     if (!post) {
       return <Shell><p className="text-muted text-[13px]">{loaded ? 'Post não encontrado.' : 'Carregando prévia…'}</p></Shell>
     }
