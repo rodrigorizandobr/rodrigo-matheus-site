@@ -698,7 +698,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 762 testes
+cd api && source .venv/bin/activate && pytest      # 791 testes
 cd web && npm test                                  # 440 testes
 ```
 
