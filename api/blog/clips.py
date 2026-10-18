@@ -182,12 +182,12 @@ def snap_to_sentences(start: int, end: int, falas: list[tuple[float, float, str]
     novo_inicio, novo_fim = start, end
     for ini, fim, _ in falas:
         if ini < start < fim:
-            if fim - start <= SNAP_GRAZE:
+            if fim - start <= SNAP_GRAZE and fim - start < start - ini:
                 novo_inicio = math.ceil(fim)
             elif start - ini <= reach:
                 novo_inicio = math.floor(ini)
         if ini < end < fim:
-            if end - ini <= SNAP_GRAZE:
+            if end - ini <= SNAP_GRAZE and end - ini < fim - end:
                 novo_fim = math.floor(ini)
             elif fim - end <= reach:
                 novo_fim = math.ceil(fim)

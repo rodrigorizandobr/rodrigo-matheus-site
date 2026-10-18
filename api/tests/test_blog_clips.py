@@ -201,6 +201,12 @@ class TestPontaQueSoRaspaAFrase:
     def test_meio_da_frase_continua_incluindo_a_frase_inteira(self):
         assert clips.snap_to_sentences(100, 121, self.FALAS) == (97, 125)
 
+    def test_fim_perto_do_fim_de_uma_frase_curta_fecha_a_frase_em_vez_de_recuar(self):
+        # medido no Argon: 118 numa frase de 116,7 a 118,6 (0,6 s do fim) recuava para 116 e o corte encolhia
+        falas = [(104.4, 108.5, "A."), (108.5, 116.7, "B."), (116.7, 118.6, "It just means that it has more room."),
+                 (118.6, 124.5, "Now, in most.")]
+        assert clips.snap_to_sentences(104, 118, falas)[1] == 119
+
     def test_ajuste_que_deixa_o_corte_curto_demais_devolve_o_original(self):
         falas = [(0.0, 20.0, "Uma."), (20.0, 30.0, "Duas.")]
         assert clips.snap_to_sentences(19, 21, falas) == (19, 21)
