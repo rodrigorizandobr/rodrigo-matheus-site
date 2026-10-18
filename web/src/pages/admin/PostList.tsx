@@ -16,10 +16,11 @@ const ITEM = 'w-full text-left px-3 py-2.5 text-[12px] font-display font-semibol
  * dia a dia e ficam à vista; LinkedIn avulso, link do site e exclusão não
  * precisam disputar a linha com elas. Fecha com Escape ou clique fora.
  */
-function RowMenu({ post, disabled, onShareLinkedin, onDelete }: {
+function RowMenu({ post, disabled, onShareLinkedin, onToggleLinkedin, onDelete }: {
   post: Post
   disabled: boolean
   onShareLinkedin: (post: Post) => void
+  onToggleLinkedin: (post: Post) => void
   onDelete: (post: Post) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -52,6 +53,11 @@ function RowMenu({ post, disabled, onShareLinkedin, onDelete }: {
           <button type="button" role="menuitem" className={ITEM} onClick={pick(() => onShareLinkedin(post))}>
             {post.linkedinPostedAt ? 'publicar de novo no LinkedIn' : 'publicar no LinkedIn'}
           </button>
+          {!post.linkedinPostedAt && (
+            <button type="button" role="menuitem" className={ITEM} onClick={pick(() => onToggleLinkedin(post))}>
+              {post.linkedinEnabled === false ? 'voltar a publicar automaticamente no LinkedIn' : 'não publicar automaticamente no LinkedIn'}
+            </button>
+          )}
           <button type="button" role="menuitem" className={`${ITEM} !text-red border-t border-line`} onClick={pick(() => onDelete(post))}>
             excluir
           </button>
@@ -131,7 +137,7 @@ export function PostList({ posts, onPreview, onEdit, onTogglePublish, onToggleLi
                       className={`cta !py-2 !px-4 flex-1 sm:flex-none justify-center ${BTN}`}>
                 editar
               </button>
-              <RowMenu post={post} disabled={busy} onShareLinkedin={onShareLinkedin} onDelete={onDelete} />
+              <RowMenu post={post} disabled={busy} onShareLinkedin={onShareLinkedin} onToggleLinkedin={onToggleLinkedin} onDelete={onDelete} />
             </div>
           </li>
         )

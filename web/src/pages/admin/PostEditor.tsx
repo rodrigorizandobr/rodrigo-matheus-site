@@ -184,11 +184,13 @@ export function PostEditor(p: Props) {
                   <input type="checkbox" className="mt-1" disabled={disabled}
                          checked={p.post.linkedinEnabled !== false} onChange={p.onToggleLinkedin} />
                   <span>
-                    <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Entrar na fila do LinkedIn</span>
+                    <span className="font-display font-semibold text-[12px] uppercase tracking-wider text-heading">Publicar automaticamente no LinkedIn</span>
                     <span className="block text-[12px] text-muted mt-0.5 leading-relaxed">
-                      {status === 'published'
-                        ? 'Vai no próximo dia agendado. A fila começa pelos posts mais antigos.'
-                        : 'A fila só começa quando estiver no ar.'}
+                      {p.post.linkedinEnabled === false
+                        ? 'Desmarcado: só sai quando você clicar em “publicar no LinkedIn agora”.'
+                        : status === 'published'
+                          ? 'Vai no próximo dia agendado. A fila começa pelos posts mais antigos.'
+                          : 'A fila só começa quando estiver no ar.'}
                     </span>
                   </span>
                 </label>

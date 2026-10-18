@@ -129,7 +129,7 @@ describe('LinkedIn no editor', () => {
   it('inédito: checkbox da fila e botão para publicar agora', async () => {
     const onShareLinkedin = vi.fn(); const onToggleLinkedin = vi.fn()
     render(<PostEditor {...props({ post: post({ status: 'published', slug: 'x' }), onShareLinkedin, onToggleLinkedin })} />)
-    await userEvent.click(screen.getByRole('checkbox', { name: /fila do linkedin/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /publicar automaticamente no linkedin/i }))
     expect(onToggleLinkedin).toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: /^publicar no linkedin agora$/i }))
     expect(onShareLinkedin).toHaveBeenCalled()
@@ -139,7 +139,7 @@ describe('LinkedIn no editor', () => {
     const onShareLinkedin = vi.fn()
     render(<PostEditor {...props({ post: post({ status: 'published', slug: 'x', linkedinPostedAt: '2026-09-15T12:00:00Z' }), onShareLinkedin })} />)
     expect(screen.getByText(/no linkedin desde 15\/09\/2026/i)).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: /fila do linkedin/i })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: /publicar automaticamente no linkedin/i })).toBeNull()
     expect(screen.queryByText(/uma vez só/i)).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: /publicar de novo no linkedin/i }))
     expect(onShareLinkedin).toHaveBeenCalled()
@@ -226,5 +226,19 @@ describe('afirmações sem fonte que sobraram', () => {
   it('sem sobra, nenhum aviso', () => {
     render(<PostEditor {...props({ post: post({ generation: { model: 'm', generatedAt: '', topic: 't', unsupportedLeft: [] } }) })} />)
     expect(screen.queryByText(/sem fonte/i)).toBeNull()
+  })
+})
+
+describe('LinkedIn no editor: só manual', () => {
+  it.each(['draft', 'scheduled', 'published'])('post %s: o checkbox existe e reflete o estado', (status) => {
+    const { rerender } = render(<PostEditor {...props({ post: post({ status: status as never, linkedinEnabled: true }) })} />)
+    expect(screen.getByRole('checkbox', { name: /publicar automaticamente no linkedin/i })).toBeChecked()
+    rerender(<PostEditor {...props({ post: post({ status: status as never, linkedinEnabled: false }) })} />)
+    expect(screen.getByRole('checkbox', { name: /publicar automaticamente no linkedin/i })).not.toBeChecked()
+  })
+
+  it('desmarcado: o texto diz que só sai quando o autor mandar', () => {
+    render(<PostEditor {...props({ post: post({ status: 'published', slug: 'x', linkedinEnabled: false }) })} />)
+    expect(screen.getByText(/só sai quando você clicar em .publicar no linkedin agora./i)).toBeInTheDocument()
   })
 })

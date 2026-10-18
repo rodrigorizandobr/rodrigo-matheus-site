@@ -189,3 +189,36 @@ describe('"publicar no LinkedIn" no menu', () => {
     expect(screen.queryByRole('menuitem', { name: /^publicar no linkedin$/i })).toBeNull()
   })
 })
+
+describe('"só manual" no menu (fora da publicação automática do LinkedIn)', () => {
+  it.each(['draft', 'scheduled', 'published'])('post %s na fila: oferece tirar da publicação automática', async (status) => {
+    const onToggleLinkedin = vi.fn()
+    render(<PostList {...props({ posts: [post({ status: status as never })], onToggleLinkedin })} />)
+    await abrirMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: /^não publicar automaticamente no linkedin$/i }))
+    expect(onToggleLinkedin).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+  })
+
+  it('post já marcado como só manual: oferece voltar para a publicação automática', async () => {
+    const onToggleLinkedin = vi.fn()
+    render(<PostList {...props({ posts: [post({ linkedinEnabled: false })], onToggleLinkedin })} />)
+    await abrirMenu()
+    expect(screen.queryByRole('menuitem', { name: /^não publicar automaticamente/i })).toBeNull()
+    await userEvent.click(screen.getByRole('menuitem', { name: /^voltar a publicar automaticamente no linkedin$/i }))
+    expect(onToggleLinkedin).toHaveBeenCalled()
+  })
+
+  it('post que já foi ao LinkedIn não tem o que marcar', async () => {
+    render(<PostList {...props({ posts: [post({ status: 'published', linkedinPostedAt: '2026-09-15T12:00:00Z' })] })} />)
+    await abrirMenu()
+    expect(screen.queryByRole('menuitem', { name: /automaticamente/i })).toBeNull()
+  })
+
+  it('"publicar no LinkedIn" continua valendo no post só manual', async () => {
+    const onShareLinkedin = vi.fn()
+    render(<PostList {...props({ posts: [post({ status: 'published', linkedinEnabled: false })], onShareLinkedin })} />)
+    await abrirMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: /^publicar no linkedin$/i }))
+    expect(onShareLinkedin).toHaveBeenCalled()
+  })
+})
