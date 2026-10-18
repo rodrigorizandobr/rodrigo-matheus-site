@@ -839,6 +839,61 @@ class TestMemoriaInventada:
         assert pedidos == []
 
 
+class TestVozDoAutor:
+    """O blog é do Rodrigo, escrito POR ele. "Rodrigo acha que…" no fim de um post real passou
+    porque nenhuma barreira olhava a voz: só vocabulário, memória inventada e fato sem fonte."""
+
+    def _revisor(self, monkeypatch, devolve):
+        pedidos = []
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda post, instr: pedidos.append(instr) or _rascunho(devolve))
+        return pedidos
+
+    def test_autor_em_terceira_pessoa_vira_uma_reescrita_em_primeira(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda *a, **k: _rascunho("Rodrigo acha que esse hábito diz mais sobre liderança."))
+        pedidos = self._revisor(monkeypatch, "Eu acho que esse hábito diz mais sobre liderança.")
+        store.save_config({"banned_phrases": []})
+        post = service.generate("openai", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1 and "primeira pessoa" in pedidos[0]
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Eu acho que esse hábito diz mais sobre liderança."]
+        assert post["generation"]["bannedLeft"] == []
+
+    def test_pega_tambem_no_ingles(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: {
+            **DRAFT, "i18n": {"pt": {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["Eu acho."]}]},
+                              "en": {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["Rodrigo thinks so."]}]}}})
+        pedidos = self._revisor(monkeypatch, "I think so.")
+        store.save_config({"banned_phrases": []})
+        service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1
+
+    def test_reflexao_tambem_passa_pela_barreira(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda *a, **k: _rascunho("Rodrigo aprendeu isso liderando."))
+        pedidos = self._revisor(monkeypatch, "Aprendi isso liderando.")
+        store.save_config({"banned_phrases": [], "reflection_topics": ["t"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert len(pedidos) == 1
+
+    def test_reescrita_que_falha_deixa_o_resto_registrado_e_o_post_sai(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Rodrigo acha isso."))
+        monkeypatch.setattr(service.gemini, "revise_post", lambda p, i: (_ for _ in ()).throw(RuntimeError("x")))
+        store.save_config({"banned_phrases": []})
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["generation"]["bannedLeft"]
+
+    def test_editar_com_ia_no_painel_tambem_passa(self, env, monkeypatch):
+        post = service.generate("t", now=utc(2026, 9, 14, 21))
+        respostas = iter([_rascunho("Rodrigo acha que sim."), _rascunho("Eu acho que sim.")])
+        monkeypatch.setattr(service.gemini, "revise_post", lambda p, i: next(respostas))
+        store.save_config({"banned_phrases": []})
+        revisado = service.revise(post["id"], "encurte")
+        assert revisado["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Eu acho que sim."]
+
+
 class TestRecorteNoLinkedIn:
     def _com_token(self, monkeypatch):
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})

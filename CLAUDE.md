@@ -159,6 +159,14 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   citada como proibida é ecoada. Duas das palavras que o PO apontou vinham do próprio prompt —
   "já vi time…" era o exemplo da regra 10 (copiado em todo post) e "revela" estava na lista de títulos
   proibidos; as duas saíram do prompt. Também vale para "editar com IA" no painel (`service.revise`).
+- **O autor nunca é citado pelo nome** (`model.author_named`, `service._scrub_vocab`, `TestVozDoAutor`,
+  `TestVozDoPrompt`). Medido (2026-10-17): o fecho de um post saiu "Rodrigo acha que…" (en: "He'd bet…") —
+  nenhuma barreira olhava a VOZ: vocabulário, memória inventada e fato sem fonte não pegam isso. Duas
+  causas: o `gemini.VOICE` descrevia o autor em terceira pessoa ("onde ele conta…") e o modelo imitava a
+  voz do prompt; e não havia checagem depois. Hoje o `VOICE` é escrito como "você é Rodrigo Matheus" e manda
+  nunca se citar pelo nome; e `author_named` (palavra inteira, sem acento/caixa: "Rodrigo", "Matheus", pt e
+  en) dispara a mesma reescrita única em geração, reflexão, "editar com IA" e na frase que apresenta o vídeo.
+  Sobrou nome → fica em `generation.bannedLeft`. Não é lista do painel: não é gosto.
 - **Memória do autor nunca é inventada** (regra 10, `model.MEMORY_CLAIMS`, `TestMemoriaInventada`).
   No modo notícia o modelo recebe só as matérias, e a regra antiga mandava "usar a experiência dele" —
   ele inventava: "já viu time botar produto físico na rua" (o PO nem trabalha com produto físico),
@@ -380,7 +388,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
 | Peça | Onde | Papel |
 |---|---|---|
 | Achar o vídeo | `service._save_generated` → `videos.search_youtube` | Servidor. Todo post busca; achou → `video` + `clip: {status: pending}` e o post fica **rascunho, sem agendar**, mesmo com "publicar sem revisão". |
-| Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), janelas de 10 a 45 s da melhor para a pior (`rank_segments`). |
+| Escolher o trecho | `blog/clips.py` (puro) | Tempos marcados → trechos (`group_segments`), janelas da melhor para a pior (`rank_segments`): mínimo 10 s e **sem limite de tempo** — o assunto decide o tamanho; só vale o teto de 600 s (`MAX_CLIP`), que é o do vídeo nativo do LinkedIn. |
 | Recortar | `api/clip_worker.py` | **Mac do autor**, serviço `launchd` sempre ligado que ESCUTA o Firestore. Baixa, escolhe, corta, confere, sobe, marca `ready`. |
 | Guardar/servir | `media.store_video`, `GET /api/blog/video/<hash>.mp4` | Mesmo bucket das capas (`blog-videos/<sha256>.mp4`). Rota com `Range`/206 — o Safari do iPhone só toca assim. |
 | Mostrar | `PostArticle` (site e prévia), cartão "Vídeo" no editor | Pronto → o vídeo toma o lugar da capa (capa vira `poster`), crédito "Trecho de <título> · <canal>" com link no segundo exato. O público só vê recorte `ready`, por `CLIP_PUBLIC_FIELDS`. |
@@ -415,7 +423,7 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   assunto, cada um com NOTA 1 a 3 — vence o trecho que soma mais nota (`clips.choose_segment(scores=)`),
   não o mais longo. O tempo vem do quadro, nunca do modelo (assistindo pela URL ele inventou 37:05 num
   vídeo de 23:21). Depois, a janela final é escolhida a 1 quadro/s numa região com folga em volta do
-  trecho (`MARGIN_BEFORE` 10 s, `MARGIN_AFTER` 30 s — um quadro escuro entre a manobra e o salto
+  trecho (`MARGIN_BEFORE` 10 s, `MARGIN_AFTER` 60 s — um quadro escuro entre a manobra e o salto
   quebrava o trecho), validada por `_valid_window`; inválida → fica o trecho grosso. Corte em H.264 720p
   com `--force-keyframes-at-cuts` (o padrão vinha AV1, que LinkedIn e iPhone não tocam bem) e
   conferência final dos quadros.
@@ -678,7 +686,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 745 testes
+cd api && source .venv/bin/activate && pytest      # 762 testes
 cd web && npm test                                  # 440 testes
 ```
 

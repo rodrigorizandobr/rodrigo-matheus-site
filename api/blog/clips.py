@@ -15,8 +15,9 @@ from typing import Any
 STEP = 5
 #: menos que isso é piscada, não recorte
 MIN_CLIP = 10
-#: post de LinkedIn com vídeo longo perde quem rola o feed
-MAX_CLIP = 45
+#: não é gosto, é limite da plataforma: o vídeo nativo do LinkedIn aceita até 10 minutos. Abaixo
+#: disso o assunto decide o tamanho (pedido do PO, 2026-10-17: "sem limite de tempo").
+MAX_CLIP = 600
 
 
 def group_segments(times: list[int], step: int = STEP) -> list[tuple[int, int]]:

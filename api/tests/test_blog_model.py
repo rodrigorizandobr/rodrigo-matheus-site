@@ -224,3 +224,24 @@ class TestMemoriaEmPrimeiraPessoa:
             "Resta saber se dá certo. No fim das contas, o tempo dirá."]}]}
         achadas = model.banned_found(corpo, model.DEFAULT_CONFIG["banned_phrases"])
         assert {"resta saber", "no fim das contas", "o tempo dira"} <= {model._plain(a) for a in achadas}
+
+
+class TestAutorEmTerceiraPessoa:
+    """Medido em post real (2026-10-17): "Rodrigo acha que esse hábito…" — o blog é do Rodrigo,
+    escrito por ele em primeira pessoa; citar o próprio nome é voz de terceiro."""
+
+    def _corpo(self, texto, titulo=""):
+        return {"title": titulo, "excerpt": "", "sections": [{"heading": "", "paragraphs": [texto]}]}
+
+    def test_pega_o_nome_do_autor_no_corpo(self):
+        assert model.author_named(self._corpo("Rodrigo acha que esse hábito diz mais sobre liderança."))
+
+    def test_pega_no_titulo_sem_ligar_para_caixa_e_acento(self):
+        assert model.author_named(self._corpo("ok", titulo="O que RODRIGO pensa"))
+        assert model.author_named(self._corpo("Segundo Matheus, vale a pena."))
+
+    def test_texto_em_primeira_pessoa_passa(self):
+        assert model.author_named(self._corpo("Eu acho que esse hábito diz mais sobre liderança.")) == []
+
+    def test_nome_dentro_de_outra_palavra_nao_conta(self):
+        assert model.author_named(self._corpo("O sobrenome Rodrigues aparece no processo.")) == []

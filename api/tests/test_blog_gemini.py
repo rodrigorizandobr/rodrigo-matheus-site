@@ -636,3 +636,16 @@ class TestCriticaQueAceitaAPremissa:
     def test_desconfio_nao_e_mais_verbo_sugerido_de_opiniao(self, fake):
         gemini.generate_post("Robô")
         assert "desconfio" not in _corrido(fake)
+
+
+class TestVozDoPrompt:
+    """O prompt descrevia o autor em terceira pessoa ("ele conta…"); o modelo imitava a voz do
+    prompt e escrevia "Rodrigo acha…" no fecho do post."""
+
+    def test_o_prompt_fala_com_o_modelo_como_o_autor_em_primeira_pessoa(self):
+        voz = gemini.VOICE.lower()
+        assert "você é rodrigo" in voz or "você é o rodrigo" in voz
+        assert " ele " not in f" {voz} "
+
+    def test_manda_assinar_como_eu_sem_citar_o_proprio_nome_no_texto(self):
+        assert "primeira pessoa" in gemini.VOICE and "nunca" in gemini.VOICE and "nome" in gemini.VOICE

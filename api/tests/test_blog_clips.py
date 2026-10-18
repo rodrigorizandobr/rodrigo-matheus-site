@@ -25,8 +25,15 @@ class TestEscolherTrecho:
     def test_o_mais_longo_vence(self):
         assert clips.choose_segment([(10, 25), (100, 140), (300, 320)]) == (100, 140)
 
-    def test_trecho_longo_demais_e_cortado_no_maximo_a_partir_do_inicio(self):
-        assert clips.choose_segment([(100, 200)]) == (100, 100 + clips.MAX_CLIP)
+    def test_trecho_longo_vai_inteiro_o_assunto_decide_o_tamanho(self):
+        # pedido do PO, 2026-10-17: "corte o tamanho necessário, sem limite de tempo"
+        assert clips.choose_segment([(100, 200)]) == (100, 200)
+        assert clips.choose_segment([(100, 400)]) == (100, 400)
+
+    def test_so_o_teto_da_plataforma_corta(self):
+        # o vídeo nativo do LinkedIn aceita até 10 minutos
+        assert clips.MAX_CLIP == 600
+        assert clips.choose_segment([(100, 1000)]) == (100, 100 + clips.MAX_CLIP)
 
     def test_curto_demais_nao_serve(self):
         # um quadro solto vira 5 s de vídeo — não é recorte, é piscada
@@ -84,12 +91,10 @@ class TestEscolhaPorNota:
         trechos = clips.group_segments(list(notas))
         assert clips.choose_segment(trechos, scores=notas) == (300, 325)
 
-    def test_trecho_longo_fica_com_a_janela_de_maior_nota(self):
-        # dentro de um trecho de 100 s, os 45 s escolhidos são os que concentram a nota
+    def test_trecho_longo_com_notas_vai_inteiro(self):
         notas = {t: 1 for t in range(100, 200, 5)}
         notas.update({t: 3 for t in range(150, 180, 5)})
-        inicio, fim = clips.choose_segment(clips.group_segments(list(notas)), scores=notas)
-        assert fim - inicio == clips.MAX_CLIP and inicio <= 150 and fim >= 180
+        assert clips.choose_segment(clips.group_segments(list(notas)), scores=notas) == (100, 200)
 
     def test_sem_nota_continua_o_mais_longo(self):
         assert clips.choose_segment([(10, 25), (100, 140)], scores=None) == (100, 140)

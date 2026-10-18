@@ -151,12 +151,14 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
     citadas para quem tem a tarefa de tirá-las. Devolve o rascunho e o que SOBROU — a
     reescrita falhar ou deixar resto nunca derruba o post, só fica registrado.
     """
-    def achar(rascunho: dict[str, Any]) -> tuple[list[str], list[str]]:
-        corpo = (rascunho.get("i18n") or {}).get("pt") or {}
-        return model.banned_found(corpo, phrases), model.banned_found(corpo, memories)
+    def achar(rascunho: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
+        i18n = rascunho.get("i18n") or {}
+        corpo = i18n.get("pt") or {}
+        nomes = list(dict.fromkeys(model.author_named(corpo) + model.author_named(i18n.get("en") or {})))
+        return model.banned_found(corpo, phrases), model.banned_found(corpo, memories), nomes
 
-    palavras, lembrancas = achar(draft)
-    if not palavras and not lembrancas:
+    palavras, lembrancas, nomes = achar(draft)
+    if not palavras and not lembrancas and not nomes:
         return draft, []
     pedidos = ["Não mude mais nada do texto além do que se pede abaixo, nos dois idiomas."]
     if palavras:
@@ -167,13 +169,17 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
         pedidos.append("O material não fala da vida do autor: tire as frases em que ele conta algo que "
                        "teria visto, vivido ou feito — transforme em opinião (acho, aposto, imagino) "
                        "ou corte. Começam assim: " + "; ".join(f"«{a}…»" for a in lembrancas) + ".")
+    if nomes:
+        pedidos.append("O blog é do autor e é escrito por ele, em primeira pessoa: onde o texto fala dele "
+                       "pelo nome ou em terceira pessoa, reescreva em primeira pessoa (eu, minha, acho), "
+                       "sem citar o nome. Nomes que aparecem: " + "; ".join(f"«{a}»" for a in nomes) + ".")
     try:
         revisado = gemini.revise_post(draft, " ".join(pedidos))
     except Exception:
-        return draft, palavras + lembrancas
+        return draft, palavras + lembrancas + nomes
     draft = {**draft, "i18n": revisado["i18n"], "tags": revisado.get("tags") or draft.get("tags")}
-    palavras, lembrancas = achar(draft)
-    return draft, palavras + lembrancas
+    palavras, lembrancas, nomes = achar(draft)
+    return draft, palavras + lembrancas + nomes
 
 
 def _save_generated(topic: str, context: str, found: research.Research, source: str,

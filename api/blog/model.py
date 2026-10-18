@@ -264,6 +264,23 @@ def banned_found(body: dict[str, Any], phrases: Iterable[str]) -> list[str]:
     return achadas
 
 
+#: o blog é do autor e é escrito POR ele; o nome dele no corpo é voz de terceiro
+AUTHOR_NAMES = ("rodrigo", "matheus")
+
+
+def author_named(body: dict[str, Any]) -> list[str]:
+    """Quais nomes do autor aparecem no texto (título, resumo, títulos de seção, parágrafos).
+
+    Palavra inteira, sem acento nem caixa: "Rodrigo acha…" pega, "Rodrigues" não.
+    """
+    partes = [body.get("title") or "", body.get("excerpt") or ""]
+    for sec in body.get("sections") or []:
+        partes.append(sec.get("heading") or "")
+        partes.extend(sec.get("paragraphs") or [])
+    texto = _plain(" ".join(partes))
+    return [nome for nome in AUTHOR_NAMES if re.search(r"(?<!\w)" + nome + r"(?!\w)", texto)]
+
+
 def clean_tags(tags: Iterable[str]) -> list[str]:
     """Minúsculas, sem repetir, no máximo MAX_TAGS.
 

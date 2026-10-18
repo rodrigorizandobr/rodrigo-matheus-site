@@ -43,7 +43,7 @@ LIMIT = 3
 #: folga em volta do trecho grosso para a janela fina (a 1 quadro/s). Depois é maior: no Roadster
 #: um quadro escuro entre a manobra e o salto quebrou o trecho, e o salto ficou de fora.
 MARGIN_BEFORE = 10
-MARGIN_AFTER = 30
+MARGIN_AFTER = 60
 #: escolher o momento por imagem é demais para o flash-lite (janelas de 3 s, "viu" salto onde não
 #: havia); o 3.8-flash acertou a janela do Roadster nas duas tentativas. Poucas imagens por post.
 VISION_MODEL = "gemini-3.8-flash"
@@ -468,9 +468,11 @@ class Ferramentas:
         quadros = self._quadros(self._baixa(url), start, end, "1")
         resposta = json.loads(self._gemini(self._mosaicos([(start + i, q) for i, q in enumerate(quadros)]), (
             "Quadros de um trecho de vídeo, um por segundo, com o tempo em amarelo. Escolha o trecho "
-            f"CONTÍNUO de {clips.MIN_CLIP} a {clips.MAX_CLIP} segundos que melhor mostra, em ação, o que o "
-            "post abaixo destaca — comece no primeiro quadro em que a ação já é visível e termine no "
-            "último; corte o que é só o produto parado, filmagem distante sem ação, palco ou plateia. "
+            f"CONTÍNUO, de no mínimo {clips.MIN_CLIP} segundos e sem limite de tempo, que mostra por inteiro "
+            "o que o post abaixo destaca — pegue o tempo que o assunto precisa para ser entendido, nem "
+            "um trecho curto que deixe a explicação pela metade, nem enchimento. Comece no primeiro "
+            "quadro em que o assunto já aparece e termine no último; corte o que é só o produto "
+            "parado, filmagem distante sem ação, palco ou plateia. "
             "Use os números amarelos. Responda só JSON: {\"inicio\": int, \"fim\": int}\n\n"
             f"POST:\n{post_text[:1500]}")))
         inicio, fim = resposta.get("inicio"), resposta.get("fim")

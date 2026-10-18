@@ -253,7 +253,7 @@ class TestJanelaFina:
         post = _post_pendente()
         ferramentas = Ferramentas()
         clip_worker.process(post, ferramentas)
-        assert ferramentas.regioes == [(1340 - clip_worker.MARGIN_BEFORE, 1370 + clip_worker.MARGIN_AFTER)]
+        assert ferramentas.regioes == [(1340 - clip_worker.MARGIN_BEFORE, min(1400, 1370 + clip_worker.MARGIN_AFTER))]
 
     @pytest.mark.parametrize("janela", [None, (5, 40), (1342, 1346), (1360, 1340), ("a", "b")])
     def test_janela_invalida_fica_com_o_trecho_grosso(self, env, janela):
@@ -269,12 +269,24 @@ class TestJanelaFina:
         clip_worker.process(post, ferramentas)
         assert ferramentas.cortes == [(1350, 1390)]
 
-    def test_janela_longa_e_cortada_no_maximo(self, env):
-        from blog import clips
+    def test_janela_longa_vai_inteira_sem_limite_de_tempo(self, env):
         post = _post_pendente()
         ferramentas = Ferramentas(janela=(1335, 1399))
         clip_worker.process(post, ferramentas)
-        assert ferramentas.cortes == [(1335, 1335 + clips.MAX_CLIP)]
+        assert ferramentas.cortes == [(1335, 1399)]
+
+    def test_so_o_teto_da_plataforma_corta_a_janela(self, env, monkeypatch):
+        from blog import clips
+        monkeypatch.setattr(clips, "MAX_CLIP", 20)
+        post = _post_pendente()
+        ferramentas = Ferramentas(janela=(1335, 1399))
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.cortes == [(1335, 1355)]
+
+    def test_pergunta_do_trecho_nao_impoe_limite_de_segundos(self):
+        import inspect
+        fonte = inspect.getsource(clip_worker.Ferramentas.refine_window)
+        assert "MAX_CLIP" not in fonte and "sem limite" in fonte
 
 
 class TestModeloDaVisao:
