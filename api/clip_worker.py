@@ -130,23 +130,45 @@ def _speech(url: str, tools: Any) -> list[tuple[float, float, str]]:
         return []
 
 
+def _refine(url: str, texto: str, falas: list[tuple[float, float, str]], tools: Any, duracao: int,
+            grosso: tuple[int, int]) -> tuple[int, int]:
+    """Trecho grosso (quadro a cada 5 s) → janela fina (1 quadro/s) → fronteiras de frase."""
+    inicio, fim = grosso
+    regiao = (max(0, inicio - MARGIN_BEFORE), min(duracao, fim + MARGIN_AFTER))
+    janela = _stage("refino", tools.refine_window, url, *regiao, texto, falas)
+    if _valid_window(janela, regiao):
+        inicio, fim = janela[0], min(janela[1], janela[0] + clips.MAX_CLIP)
+    return clips.snap_to_sentences(inicio, fim, falas)
+
+
 def _attempt(url: str, texto: str, tools: Any) -> dict[str, Any]:
-    """Uma tentativa completa num vídeo. Erro de rede levanta; vídeo que não serve, `_ContentError`."""
+    """Uma tentativa completa num vídeo. Erro de rede levanta; vídeo que não serve, `_ContentError`.
+
+    Os momentos que mostram o assunto viram UM vídeo montado (até o teto do LinkedIn). Se a
+    conferência recusar a montagem, tenta os melhores momentos sozinhos antes de desistir do vídeo.
+    """
     duracao = _stage("duration", tools.duration, url)
     quadros = _stage("frames", tools.frames, url, clips.STEP)
     falas = _speech(url, tools)
     notas = clips.parse_scores(_stage("escolha", tools.ask_times, quadros, texto, duracao, falas), duration=duracao)
-    janelas = clips.rank_segments(clips.group_segments(list(notas)), scores=notas)[:WINDOWS_TO_TRY]
-    if not janelas:
+    candidatas = clips.select_parts(clips.group_segments(list(notas)), notas)
+    if not candidatas:
         raise _ContentError("nenhum trecho do vídeo mostra o que o post discute")
+    refinadas = [_refine(url, texto, falas, tools, duracao, c) for c in candidatas]
+    tentativas = [clips.assemble(refinadas)]
+    for sozinha in refinadas[:WINDOWS_TO_TRY]:
+        if [sozinha] not in tentativas:
+            tentativas.append([sozinha])
+    feitos: dict[tuple[int, int], tuple[bytes, int, int]] = {}
     recusas = []
-    for inicio, fim in janelas:
-        regiao = (max(0, inicio - MARGIN_BEFORE), min(duracao, fim + MARGIN_AFTER))
-        janela = _stage("refino", tools.refine_window, url, *regiao, texto, falas)
-        if _valid_window(janela, regiao):
-            inicio, fim = janela[0], min(janela[1], janela[0] + clips.MAX_CLIP)
-        inicio, fim = clips.snap_to_sentences(inicio, fim, falas)
-        mp4, largura, altura = _stage("cut", tools.cut, url, inicio, fim)
+    for partes in tentativas:
+        for parte in partes:
+            if parte not in feitos:
+                feitos[parte] = _stage("cut", tools.cut, url, *parte)
+        if len(partes) == 1:
+            mp4, largura, altura = feitos[partes[0]]
+        else:
+            mp4, largura, altura = _stage("montagem", tools.concat, [feitos[p][0] for p in partes])
         ok, descricao = _stage("conferência", tools.verify, mp4, texto)
         if not ok:
             recusas.append(descricao)
@@ -154,8 +176,11 @@ def _attempt(url: str, texto: str, tools: Any) -> dict[str, Any]:
         digest = _stage("gravação", media.store_video, mp4)
         if not digest:
             raise _ContentError("o corte não saiu como MP4")
-        return {"hash": digest, "start": inicio, "end": fim, "width": largura, "height": altura,
-                "descricao": descricao}
+        achado = {"hash": digest, "start": partes[0][0], "end": partes[-1][1], "width": largura,
+                  "height": altura, "descricao": descricao}
+        if len(partes) > 1:
+            achado["parts"] = [list(p) for p in partes]
+        return achado
     raise _ContentError("a conferência final recusou o corte: " + "; ".join(recusas))
 
 
@@ -185,10 +210,12 @@ def _ready(post: dict[str, Any], video: dict[str, Any], url: str, achado: dict[s
             patch["image"] = capa
     store.update_post(post["id"], patch)
     # o post espera a autorização do dono do vídeo: o e-mail já leva o que é preciso para pedir
+    partes = clip.get("parts") or [[clip["start"], clip["end"]]]
+    trechos = "\n".join(f"  {clips.hms(i)}–{clips.hms(f)}: {url}&t={i}s" for i, f in partes)
     notify.send(f"Recorte pronto: {_title(post)}", (
         f"O recorte do post “{_title(post)}” está pronto e o post continua em RASCUNHO.\n\n"
         f"Vídeo de origem: {video.get('title', '')} — canal {video.get('channel') or 'desconhecido'}\n"
-        f"Trecho usado ({clips.hms(clip['start'])}–{clips.hms(clip['end'])}): {url}&t={clip['start']}s\n\n"
+        f"{'Trechos usados, nesta ordem' if len(partes) > 1 else 'Trecho usado'}:\n{trechos}\n\n"
         f"Peça a autorização ao dono do vídeo e publique pelo painel: {_editor_link(post)}"))
     return clip
 
@@ -548,11 +575,32 @@ class Ferramentas:
                         "--force-keyframes-at-cuts", "--remux-video", "mp4",
                         "--postprocessor-args", "ffmpeg:-movflags +faststart",
                         "-o", str(destino), url], check=True, timeout=900)
+        return (destino.read_bytes(), *self._dimensoes(destino))
+
+    @staticmethod
+    def _dimensoes(arquivo: Path) -> tuple[int, int]:
         info = json.loads(subprocess.run(
             ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
-             "-of", "json", str(destino)], check=True, capture_output=True, text=True).stdout)
+             "-of", "json", str(arquivo)], check=True, capture_output=True, text=True).stdout)
         s = info["streams"][0]
-        return destino.read_bytes(), int(s["width"]), int(s["height"])
+        return int(s["width"]), int(s["height"])
+
+    def concat(self, mp4s: list[bytes]) -> tuple[bytes, int, int]:
+        """Junta os cortes (todos do mesmo vídeo, mesmo formato) num MP4 só. Recodifica: juntar sem
+        recodificar deixa o áudio e a imagem fora de sincronia nas emendas."""
+        lista = self.dir / "montagem.txt"
+        linhas = []
+        for i, mp4 in enumerate(mp4s):
+            parte = self.dir / f"parte-{i}.mp4"
+            parte.write_bytes(mp4)
+            linhas.append(f"file '{parte.name}'")
+        lista.write_text("\n".join(linhas) + "\n")
+        destino = self.dir / "montado.mp4"
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(lista),
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(destino)],
+                       check=True, timeout=1800)
+        return (destino.read_bytes(), *self._dimensoes(destino))
 
     def verify(self, mp4: bytes, post_text: str) -> tuple[bool, str]:
         arquivo = self.dir / "conferir.mp4"

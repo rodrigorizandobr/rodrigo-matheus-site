@@ -169,7 +169,10 @@ const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s
 export function clipStatusText(clip: Clip | null | undefined): string {
   if (!clip?.status) return ''
   if (clip.status === 'ready') {
-    const trecho = clip.start !== undefined && clip.end !== undefined ? `, ${mmss(clip.start)}–${mmss(clip.end)}` : ''
+    const faixa = ([i, f]: number[]) => `${mmss(i)}–${mmss(f)}`
+    const trecho = clip.parts && clip.parts.length > 1
+      ? `, ${clip.parts.length} trechos montados em um vídeo (${clip.parts.map(faixa).join(', ')})`
+      : clip.start !== undefined && clip.end !== undefined ? `, ${faixa([clip.start, clip.end])}` : ''
     return `Recorte pronto: ${clip.channel || 'YouTube'}${trecho}.`
   }
   if (clip.status === 'failed') return `Recorte não deu: ${clip.reason || 'motivo não registrado'}.`

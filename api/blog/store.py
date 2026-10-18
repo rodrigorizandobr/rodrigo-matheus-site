@@ -34,7 +34,7 @@ INTERNAL_FIELDS = ("generation", "imagePrompt", "scheduledFor", "topic",
 COVER_PUBLIC_FIELDS = ("hash", "credit", "sourceUrl", "alt", "width", "height")
 
 #: do recorte, o site vê só o pronto, e só o que toca e credita — nunca estado nem motivo de falha
-CLIP_PUBLIC_FIELDS = ("hash", "sourceUrl", "title", "channel", "start", "end", "width", "height")
+CLIP_PUBLIC_FIELDS = ("hash", "sourceUrl", "title", "channel", "start", "end", "width", "height", "parts")
 
 _client: firestore.Client | None = None
 

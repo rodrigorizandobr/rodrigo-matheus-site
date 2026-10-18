@@ -195,8 +195,9 @@ class TestPontaQueSoRaspaAFrase:
     def test_comeco_que_so_pega_a_cauda_da_frase_anterior_avanca_para_a_proxima(self):
         assert clips.snap_to_sentences(104, 118, self.FALAS)[0] == 105
 
-    def test_fim_que_so_pega_o_comeco_da_frase_seguinte_recua_para_antes_dela(self):
-        assert clips.snap_to_sentences(104, 119, self.FALAS)[1] == 118
+    def test_fim_que_so_pega_o_comeco_da_frase_seguinte_completa_a_frase(self):
+        # pedido do PO, 2026-10-17: "pega a frase completa" — o fim nunca corta a fala no meio
+        assert clips.snap_to_sentences(104, 119, self.FALAS)[1] == 125
 
     def test_meio_da_frase_continua_incluindo_a_frase_inteira(self):
         assert clips.snap_to_sentences(100, 121, self.FALAS) == (97, 125)
@@ -208,5 +209,67 @@ class TestPontaQueSoRaspaAFrase:
         assert clips.snap_to_sentences(104, 118, falas)[1] == 119
 
     def test_ajuste_que_deixa_o_corte_curto_demais_devolve_o_original(self):
-        falas = [(0.0, 20.0, "Uma."), (20.0, 30.0, "Duas.")]
-        assert clips.snap_to_sentences(19, 21, falas) == (19, 21)
+        falas = [(0.0, 20.0, "Uma."), (20.0, 25.0, "Duas.")]
+        assert clips.snap_to_sentences(19, 22, falas) == (19, 22)
+
+
+class TestVariasPartes:
+    """Pedido do PO, 2026-10-17: "selecionar várias partes do vídeo respeitando o limite do LinkedIn e
+    montar um vídeo só com todos os recortes"."""
+
+    @staticmethod
+    def _notas(*grupos):
+        notas = {}
+        for inicio, fim, nota in grupos:
+            notas.update({t: nota for t in range(inicio, fim, 5)})
+        return notas
+
+    def _partes(self, *grupos, **kw):
+        notas = self._notas(*grupos)
+        return clips.select_parts(clips.group_segments(list(notas)), scores=notas, **kw)
+
+    def test_dois_momentos_fortes_viram_duas_partes_da_melhor_para_a_pior(self):
+        partes = self._partes((100, 125, 2), (300, 340, 3))
+        assert partes == [(300, 340), (100, 125)]
+
+    def test_momento_fraco_perto_de_um_forte_fica_de_fora(self):
+        # medido no Roadster: o carro só passando (nota 1) não entra junto com o salto (nota 3)
+        assert self._partes((100, 160, 1), (300, 330, 3)) == [(300, 330)]
+
+    def test_todos_igualmente_fracos_entram_porque_o_unico_criterio_e_ser_tao_bom_quanto_o_melhor(self):
+        assert sorted(self._partes((100, 125, 1), (300, 325, 1))) == [(100, 125), (300, 325)]
+
+    def test_soma_das_partes_respeita_o_teto_da_plataforma(self):
+        partes = self._partes((100, 160, 3), (300, 360, 3), (500, 560, 3), max_total=130)
+        assert sum(f - i for i, f in partes) <= 130 and len(partes) == 2
+
+    def test_nao_passa_do_maximo_de_partes(self):
+        grupos = [(100 + 100 * k, 125 + 100 * k, 3) for k in range(9)]
+        assert len(self._partes(*grupos)) == clips.MAX_PARTS
+
+    def test_sem_nada_aproveitavel_nao_ha_parte(self):
+        assert clips.select_parts([(10, 15)], scores={10: 3}) == []
+        assert clips.select_parts([], scores={}) == []
+
+
+class TestMontarPartes:
+    def test_ordem_cronologica_no_video_final(self):
+        assert clips.assemble([(300, 320), (100, 130)]) == [(100, 130), (300, 320)]
+
+    def test_partes_que_se_sobrepoem_ou_se_encostam_viram_uma(self):
+        assert clips.assemble([(100, 130), (125, 150)]) == [(100, 150)]
+        assert clips.assemble([(100, 130), (131, 150)]) == [(100, 150)]
+
+    def test_parte_que_nao_cabe_no_teto_sai_e_a_melhor_fica(self):
+        assert clips.assemble([(100, 130), (300, 330)], max_total=50) == [(100, 130)]
+
+    def test_junta_antes_de_somar_para_nao_gastar_o_teto_em_dobro(self):
+        assert clips.assemble([(100, 130), (120, 150), (300, 320)], max_total=70) == [(100, 150), (300, 320)]
+
+    def test_respeita_o_maximo_de_partes(self):
+        partes = [(100 * k, 100 * k + 20) for k in range(1, 9)]
+        assert len(clips.assemble(partes)) == clips.MAX_PARTS
+
+    def test_uma_parte_so_volta_como_veio(self):
+        assert clips.assemble([(105, 119)]) == [(105, 119)]
+        assert clips.assemble([]) == []

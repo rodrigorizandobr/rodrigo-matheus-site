@@ -440,12 +440,25 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   animação e narração, e o prompt de marcação jogava fora "animação gráfica" e "pessoa falando" — só 3 quadros
   marcados. Hoje a rotina baixa a legenda automática do idioma ORIGINAL (`--sub-langs ".*-orig"`; sem ela, a feita à
   mão), vai ao prompt de marcação (quadro vale quando a fala trata do assunto) e ao do refino (só a região), e o
-  corte final é ajustado às frases: ponta no meio da frase leva a frase inteira (até `SNAP_REACH` 15 s); ponta que
-  só raspa a borda (`SNAP_GRAZE` 1,5 s) vai para a fronteira mais próxima. **Nunca peça `pt.*`/tradução automática:**
+  corte final é ajustado às frases: ponta no meio da frase leva a frase inteira (até `SNAP_REACH` 15 s). O FIM
+  sempre fecha a frase (pedido do PO, 2026-10-17); só o INÍCIO que raspa a cauda da anterior (`SNAP_GRAZE` 1,5 s) avança. **Nunca peça `pt.*`/tradução automática:**
   o YouTube responde 429, o yt-dlp sai com erro e a legenda original já baixada era jogada fora — por isso o erro do
   processo é ignorado e se lê o que caiu no disco. Legenda é ajuda, nunca exigência: sem ela, ou com erro, o recorte
   segue só pelos quadros. Limite conhecido: se o vídeo só trata do assunto por 14 s, o corte tem 14 s — o tamanho é do
   assunto, não do gosto.
+- **Vários trechos do mesmo vídeo viram UM vídeo montado** (pedido do PO, 2026-10-17; `clips.select_parts`,
+  `clips.assemble`, `Ferramentas.concat`, `TestVideoComVariasPartes`). A escolha pega a melhor janela e as outras
+  que são tão boas quanto ela POR SEGUNDO (`PART_DENSITY` 0,6 da densidade de nota da melhor: o carro só passando,
+  nota 1, não entra junto do salto, nota 3), até `MAX_PARTS` (6) e soma sob `MAX_CLIP` (600 s, teto do LinkedIn).
+  Cada parte passa por janela fina e fronteira de frase; depois `assemble` junta sobreposição/encosto (`PART_GAP`
+  3 s) ANTES de somar, descarta o que estoura o teto (a mais bem colocada fica) e põe em ordem de vídeo. Os cortes
+  são juntos com ffmpeg RECODIFICANDO (libx264/aac, faststart): juntar sem recodificar desalinha áudio nas emendas.
+  A conferência olha o vídeo montado; recusou → o melhor momento sozinho, depois o segundo (cortes já feitos não
+  se refazem). Uma parte só = sem montagem e sem `parts`. O clipe guarda `parts` (`[[ini, fim], …]`, também público),
+  `start` = início da primeira e `end` = fim da última; o e-mail "Recorte pronto" lista cada trecho com o link no
+  segundo exato. `MAX_CLIP` é lido na hora da chamada (default `None`), não no `def`, para o teste poder trocá-lo.
+  Validado ao vivo só com UM momento (Argon: 105–119, fecha a frase de 118,6); a montagem foi validada com ffmpeg
+  real num teste, mas ainda não com um vídeo de verdade de vários momentos.
 - **A conferência barra corte SEM o assunto, não cobra detalhe** (`VERIFY_PROMPT`): a primeira versão
   recusou o loop da sucção porque o texto falava de salto.
 - **Canal oficial primeiro** (`search_youtube(prefer=topic)`): a ABC News vinha antes do canal da Tesla, com
@@ -698,8 +711,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 791 testes
-cd web && npm test                                  # 440 testes
+cd api && source .venv/bin/activate && pytest      # 812 testes
+cd web && npm test                                  # 448 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

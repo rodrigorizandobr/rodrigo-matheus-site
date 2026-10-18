@@ -75,6 +75,69 @@ def choose_segment(segments: list[tuple[int, int]], min_len: int = MIN_CLIP,
     return janelas[0] if janelas else None
 
 
+#: o vídeo único montado a partir de vários recortes: poucos o bastante para ainda contar UMA história
+MAX_PARTS = 6
+#: partes a menos de tanto uma da outra (segundos) viram uma só — um corte de 2 s no meio não ajuda
+PART_GAP = 3
+#: uma parte só entra se o assunto aparece nela com pelo menos esta fração da intensidade da melhor
+PART_DENSITY = 0.6
+
+
+def _density(janela: tuple[int, int], scores: dict[int, int]) -> float:
+    inicio, fim = janela
+    return _window_score(inicio, fim, scores) / max(1, (fim - inicio) / STEP)
+
+
+def select_parts(segments: list[tuple[int, int]], scores: dict[int, int], max_total: int | None = None,
+                 max_parts: int = MAX_PARTS, density: float = PART_DENSITY) -> list[tuple[int, int]]:
+    """Os momentos do vídeo que mostram o assunto, da melhor parte para a pior.
+
+    Entra a melhor janela e as outras que são tão boas quanto ela POR SEGUNDO (medido no Roadster:
+    o carro só passando, nota 1, não deve vir junto do salto, nota 3). A soma fica sob o teto
+    da plataforma; parte que não cabe sai e a seguinte tenta.
+    """
+    max_total = MAX_CLIP if max_total is None else max_total
+    janelas = rank_segments(segments, max_len=max_total, scores=scores)
+    if not janelas:
+        return []
+    melhor = _density(janelas[0], scores)
+    escolhidas: list[tuple[int, int]] = []
+    total = 0
+    for janela in janelas:
+        tamanho = janela[1] - janela[0]
+        if len(escolhidas) >= max_parts or total + tamanho > max_total:
+            continue
+        if escolhidas and _density(janela, scores) < density * melhor:
+            continue
+        escolhidas.append(janela)
+        total += tamanho
+    return escolhidas
+
+
+def assemble(parts: list[tuple[int, int]], max_total: int | None = None, max_parts: int = MAX_PARTS,
+             gap: int = PART_GAP) -> list[tuple[int, int]]:
+    """Partes (da melhor para a pior, já ajustadas às frases) → o que entra no vídeo final, em ordem
+    de vídeo. Sobreposição e encosto viram uma parte só ANTES de somar; parte que estoura o teto
+    ou o máximo sai, e a mais bem colocada fica."""
+    max_total = MAX_CLIP if max_total is None else max_total
+    aceitas: list[tuple[int, int]] = []
+    for parte in parts:
+        candidatas = _merge(aceitas + [parte], gap)
+        if len(candidatas) <= max_parts and sum(f - i for i, f in candidatas) <= max_total:
+            aceitas = candidatas
+    return aceitas
+
+
+def _merge(parts: list[tuple[int, int]], gap: int) -> list[tuple[int, int]]:
+    junto: list[tuple[int, int]] = []
+    for inicio, fim in sorted(parts):
+        if junto and inicio - junto[-1][1] <= gap:
+            junto[-1] = (junto[-1][0], max(junto[-1][1], fim))
+        else:
+            junto.append((inicio, fim))
+    return junto
+
+
 def parse_scores(text: str, duration: int | None = None) -> dict[int, int]:
     """Lê `{"tempos": [...]}` — cada item é um tempo ou `{"t": tempo, "nota": 1 a 3}`.
 
@@ -176,8 +239,8 @@ def snap_to_sentences(start: int, end: int, falas: list[tuple[float, float, str]
                       reach: int = SNAP_REACH) -> tuple[int, int]:
     """Corte que abre ou fecha no meio de uma frase soa quebrado (o do Argon abria em "…it can now
     write" e fechava em "Now, in most of the benchmarks"). Ponta no meio da frase leva a frase
-    inteira; ponta que só raspa a borda (cauda da anterior, começo da seguinte) vai para a
-    fronteira mais próxima em vez de arrastar a frase toda. Frase longa demais, corte que fica
+    inteira; o INÍCIO que só raspa a cauda da frase anterior avança para a próxima, mas o FIM nunca
+    corta uma frase (pedido do PO, 2026-10-17: "pegar a frase completa"). Frase longa demais, corte que fica
     curto demais ou passa do teto da plataforma: o corte fica como veio."""
     novo_inicio, novo_fim = start, end
     for ini, fim, _ in falas:
@@ -186,11 +249,8 @@ def snap_to_sentences(start: int, end: int, falas: list[tuple[float, float, str]
                 novo_inicio = math.ceil(fim)
             elif start - ini <= reach:
                 novo_inicio = math.floor(ini)
-        if ini < end < fim:
-            if end - ini <= SNAP_GRAZE and end - ini < fim - end:
-                novo_fim = math.floor(ini)
-            elif fim - end <= reach:
-                novo_fim = math.ceil(fim)
+        if ini < end < fim and fim - end <= reach:
+            novo_fim = math.ceil(fim)
     if not MIN_CLIP <= novo_fim - novo_inicio <= MAX_CLIP:
         return start, end
     return novo_inicio, novo_fim

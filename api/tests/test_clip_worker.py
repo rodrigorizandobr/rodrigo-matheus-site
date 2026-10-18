@@ -1,4 +1,6 @@
 """Rotina de recorte do Mac: a coreografia, com ferramentas de mentira (sem YouTube, ffmpeg nem Gemini)."""
+import shutil
+import subprocess
 from datetime import datetime, timezone
 
 import pytest
@@ -8,6 +10,7 @@ from blog import media, service, store
 from tests.fakes import FakeBucket, FakeDb, FakeFilter
 
 MP4 = b"\x00\x00\x00\x18ftypmp42" + b"x" * 500
+MONTADO = b"\x00\x00\x00\x18ftypmp42" + b"montado" * 80
 
 
 def utc(*a):
@@ -36,6 +39,7 @@ class Ferramentas:
         self.explode_em, self.explode_vezes, self.explosoes = explode_em, explode_vezes, 0
         self.ruins, self.achados = ruins, list(achados)
         self.regioes, self.cortes, self.usadas, self.pausas, self.buscas, self.urls = [], [], [], 0, [], []
+        self.montagens, self.conferidos = [], []
 
     def _talvez_explodir(self, etapa):
         if self.explode_em == etapa and (self.explode_vezes is None or self.explosoes < self.explode_vezes):
@@ -81,7 +85,13 @@ class Ferramentas:
         self.cortes.append((start, end))
         return MP4, 1280, 720
 
+    def concat(self, mp4s):
+        self._talvez_explodir("concat")
+        self.montagens.append(len(mp4s))
+        return MONTADO, 1280, 720
+
     def verify(self, mp4, post_text):
+        self.conferidos.append(mp4)
         ok = self.confere.pop(0) if isinstance(self.confere, list) else self.confere
         return ok, "o carro andando grudado na parede de um loop e pulando sobre um caminhão"
 
@@ -447,6 +457,73 @@ class TestOutroVideo:
         assert clip["status"] == "failed" and len(clip["tried"]) == clip_worker.MAX_VIDEOS
 
 
+def _tempos(*grupos):
+    return "[" + ", ".join(f'{{"t": {t}, "nota": {n}}}' for i, f, n in grupos for t in range(i, f, 5)) + "]"
+
+
+class TestVideoComVariasPartes:
+    """Pedido do PO, 2026-10-17: vários trechos do mesmo vídeo, num só arquivo, dentro do teto do LinkedIn."""
+
+    DOIS = _tempos((100, 125, 3), (1340, 1370, 3))
+
+    def test_dois_momentos_viram_um_video_montado_em_ordem_de_video(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(tempos=self.DOIS, janela=None)
+        clip_worker.process(post, ferramentas)
+        clip = store.get_post(post["id"])["clip"]
+        assert clip["status"] == "ready"
+        assert ferramentas.cortes == [(100, 125), (1340, 1370)] and ferramentas.montagens == [2]
+        assert clip["parts"] == [[100, 125], [1340, 1370]]
+        assert clip["start"] == 100 and clip["end"] == 1370
+        assert env["bucket"].objects[f"{media.VIDEO_PREFIX}/{clip['hash']}.mp4"]["data"] == MONTADO
+
+    def test_a_conferencia_olha_o_video_montado_uma_vez(self, env):
+        ferramentas = Ferramentas(tempos=self.DOIS, janela=None)
+        clip_worker.process(_post_pendente(), ferramentas)
+        assert ferramentas.conferidos == [MONTADO]
+
+    def test_um_momento_so_nao_monta_nada_e_nao_grava_partes(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas()
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.montagens == []
+        assert "parts" not in store.get_post(post["id"])["clip"]
+
+    def test_montagem_recusada_cai_para_o_melhor_momento_sozinho(self, env):
+        post = _post_pendente()
+        ferramentas = Ferramentas(tempos=self.DOIS, janela=None, confere=[False, True])
+        clip_worker.process(post, ferramentas)
+        clip = store.get_post(post["id"])["clip"]
+        assert clip["status"] == "ready" and "parts" not in clip
+        assert (clip["start"], clip["end"]) == (1340, 1370)
+        assert ferramentas.cortes == [(100, 125), (1340, 1370)]  # o corte já feito não se refaz
+
+    def test_a_soma_das_partes_respeita_o_teto_da_plataforma(self, env, monkeypatch):
+        from blog import clips
+        monkeypatch.setattr(clips, "MAX_CLIP", 40)
+        ferramentas = Ferramentas(tempos=self.DOIS, janela=None)
+        clip_worker.process(_post_pendente(), ferramentas)
+        assert ferramentas.cortes == [(1340, 1370)] and ferramentas.montagens == []
+
+    def test_cada_parte_ganha_a_janela_fina_e_o_fim_na_frase(self, env):
+        falas = [(1368.0, 1374.0, "Frase que passa do fim.")]
+        ferramentas = Ferramentas(tempos=self.DOIS, janela=None, falas=falas)
+        clip_worker.process(_post_pendente(), ferramentas)
+        assert ferramentas.cortes == [(100, 125), (1340, 1374)]
+        assert len(ferramentas.regioes) == 2
+
+    def test_erro_ao_montar_e_de_rede_e_fica_para_a_proxima_rodada(self, env):
+        post = _post_pendente()
+        clip_worker.process(post, Ferramentas(tempos=self.DOIS, janela=None, explode_em="concat"))
+        assert store.get_post(post["id"])["clip"]["status"] == "pending"
+
+    def test_o_email_lista_cada_parte_com_o_link_no_segundo_exato(self, env):
+        clip_worker.process(_post_pendente(), Ferramentas(tempos=self.DOIS, janela=None))
+        (_, corpo), = env["emails"]
+        assert "01:40–02:05" in corpo and "t=100s" in corpo
+        assert "22:20–22:50" in corpo and "t=1340s" in corpo
+
+
 class TestEmailDeRecortePronto:
     def test_avisa_com_o_canal_e_o_link_do_original_para_pedir_autorizacao(self, env):
         post = _post_pendente()
@@ -623,3 +700,24 @@ class TestLegendaDoYoutube:
     def test_nada_baixado_devolve_vazio_sem_levantar(self, monkeypatch, tmp_path):
         self._fake_run(monkeypatch, [], sai_com_erro=True)
         assert clip_worker.Ferramentas(str(tmp_path)).transcript("https://www.youtube.com/watch?v=AAAAAAAAAAA") == []
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="sem ffmpeg")
+class TestMontagemDeVerdade:
+    def _clipe(self, tmp_path, nome, segundos, cor):
+        arquivo = tmp_path / nome
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", f"color=c={cor}:s=640x360:d={segundos}:r=25",
+                        "-f", "lavfi", "-i", f"sine=frequency=440:duration={segundos}", "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(arquivo)], check=True)
+        return arquivo.read_bytes()
+
+    def test_junta_os_cortes_num_mp4_so_com_a_soma_das_duracoes(self, tmp_path):
+        ferramentas = clip_worker.Ferramentas.__new__(clip_worker.Ferramentas)
+        ferramentas.dir = tmp_path
+        mp4, largura, altura = clip_worker.Ferramentas.concat(
+            ferramentas, [self._clipe(tmp_path, "a.mp4", 3, "red"), self._clipe(tmp_path, "b.mp4", 2, "blue")])
+        saida = tmp_path / "saida.mp4"
+        saida.write_bytes(mp4)
+        duracao = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                                        "csv=p=0", str(saida)], check=True, capture_output=True, text=True).stdout)
+        assert (largura, altura) == (640, 360) and mp4[4:8] == b"ftyp" and 4.7 <= duracao <= 5.4

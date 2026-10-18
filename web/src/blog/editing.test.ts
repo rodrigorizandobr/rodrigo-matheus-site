@@ -282,6 +282,11 @@ describe('estado do recorte de vídeo no painel', () => {
       .toBe('Recorte pronto: Tesla, 22:20–22:48.')
   })
 
+  it('vários trechos montados num vídeo só listam cada trecho', () => {
+    expect(clipStatusText({ status: 'ready', channel: 'Google', start: 100, end: 1370, parts: [[100, 125], [1340, 1370]] }))
+      .toBe('Recorte pronto: Google, 2 trechos montados em um vídeo (1:40–2:05, 22:20–22:50).')
+  })
+
   it('falhou diz o motivo', () => {
     expect(clipStatusText({ status: 'failed', reason: 'nenhum trecho do vídeo mostra o que o post discute' }))
       .toMatch(/não deu: nenhum trecho/i)

@@ -29,6 +29,8 @@ export type Clip = {
   /** segundos no vídeo original */
   start?: number
   end?: number
+  /** vários trechos do original montados num vídeo só, em ordem de vídeo: [início, fim] em segundos */
+  parts?: number[][]
   width?: number
   height?: number
   reason?: string
