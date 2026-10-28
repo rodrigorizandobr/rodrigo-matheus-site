@@ -152,3 +152,27 @@ class TestVariosCandidatos:
     def test_search_youtube_continua_devolvendo_o_primeiro(self, fake):
         fake.payload = self._itens()
         assert videos.search_youtube("roadster", prefer="tesla").title == "Oficial"
+
+
+class TestIdiomaDoPedido:
+    """O autor pede o vídeo em português ou inglês; a busca do Serper pode puxar o idioma e o país."""
+
+    @pytest.mark.parametrize("pedido,esperado", [
+        ("quero em português", ["pt-br"]),
+        ("em inglês, por favor", ["en"]),
+        ("in English", ["en"]),
+        ("português ou inglês, nada em japonês", ["pt-br", "en"]),
+        ("um vídeo mais curto", []),
+        ("", []),
+    ])
+    def test_acha_os_idiomas_citados(self, pedido, esperado):
+        assert videos.languages_in(pedido) == esperado
+
+    def test_a_busca_manda_idioma_e_pais(self, fake):
+        videos.search_candidates("tesla", lang="pt-br")
+        corpo = fake.calls[0]["json"]
+        assert corpo["hl"] == "pt-br" and corpo["gl"] == "br"
+
+    def test_sem_idioma_a_busca_nao_manda_hl_nem_gl(self, fake):
+        videos.search_candidates("tesla")
+        assert "hl" not in fake.calls[0]["json"] and "gl" not in fake.calls[0]["json"]

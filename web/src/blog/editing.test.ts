@@ -300,4 +300,21 @@ describe('estado do recorte de vídeo no painel', () => {
     const tried = [{ url: 'u1', reason: 'nenhum trecho do vídeo mostra o que o post discute', kind: 'conteudo' as const }]
     expect(clipStatusText({ status: 'pending', tried })).toMatch(/2º vídeo.*nenhum trecho/i)
   })
+
+  it('troca pedida pelo autor mostra o pedido enquanto espera', () => {
+    expect(clipStatusText({ status: 'pending', request: 'em português ou inglês' }))
+      .toMatch(/trocando.*a pedido.*em português ou inglês/i)
+  })
+
+  it('pedido com vídeos já descartados mostra o que está tentando', () => {
+    const tried = [{ url: 'u1', reason: 'a fala é em japonês', kind: 'conteudo' as const }]
+    expect(clipStatusText({ status: 'pending', request: 'sem japonês', tried })).toMatch(/2º vídeo.*japonês/i)
+  })
+
+  it('quando nenhum vídeo novo serviu e o anterior voltou, o motivo aparece junto do recorte pronto', () => {
+    const texto = clipStatusText({ status: 'ready', channel: 'Tesla', start: 10, end: 20,
+      lastRedo: { request: 'sem japonês', reason: 'a fala é em japonês' } })
+    expect(texto).toMatch(/Recorte pronto: Tesla/)
+    expect(texto).toMatch(/pedido.*sem japonês.*não deu.*a fala é em japonês.*anterior/i)
+  })
 })

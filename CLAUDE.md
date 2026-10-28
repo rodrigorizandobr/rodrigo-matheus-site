@@ -503,6 +503,23 @@ RASCUNHO — ele pede autorização ao dono do vídeo antes de publicar e assume
   publicado** e o próximo tick tenta de novo. Recorte pendente/falho → comportamento antigo (link no texto).
   **Validado contra o LinkedIn de verdade** (PO, 2026-10-17: "testei o vídeo nativo, ficou ótimo").
 
+- **Trocar o vídeo por pedido** (2026-10-23; `service.redo_clip`, `POST /api/blog/admin/posts/<id>/clip/redo`, cartão "Vídeo"
+  do editor, `TestTrocarOVideo`, `TestPedidoDoAutor`, `TestDesistirDepoisDoPedido`). Caso real: o recorte saiu em japonês (fala e
+  texto na tela) e o autor queria PT ou EN. O autor escreve um pedido livre ("em português ou inglês, nada em japonês") ou deixa
+  vazio ("só outro vídeo"). **A busca é do SERVIDOR** (tem a chave do Serper): exclui o vídeo atual e tudo em `clip.tried`, e se o
+  pedido cita idioma (`videos.languages_in`) manda `hl`/`gl` ao Serper — só a palavra em inglês no termo NÃO afasta vídeo japonês.
+  Sem achado → 422 e o post fica intacto. Achou → `video` + `videoCandidates` novos e `clip = {pending, request}`; o Mac faz o resto.
+  **O Mac confere o pedido ANTES de cortar** (`Ferramentas.check_request`, `_attempt`): olha ~8 quadros e o começo da transcrição e
+  devolve `{atende, motivo}`; na dúvida, atende. Recusou → `_ContentError` e o vídeo vai para `tried` (kind `pedido`/conteúdo), passando
+  ao próximo da reserva na mesma rodada. `request` e `previous` atravessam TODA troca de `clip` (`_carry`: `_next_video`, o ramo de
+  tentativas de `process`) — `store.update_post` troca o mapa `clip` inteiro, esquecer isso apaga o pedido no meio da escada.
+  `_ready` monta um clip novo, então o pedido some sozinho quando fica pronto. **Enquanto o novo roda, o antigo não é exibido** (o
+  site só serve `ready`): fica guardado em `clip.previous` (clip + video) e, se a escada inteira falhar, `_restore_previous` o devolve
+  com `lastRedo` (motivo) e manda o e-mail "Recorte não deu" dizendo que o anterior ficou — trocar nunca pode deixar o post sem vídeo.
+  Sem `previous` (recorte que já era falho), desistir segue como antes. O cartão só oferece trocar fora de `pending`.
+  Limite conhecido: o juiz olha poucos quadros e a transcrição; vídeo sem legenda e com texto japonês só na tela pode passar.
+  **Mexeu em `clip_worker.py`/`api/blog`? Rode `scripts/install-clip-worker.sh` de novo.**
+
 ## Escada de mídia da capa (2026-10-17)
 
 Pedido do PO, depois do post do robô policial: "vídeo real, senão imagem real, imagem criada só por último".
@@ -711,8 +728,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 812 testes
-cd web && npm test                                  # 465 testes
+cd api && source .venv/bin/activate && pytest      # 841 testes
+cd web && npm test                                  # 474 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

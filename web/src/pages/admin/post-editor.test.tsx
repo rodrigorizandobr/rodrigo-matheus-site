@@ -24,7 +24,7 @@ const props = (over = {}) => ({
   onChange: vi.fn(), onSave: vi.fn(), onRevise: vi.fn(), onCover: vi.fn(),
   onPublish: vi.fn(), onUnpublish: vi.fn(), onSchedule: vi.fn(), onDelete: vi.fn(),
   onClose: vi.fn(), onPreview: vi.fn(), onPickCover: vi.fn(), onClearCover: vi.fn(),
-  onToggleLinkedin: vi.fn(), onShareLinkedin: vi.fn(), ...over,
+  onToggleLinkedin: vi.fn(), onShareLinkedin: vi.fn(), onRedoClip: vi.fn(), ...over,
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -184,6 +184,46 @@ describe('recorte de vídeo no editor', () => {
   it('post sem recorte não mostra o cartão', () => {
     render(<PostEditor {...props()} />)
     expect(screen.queryByText(/^Vídeo$/)).toBeNull()
+  })
+})
+
+describe('trocar o vídeo por pedido', () => {
+  const pronto = { status: 'ready' as const, hash: 'c'.repeat(64), channel: 'NHK', title: 'x', start: 1, end: 9 }
+
+  it('o pedido sai do campo e vai para quem chamou, e o campo esvazia', async () => {
+    const onRedoClip = vi.fn()
+    render(<PostEditor {...props({ post: post({ clip: pronto }), onRedoClip })} />)
+    await userEvent.type(screen.getByRole('textbox', { name: /pedido para o vídeo/i }), 'em português ou inglês, nada em japonês')
+    await userEvent.click(screen.getByRole('button', { name: /trocar vídeo/i }))
+    expect(onRedoClip).toHaveBeenCalledWith('em português ou inglês, nada em japonês')
+    expect(screen.getByRole('textbox', { name: /pedido para o vídeo/i })).toHaveValue('')
+  })
+
+  it('o pedido é opcional: vazio troca por outro vídeo qualquer', async () => {
+    const onRedoClip = vi.fn()
+    render(<PostEditor {...props({ post: post({ clip: pronto }), onRedoClip })} />)
+    await userEvent.click(screen.getByRole('button', { name: /trocar vídeo/i }))
+    expect(onRedoClip).toHaveBeenCalledWith('')
+  })
+
+  it('recorte falho também oferece trocar', () => {
+    render(<PostEditor {...props({ post: post({ clip: { status: 'failed', reason: 'x' } }) })} />)
+    expect(screen.getByRole('textbox', { name: /pedido para o vídeo/i })).toBeInTheDocument()
+  })
+
+  it('com recorte pendente não oferece trocar (o Mac está trabalhando nele)', () => {
+    render(<PostEditor {...props({ post: post({ clip: { status: 'pending' } }) })} />)
+    expect(screen.queryByRole('button', { name: /trocar vídeo/i })).toBeNull()
+  })
+
+  it('fica travado enquanto outra ação roda', () => {
+    render(<PostEditor {...props({ post: post({ clip: pronto }), busy: 'save' })} />)
+    expect(screen.getByRole('textbox', { name: /pedido para o vídeo/i })).toBeDisabled()
+  })
+
+  it('mostra "trocando…" enquanto a troca roda', () => {
+    render(<PostEditor {...props({ post: post({ clip: pronto }), busy: 'clip' })} />)
+    expect(screen.getByRole('button', { name: /trocando…/i })).toBeInTheDocument()
   })
 })
 

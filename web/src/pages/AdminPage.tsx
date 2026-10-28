@@ -281,6 +281,10 @@ export function AdminPage() {
             applyServer(await api.update(editing.id, { linkedinEnabled: editing.linkedinEnabled === false }), true)
           })}
           onShareLinkedin={() => shareLinkedin(editing)}
+          onRedoClip={(instruction) => run('clip', async () => {
+            if (dirty) await persist()
+            applyServer(await api.redoClip(editing.id, instruction))
+          }, 'Pedido enviado: o Mac vai buscar outro vídeo.')}
           onPickCover={() => setPickingCover(true)}
           onClearCover={() => run('cover', async () => { applyServer(await api.setCover(editing.id, null), true) }, 'Capa removida.')}
           onPublish={() => run('publish', afterSaving((id) => api.publish(id)), 'No ar.')}

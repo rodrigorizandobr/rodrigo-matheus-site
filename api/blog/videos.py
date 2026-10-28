@@ -46,8 +46,23 @@ def _official(channel: str, prefer: str) -> bool:
     return any(len(p) >= 4 and p in canal for p in _plain(prefer).split())
 
 
+#: idioma pedido → país do Serper (só o idioma não afasta o vídeo japonês de uma busca em inglês)
+_LANG_COUNTRY = {"pt-br": "br", "en": "us"}
+
+
+def languages_in(request: str) -> list[str]:
+    """Idiomas que o autor citou no pedido ("em português ou inglês"); vazio se não citou nenhum."""
+    texto = _plain(request)
+    achados = []
+    if "portugu" in texto:
+        achados.append("pt-br")
+    if "ingl" in texto or "english" in texto:
+        achados.append("en")
+    return achados
+
+
 def search_candidates(query: str, recent: bool = False, anchor: bool = True, prefer: str = "",
-                      limit: int = 5) -> list[VideoResult]:
+                      limit: int = 5, lang: str = "") -> list[VideoResult]:
     """Vídeos reais do YouTube sobre `query`, o canal oficial primeiro — ou lista vazia.
 
     Vários de propósito: se o primeiro não servir para o recorte (sem o assunto, download que
@@ -65,6 +80,10 @@ def search_candidates(query: str, recent: bool = False, anchor: bool = True, pre
     corpo: dict[str, Any] = {"q": f"{query}{' engenharia de software' if anchor else ''} site:youtube.com"}
     if recent:
         corpo["tbs"] = "qdr:w"
+    if lang:
+        corpo["hl"] = lang
+        if lang in _LANG_COUNTRY:
+            corpo["gl"] = _LANG_COUNTRY[lang]
     try:
         res = requests.post(
             SERPER_VIDEO_URL,

@@ -173,13 +173,17 @@ export function clipStatusText(clip: Clip | null | undefined): string {
     const trecho = clip.parts && clip.parts.length > 1
       ? `, ${clip.parts.length} trechos montados em um vídeo (${clip.parts.map(faixa).join(', ')})`
       : clip.start !== undefined && clip.end !== undefined ? `, ${faixa([clip.start, clip.end])}` : ''
-    return `Recorte pronto: ${clip.channel || 'YouTube'}${trecho}.`
+    const voltou = clip.lastRedo
+      ? ` O pedido «${clip.lastRedo.request || 'outro vídeo'}» não deu certo (${clip.lastRedo.reason}): mantive o vídeo anterior.`
+      : ''
+    return `Recorte pronto: ${clip.channel || 'YouTube'}${trecho}.${voltou}`
   }
   if (clip.status === 'failed') return `Recorte não deu: ${clip.reason || 'motivo não registrado'}.`
   const tried = clip.tried ?? []
+  const pedido = clip.request ? `Trocando o vídeo a pedido («${clip.request}») — ` : ''
   if (tried.length && !clip.attempts) {
-    return `Recorte aguardando o Mac — tentando o ${tried.length + 1}º vídeo (o anterior não serviu: ${tried[tried.length - 1].reason}).`
+    return `${pedido}${pedido ? 't' : 'Recorte aguardando o Mac — t'}entando o ${tried.length + 1}º vídeo (o anterior não serviu: ${tried[tried.length - 1].reason}).`
   }
   if (clip.attempts) return `Recorte aguardando o Mac — tentativa ${clip.attempts} falhou (${clip.lastError || 'erro'}), tenta de novo na próxima rodada.`
-  return 'Recorte aguardando o Mac (roda a cada 15 min).'
+  return clip.request ? `${pedido}aguardando o Mac.` : 'Recorte aguardando o Mac (roda a cada 15 min).'
 }

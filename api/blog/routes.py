@@ -220,6 +220,20 @@ def admin_revise(post_id: str):
     return jsonify({"post": _json(post)})
 
 
+@bp.post("/api/blog/admin/posts/<post_id>/clip/redo")
+@admin_only
+def admin_redo_clip(post_id: str):
+    """Pede outro vídeo para o post; o Mac refaz o recorte seguindo a instrução."""
+    instruction = (request.get_json(silent=True) or {}).get("instruction") or ""
+    try:
+        post = service.redo_clip(post_id, instruction)
+    except service.PostNotFoundError:
+        return jsonify({"error": "not found"}), 404
+    except service.NoVideoFoundError as exc:
+        return jsonify({"error": str(exc)}), 422
+    return jsonify({"post": _json(post)})
+
+
 @bp.post("/api/blog/admin/posts/<post_id>/cover")
 @admin_only
 def admin_cover(post_id: str):

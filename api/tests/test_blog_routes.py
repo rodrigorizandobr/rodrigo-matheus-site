@@ -309,3 +309,33 @@ class TestCorsDoPainel:
     def test_rota_publica_nao_ganha_cors(self, client, blog):
         res = client.get("/api/blog/posts", headers={"Origin": self.SITE})
         assert "Access-Control-Allow-Origin" not in res.headers
+
+
+class TestTrocarOVideoPelaRota:
+    URL = "/api/blog/admin/posts/{}/clip/redo"
+
+    def _post(self):
+        corpo = {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["p"]}]}
+        return store.create_post({"slugBase": "p", "i18n": {"pt": corpo, "en": corpo},
+                                  "video": {"url": "https://www.youtube.com/watch?v=AAAAAAAAAAA"},
+                                  "clip": {"status": "ready", "hash": "h" * 64}})
+
+    def test_sem_token_e_401(self, client, blog, anon):
+        assert client.post(self.URL.format("x"), json={}).status_code == 401
+
+    def test_poe_na_fila_e_devolve_o_post(self, client, blog, admin, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [
+            service.videos.VideoResult(title="N", url="https://www.youtube.com/watch?v=BBBBBBBBBBB", channel="C")])
+        post = self._post()
+        res = client.post(self.URL.format(post["id"]), headers=AUTH, json={"instruction": "em inglês"})
+        assert res.status_code == 200
+        assert res.get_json()["post"]["clip"]["status"] == "pending"
+
+    def test_post_inexistente_e_404(self, client, blog, admin):
+        assert client.post(self.URL.format("nao-existe"), headers=AUTH, json={}).status_code == 404
+
+    def test_sem_video_novo_e_422_com_recado(self, client, blog, admin, monkeypatch):
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [])
+        post = self._post()
+        res = client.post(self.URL.format(post["id"]), headers=AUTH, json={"instruction": "x"})
+        assert res.status_code == 422 and "vídeo" in res.get_json()["error"]

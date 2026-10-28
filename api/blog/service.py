@@ -12,6 +12,7 @@ primeira é a que tem hora marcada.
 from __future__ import annotations
 
 import random
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -282,6 +283,56 @@ def revise(post_id: str, instruction: str) -> dict[str, Any] | None:
     revised = gemini.revise_post(post, instruction)
     revised, _ = _scrub_vocab(revised, store.get_config().get("banned_phrases") or [])
     return store.update_post(post_id, {"i18n": revised["i18n"], "tags": revised["tags"]})
+
+
+class NoVideoFoundError(RuntimeError):
+    """A busca não trouxe nenhum vídeo diferente dos que já passaram por este post."""
+
+
+def _clean_video_url(url: str) -> str:
+    m = re.search(r"(?:v=|youtu\.be/|shorts/)([\w-]{11})", url or "")
+    return f"https://www.youtube.com/watch?v={m[1]}" if m else (url or "")
+
+
+def redo_clip(post_id: str, instruction: str = "") -> dict[str, Any] | None:
+    """O autor quer OUTRO vídeo (ex.: "em português ou inglês"). A busca é do servidor; o recorte volta
+    para a fila do Mac com o pedido. Sem candidato novo, o post fica exatamente como está."""
+    post = store.get_post(post_id)
+    if not post:
+        raise PostNotFoundError(post_id)
+    instruction = (instruction or "").strip()
+    atual = post.get("video") or {}
+    clip = post.get("clip") or {}
+    vistos = {_clean_video_url(t["url"]) for t in clip.get("tried") or []}
+    if atual.get("url"):
+        vistos.add(_clean_video_url(atual["url"]))
+
+    i18n = post.get("i18n") or {}
+    termos = [(i18n.get("en") or {}).get("title"), (i18n.get("pt") or {}).get("title"), post.get("topic")]
+    achados: list[dict[str, Any]] = []
+    for lang in videos.languages_in(instruction) or [""]:
+        for termo in filter(None, termos):
+            for v in videos.search_candidates(termo, anchor=False, prefer=post.get("topic") or "", lang=lang):
+                url = _clean_video_url(v.url)
+                if url in vistos or any(url == _clean_video_url(a["url"]) for a in achados):
+                    continue
+                achados.append({"url": v.url, "title": v.title, "channel": v.channel, "thumbnail": v.thumbnail})
+            if len(achados) >= 5:
+                break
+    if not achados:
+        raise NoVideoFoundError("não achei outro vídeo diferente dos que já passaram por este post")
+
+    novo: dict[str, Any] = {"status": "pending", "request": instruction}
+    if atual.get("url"):
+        novo["tried"] = [{"url": _clean_video_url(atual["url"]), "title": atual.get("title", ""),
+                          "channel": atual.get("channel", ""), "reason": "trocado a pedido do autor",
+                          "kind": "pedido"}]
+    if clip.get("status") == "ready" and clip.get("hash"):
+        novo["previous"] = {"clip": {k: v for k, v in clip.items() if k not in ("tried", "request", "previous")},
+                            "video": atual}
+    elif isinstance(clip.get("previous"), dict):
+        novo["previous"] = clip["previous"]
+    return store.update_post(post_id, {"video": achados[0], "videoCandidates": achados[1:], "clip": novo})
 
 
 def regenerate_cover(post_id: str, prompt: str | None = None) -> dict[str, Any] | None:

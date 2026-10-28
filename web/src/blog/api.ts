@@ -103,6 +103,8 @@ export const blogApi = {
       },
 
       /** manda ESTE post ao LinkedIn agora; o servidor recusa rascunho e post já compartilhado */
+      redoClip: async (id: string, instruction: string) =>
+        (await call<{ post: Post }>(`/api/blog/admin/posts/${id}/clip/redo`, 'POST', { instruction })).post,
       shareToLinkedin: async (id: string) =>
         (await callLong<{ post: Post }>(`/api/blog/admin/posts/${id}/linkedin/share`, 'POST')).post,
 

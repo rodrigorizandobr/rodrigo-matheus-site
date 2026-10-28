@@ -1185,3 +1185,79 @@ class TestCapaQuandoORecorteDesiste:
 
     def test_post_inexistente_devolve_none(self, env):
         assert service.ensure_cover("nao-existe") is None
+
+
+class TestTrocarOVideo:
+    """O autor pede outro vídeo por instrução: o servidor acha candidatos novos e põe o recorte de volta na fila."""
+
+    A = "https://www.youtube.com/watch?v=AAAAAAAAAAA"
+    B = "https://www.youtube.com/watch?v=BBBBBBBBBBB"
+    C = "https://www.youtube.com/watch?v=CCCCCCCCCCC"
+
+    def _post(self, clip=None, **extra):
+        corpo = {"title": "Robô japonês", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["p"]}]}
+        en = {**corpo, "title": "Japanese robot"}
+        return store.create_post({
+            "slugBase": "robo", "i18n": {"pt": corpo, "en": en}, "topic": "robô humanoide",
+            "video": {"url": self.A, "title": "Original", "channel": "NHK"},
+            "clip": clip if clip is not None else {"status": "ready", "hash": "h" * 64, "sourceUrl": self.A,
+                                                   "title": "Original", "channel": "NHK", "start": 10, "end": 30,
+                                                   "width": 1280, "height": 720},
+            **extra}, now=utc(2026, 10, 20, 10))
+
+    def _acha(self, monkeypatch, *urls):
+        vistos = []
+
+        def busca(q, **k):
+            vistos.append((q, k))
+            return [service.videos.VideoResult(title=f"V {u[-3:]}", url=u, channel="Canal") for u in urls]
+
+        monkeypatch.setattr(service.videos, "search_candidates", busca)
+        return vistos
+
+    def test_poe_o_recorte_de_volta_na_fila_com_o_pedido_e_o_video_novo(self, env, monkeypatch):
+        self._acha(monkeypatch, self.A, self.B, self.C)
+        post = self._post()
+        novo = service.redo_clip(post["id"], "em português ou inglês, nada em japonês")
+        assert novo["clip"]["status"] == "pending"
+        assert novo["clip"]["request"] == "em português ou inglês, nada em japonês"
+        assert novo["video"]["url"] == self.B
+        assert [c["url"] for c in novo["videoCandidates"]] == [self.C]
+
+    def test_nunca_volta_ao_video_atual_nem_aos_ja_tentados(self, env, monkeypatch):
+        self._acha(monkeypatch, self.A, self.B, self.C)
+        post = self._post(clip={"status": "failed", "reason": "r", "tried": [
+            {"url": self.B, "title": "x", "reason": "sem o assunto", "kind": "conteudo"}]})
+        novo = service.redo_clip(post["id"], "")
+        assert novo["video"]["url"] == self.C and novo["videoCandidates"] == []
+        assert {t["url"] for t in novo["clip"]["tried"]} == {self.A}
+        assert novo["clip"]["tried"][0]["kind"] == "pedido"
+
+    def test_guarda_o_recorte_pronto_para_voltar_se_nada_der_certo(self, env, monkeypatch):
+        self._acha(monkeypatch, self.B)
+        post = self._post()
+        novo = service.redo_clip(post["id"], "em inglês")
+        anterior = novo["clip"]["previous"]
+        assert anterior["clip"]["hash"] == "h" * 64 and anterior["clip"]["status"] == "ready"
+        assert anterior["video"]["url"] == self.A
+
+    def test_sem_recorte_pronto_nao_guarda_anterior(self, env, monkeypatch):
+        self._acha(monkeypatch, self.B)
+        post = self._post(clip={"status": "failed", "reason": "r"})
+        assert "previous" not in service.redo_clip(post["id"], "")["clip"]
+
+    def test_o_idioma_citado_puxa_a_busca(self, env, monkeypatch):
+        vistos = self._acha(monkeypatch, self.B)
+        service.redo_clip(self._post()["id"], "português ou inglês")
+        assert {k.get("lang") for _, k in vistos} >= {"pt-br", "en"}
+
+    def test_nada_novo_achado_nao_mexe_no_post(self, env, monkeypatch):
+        self._acha(monkeypatch, self.A)  # só o que já está no post
+        post = self._post()
+        with pytest.raises(service.NoVideoFoundError):
+            service.redo_clip(post["id"], "em inglês")
+        assert store.get_post(post["id"])["clip"]["status"] == "ready"
+
+    def test_post_inexistente(self, env):
+        with pytest.raises(service.PostNotFoundError):
+            service.redo_clip("nao-existe", "")

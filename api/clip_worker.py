@@ -141,7 +141,12 @@ def _refine(url: str, texto: str, falas: list[tuple[float, float, str]], tools: 
     return clips.snap_to_sentences(inicio, fim, falas)
 
 
-def _attempt(url: str, texto: str, tools: Any) -> dict[str, Any]:
+def _carry(clip: dict[str, Any]) -> dict[str, Any]:
+    """O que acompanha o recorte enquanto ele não sai: o pedido do autor e o recorte que ele já tinha."""
+    return {k: clip[k] for k in ("request", "previous") if clip.get(k)}
+
+
+def _attempt(url: str, texto: str, tools: Any, pedido: str = "") -> dict[str, Any]:
     """Uma tentativa completa num vídeo. Erro de rede levanta; vídeo que não serve, `_ContentError`.
 
     Os momentos que mostram o assunto viram UM vídeo montado (até o teto do LinkedIn). Se a
@@ -150,6 +155,11 @@ def _attempt(url: str, texto: str, tools: Any) -> dict[str, Any]:
     duracao = _stage("duration", tools.duration, url)
     quadros = _stage("frames", tools.frames, url, clips.STEP)
     falas = _speech(url, tools)
+    if pedido:
+        # o autor pediu outro vídeo por instrução (ex.: "não em japonês"): barra cedo, antes de cortar e conferir
+        atende, motivo = _stage("pedido", tools.check_request, quadros, falas, pedido)
+        if not atende:
+            raise _ContentError(motivo or "o vídeo não atende ao pedido do autor")
     notas = clips.parse_scores(_stage("escolha", tools.ask_times, quadros, texto, duracao, falas), duration=duracao)
     candidatas = clips.select_parts(clips.group_segments(list(notas)), notas)
     if not candidatas:
@@ -244,9 +254,27 @@ def _cover_line(post: dict[str, Any]) -> str:
     return "Capa: não consegui definir uma; ajuste pelo painel."
 
 
+def _restore_previous(post: dict[str, Any], anterior: dict[str, Any], tried: list[dict[str, Any]],
+                      motivo: str) -> dict[str, Any]:
+    """Nenhum vídeo novo serviu ao pedido: o recorte que o autor já tinha volta, com o motivo registrado."""
+    clip = {**anterior["clip"], "lastRedo": {"request": (post.get("clip") or {}).get("request", ""),
+                                              "reason": motivo[:300], "tried": tried}}
+    store.update_post(post["id"], {"clip": clip, "video": anterior.get("video") or None, "videoCandidates": []})
+    linhas = "\n".join(f"- {t['url']} ({t.get('title') or 'sem título'}): {t['reason']}" for t in tried)
+    notify.send(f"Recorte não deu: {_title(post)}", (
+        f"Nenhum vídeo novo serviu ao seu pedido para o post “{_title(post)}” "
+        f"({(post.get('clip') or {}).get('request') or 'sem texto'}). Tentei:\n{linhas}\n\n"
+        "Mantive o vídeo anterior no post. Peça outro com uma instrução diferente, se quiser: "
+        f"{_editor_link(post)}"))
+    return clip
+
+
 def _give_up(post: dict[str, Any], tried: list[dict[str, Any]]) -> dict[str, Any]:
     """Nada deu certo: falha com o motivo, e o post só fica com link de vídeo se algum mostrava o assunto."""
     motivo = f"{tried[-1]['reason']} — tentei {len(tried)} vídeo{'s' if len(tried) > 1 else ''}"
+    anterior = (post.get("clip") or {}).get("previous")
+    if isinstance(anterior, dict) and anterior.get("clip"):
+        return _restore_previous(post, anterior, tried, motivo)
     clip = {"status": "failed", "reason": motivo[:300], "tried": tried}
     # vídeo que caiu por rede mostrava o assunto; o que caiu por conteúdo, não — link dele seria pior que nada
     por_rede = next((t for t in tried if t["kind"] == "rede"), None)
@@ -279,7 +307,8 @@ def _next_video(post: dict[str, Any], tools: Any, reason: str, kind: str, depth:
     if not fila or len(tried) >= MAX_VIDEOS:
         return _give_up(post, tried)
     store.update_post(post["id"], {"video": fila[0], "videoCandidates": fila[1:],
-                                   "clip": {"status": "pending", "tried": tried, "lastTriedAt": _now()}})
+                                   "clip": {"status": "pending", "tried": tried, "lastTriedAt": _now(),
+                                            **_carry(clip)}})
     seguinte = store.get_post(post["id"]) or {**post, "video": fila[0], "videoCandidates": fila[1:]}
     if depth + 1 >= VIDEOS_PER_RUN:
         return seguinte["clip"]
@@ -302,7 +331,7 @@ def process(post: dict[str, Any], tools: Any, depth: int = 0) -> dict[str, Any]:
     for i in range(tools.estrategias):
         tools.use_strategy(i)
         try:
-            return _ready(post, video, url, _attempt(url, texto, tools), tried)
+            return _ready(post, video, url, _attempt(url, texto, tools, clip.get("request") or ""), tried)
         except _ContentError as exc:
             return _next_video(post, tools, str(exc), "conteudo", depth)
         except Exception as exc:  # rede, YouTube, ffmpeg, Gemini — nada derruba a rodada
@@ -321,7 +350,8 @@ def process(post: dict[str, Any], tools: Any, depth: int = 0) -> dict[str, Any]:
     tentativas = int(clip.get("attempts") or 0) + 1
     if tentativas >= MAX_ATTEMPTS:
         return _next_video(post, tools, f"{erro} (desisti depois de {tentativas} rodadas)", "rede", depth)
-    novo = {"status": "pending", "attempts": tentativas, "lastError": erro[:300], "lastTriedAt": agora}
+    novo = {"status": "pending", "attempts": tentativas, "lastError": erro[:300], "lastTriedAt": agora,
+            **_carry(clip)}
     if tried:
         novo["tried"] = tried
     store.update_post(post["id"], {"clip": novo})
@@ -440,6 +470,20 @@ def refine_prompt(post_text: str, falas: list[tuple[float, float, str]],
     return corpo
 
 
+def request_prompt(pedido: str, falas: list[tuple[float, float, str]]) -> str:
+    corpo = (
+        "Estes quadros (um mosaico, o tempo em amarelo) e a transcrição abaixo são de um vídeo do YouTube. "
+        "O autor do blog pediu, para este vídeo: «" + pedido + "». Responda atende=false se o vídeo claramente "
+        "descumpre o pedido — por exemplo, a fala ou os textos escritos na tela estão em outro idioma que não o "
+        "pedido. Na dúvida, atende=true: o vídeo ainda passa por outras conferências. "
+        "Responda só JSON: {\"atende\": bool, \"motivo\": \"uma frase curta em português, só se atende=false\"}")
+    if falas:
+        corpo += f"\n\nTRANSCRIÇÃO (começo):\n{clips.transcript_text(falas)[:1500]}"
+    else:
+        corpo += "\n\n(sem transcrição disponível: julgue só pelos quadros e textos na tela)"
+    return corpo
+
+
 class Ferramentas:
     estrategias = len(ESTRATEGIAS)
 
@@ -466,14 +510,15 @@ class Ferramentas:
                   (post.get("topic"), {"anchor": False}),
                   ((i18n.get("en") or {}).get("title"), {"anchor": False, "recent": False})]
         achados: list[dict[str, Any]] = []
-        for termo, opcoes in buscas:
-            if not termo:
-                continue
-            for a in videos.search_candidates(termo, prefer=post.get("topic") or "", **opcoes):
-                if _clean_url(a.url) not in tried and all(_clean_url(a.url) != _clean_url(x["url"]) for x in achados):
-                    achados.append({"url": a.url, "title": a.title, "channel": a.channel, "thumbnail": a.thumbnail})
-            if achados:
-                break
+        for lang in videos.languages_in((post.get("clip") or {}).get("request") or "") or [""]:
+            for termo, opcoes in buscas:
+                if not termo:
+                    continue
+                for a in videos.search_candidates(termo, prefer=post.get("topic") or "", lang=lang, **opcoes):
+                    if _clean_url(a.url) not in tried and all(_clean_url(a.url) != _clean_url(x["url"]) for x in achados):
+                        achados.append({"url": a.url, "title": a.title, "channel": a.channel, "thumbnail": a.thumbnail})
+                if achados:
+                    break
         return achados
 
     # vídeo inteiro em baixa, uma vez por URL: quadros e refino saem dele
@@ -601,6 +646,15 @@ class Ferramentas:
                         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(destino)],
                        check=True, timeout=1800)
         return (destino.read_bytes(), *self._dimensoes(destino))
+
+    def check_request(self, frames: list[tuple[int, bytes]], falas: list[tuple[float, float, str]],
+                      pedido: str) -> tuple[bool, str]:
+        """O vídeo cumpre o que o autor pediu (idioma da fala e dos textos na tela, formato, tema)?
+        Olha uns poucos quadros espalhados e o começo da transcrição — barato, e roda antes de cortar."""
+        passo = max(1, len(frames) // 8)
+        amostra = frames[::passo][:8]
+        resposta = json.loads(self._gemini(self._mosaicos(amostra) if amostra else [], request_prompt(pedido, falas)))
+        return bool(resposta.get("atende")), str(resposta.get("motivo") or "")
 
     def verify(self, mp4: bytes, post_text: str) -> tuple[bool, str]:
         arquivo = self.dir / "conferir.mp4"

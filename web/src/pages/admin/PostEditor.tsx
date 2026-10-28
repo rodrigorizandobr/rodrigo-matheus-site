@@ -23,6 +23,7 @@ type Props = {
   onClearCover: () => void
   onToggleLinkedin: () => void
   onShareLinkedin: () => void
+  onRedoClip: (instruction: string) => void
 }
 
 /**
@@ -46,6 +47,7 @@ const toLocalInput = (iso: string | null): string => {
 export function PostEditor(p: Props) {
   const [lang, setLang] = useState<Lang>('pt')
   const [instruction, setInstruction] = useState('')
+  const [clipRequest, setClipRequest] = useState('')
   const [coverPrompt, setCoverPrompt] = useState(p.post.imagePrompt ?? '')
   const [when, setWhen] = useState(() => toLocalInput(p.post.scheduledFor))
   const [tagsText, setTagsText] = useState(() => p.post.tags.join(', '))
@@ -253,6 +255,18 @@ export function PostEditor(p: Props) {
               {p.post.clip.sourceUrl && (
                 <a href={clipSourceAt(p.post.clip)} target="_blank" rel="noopener nofollow"
                    className="text-[12px] text-red hover:underline">ver o original ↗</a>
+              )}
+              {p.post.clip.status !== 'pending' && (
+                <div className="grid gap-2 border-t border-line pt-3 mt-1">
+                  <label className="field-label !mb-0" htmlFor="ed-clip-request">Pedido para o vídeo</label>
+                  <textarea id="ed-clip-request" className="field !min-h-[4rem]" value={clipRequest} disabled={disabled}
+                            placeholder="Ex.: em português ou inglês, sem fala nem texto em japonês. Vazio = só outro vídeo."
+                            onChange={(e) => setClipRequest(e.target.value)} />
+                  <button type="button" className={`cta !py-2 ${BTN}`} disabled={disabled}
+                          onClick={() => { p.onRedoClip(clipRequest.trim()); setClipRequest('') }}>
+                    {p.busy === 'clip' ? 'trocando…' : 'trocar vídeo'}
+                  </button>
+                </div>
               )}
             </div>
           )}

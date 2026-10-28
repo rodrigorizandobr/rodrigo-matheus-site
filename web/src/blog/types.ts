@@ -38,7 +38,11 @@ export type Clip = {
   attempts?: number
   lastError?: string
   /** vídeos que não serviram, em ordem — o Mac passa para o próximo sozinho */
-  tried?: { url: string; title?: string; channel?: string; reason: string; kind: 'rede' | 'conteudo' }[]
+  tried?: { url: string; title?: string; channel?: string; reason: string; kind: 'rede' | 'conteudo' | 'pedido' }[]
+  /** o que o autor pediu ao trocar o vídeo ("em português, nada em japonês"); some quando o recorte fica pronto */
+  request?: string
+  /** a troca pedida não achou nada que servisse e o recorte anterior voltou */
+  lastRedo?: { request?: string; reason: string }
 }
 
 /** Fonte usada pela pesquisa, com o que a ABNT pede para citar. */

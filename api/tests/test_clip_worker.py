@@ -33,13 +33,14 @@ class Ferramentas:
     estrategias = 4
 
     def __init__(self, tempos="[1340, 1345, 1350, 1355, 1360, 1365]", confere=True, janela=(1342, 1370),
-                 explode_em=None, explode_vezes=None, ruins=(), achados=(), falas=()):
+                 explode_em=None, explode_vezes=None, ruins=(), achados=(), falas=(), recusa_pedido=()):
         self.tempos, self.confere, self.janela = tempos, confere, janela
         self.falas, self.falas_vistas = list(falas), []
         self.explode_em, self.explode_vezes, self.explosoes = explode_em, explode_vezes, 0
         self.ruins, self.achados = ruins, list(achados)
         self.regioes, self.cortes, self.usadas, self.pausas, self.buscas, self.urls = [], [], [], 0, [], []
         self.montagens, self.conferidos = [], []
+        self.recusa_pedido, self.pedidos_vistos = set(recusa_pedido), []
 
     def _talvez_explodir(self, etapa):
         if self.explode_em == etapa and (self.explode_vezes is None or self.explosoes < self.explode_vezes):
@@ -55,6 +56,12 @@ class Ferramentas:
     def search_more(self, post, tried):
         self.buscas.append(sorted(tried))
         return self.achados.pop(0) if self.achados else []
+
+    def check_request(self, frames, falas, pedido):
+        self.pedidos_vistos.append((self.urls[-1], pedido, list(falas)))
+        if self.urls[-1] in self.recusa_pedido:
+            return False, "a fala é em japonês"
+        return True, ""
 
     def duration(self, url):
         self.urls.append(url)
@@ -721,3 +728,91 @@ class TestMontagemDeVerdade:
         duracao = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
                                         "csv=p=0", str(saida)], check=True, capture_output=True, text=True).stdout)
         assert (largura, altura) == (640, 360) and mp4[4:8] == b"ftyp" and 4.7 <= duracao <= 5.4
+
+
+PEDIDO = "em português ou inglês, nada em japonês"
+
+
+class TestPedidoDoAutor:
+    """O autor pediu outro vídeo por instrução: o filtro roda cedo, antes de gastar corte e conferência."""
+
+    def test_sem_pedido_nao_consulta_o_filtro(self, env):
+        post = _post_pendente(video_url=A)
+        ferramentas = Ferramentas()
+        clip_worker.process(post, ferramentas)
+        assert ferramentas.pedidos_vistos == []
+
+    def test_com_pedido_o_filtro_ve_o_pedido_e_a_fala(self, env):
+        post = _post_pendente(video_url=A, clip={"status": "pending", "request": PEDIDO})
+        ferramentas = Ferramentas(falas=[(0.0, 4.0, "hello")])
+        clip_worker.process(post, ferramentas)
+        (url, pedido, falas), = ferramentas.pedidos_vistos
+        assert url == A and pedido == PEDIDO and falas == [(0.0, 4.0, "hello")]
+
+    def test_video_que_descumpre_o_pedido_passa_para_o_proximo_sem_cortar(self, env):
+        post = _post_pendente(video_url=A, reserva=[B], clip={"status": "pending", "request": PEDIDO})
+        ferramentas = Ferramentas(recusa_pedido={A})
+        clip_worker.process(post, ferramentas)
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "ready" and gravado["video"]["url"] == B
+        assert gravado["clip"]["tried"][0]["url"] == A and "japonês" in gravado["clip"]["tried"][0]["reason"]
+        assert ferramentas.cortes and len(ferramentas.cortes) == 1  # só o B foi cortado
+
+    def test_o_pedido_atravessa_a_troca_de_video_e_some_quando_fica_pronto(self, env):
+        post = _post_pendente(video_url=A, reserva=[B, C], clip={"status": "pending", "request": PEDIDO})
+        clip_worker.process(post, Ferramentas(recusa_pedido={A, B}))
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "ready" and "request" not in gravado["clip"]
+        assert gravado["video"]["url"] == C
+
+    def test_o_pedido_sobrevive_a_rodada_que_falhou_por_rede(self, env):
+        post = _post_pendente(video_url=A, clip={"status": "pending", "request": PEDIDO})
+        clip_worker.process(post, Ferramentas(explode_em="duration"))
+        assert store.get_post(post["id"])["clip"]["request"] == PEDIDO
+
+    def test_o_pedido_sobrevive_a_troca_de_video_no_fim_da_rodada(self, env):
+        # VIDEOS_PER_RUN corta a rodada: o próximo vídeo fica pendente para a seguinte, ainda com o pedido
+        urls = [f"https://www.youtube.com/watch?v={str(i) * 11}" for i in range(1, 5)]
+        post = _post_pendente(video_url=A, reserva=urls, clip={"status": "pending", "request": PEDIDO})
+        clip_worker.process(post, Ferramentas(recusa_pedido={A, *urls}))
+        assert store.get_post(post["id"])["clip"]["request"] == PEDIDO
+
+    def test_a_busca_nova_segue_o_idioma_do_pedido(self, env, monkeypatch, tmp_path):
+        vistos = []
+        monkeypatch.setattr(clip_worker.videos, "search_candidates", lambda q, **k: vistos.append(k.get("lang")) or [])
+        post = _post_pendente(clip={"status": "pending", "request": PEDIDO})
+        clip_worker.Ferramentas(workdir=str(tmp_path)).search_more(post, set())
+        assert "pt-br" in vistos and "en" in vistos
+
+
+class TestDesistirDepoisDoPedido:
+    """Se nenhum vídeo novo serve, o recorte que o autor já tinha volta — pior que antes não pode ficar."""
+
+    ANTERIOR = {"clip": {"status": "ready", "hash": "h" * 64, "sourceUrl": A, "title": "Original", "channel": "NHK",
+                         "start": 10, "end": 30, "width": 1280, "height": 720},
+                "video": {"url": A, "title": "Original", "channel": "NHK"}}
+
+    def _pedido(self, **extra):
+        return _post_pendente(video_url=B, clip={"status": "pending", "request": PEDIDO, "previous": self.ANTERIOR,
+                                                 "tried": [{"url": A, "title": "Original", "reason": "trocado", "kind": "pedido"}]},
+                              **extra)
+
+    def test_restaura_o_recorte_anterior_em_vez_de_falhar(self, env):
+        post = self._pedido()
+        clip_worker.process(post, Ferramentas(recusa_pedido={B}))
+        gravado = store.get_post(post["id"])
+        assert gravado["clip"]["status"] == "ready" and gravado["clip"]["hash"] == "h" * 64
+        assert gravado["video"]["url"] == A
+        assert "request" not in gravado["clip"] and "previous" not in gravado["clip"]
+        assert "japonês" in gravado["clip"]["lastRedo"]["reason"]
+
+    def test_avisa_por_email_que_manteve_o_anterior(self, env):
+        post = self._pedido()
+        clip_worker.process(post, Ferramentas(recusa_pedido={B}))
+        (assunto, corpo), = env["emails"]
+        assert "Recorte não deu" in assunto and "anterior" in corpo and f"/admin/editar/{post['id']}" in corpo
+
+    def test_sem_anterior_continua_falhando_como_antes(self, env):
+        post = _post_pendente(video_url=B, clip={"status": "pending", "request": PEDIDO})
+        clip_worker.process(post, Ferramentas(recusa_pedido={B}))
+        assert store.get_post(post["id"])["clip"]["status"] == "failed"
