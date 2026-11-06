@@ -202,6 +202,25 @@ def linkedin_queue(posts: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(espera, key=lambda p: (p.get("publishedAt") is None, p.get("publishedAt") or _FAR_FUTURE))
 
 
+def _awaits_authorization(post: dict[str, Any]) -> bool:
+    """Vídeo recortado ou foto de banco de terceiro — a publicação espera o autor, nunca o robô
+    (mesma regra de `service._save_generated`; `clip` fica gravado mesmo depois de "ready")."""
+    return bool(post.get("clip")) or (post.get("image") or {}).get("provider") == "web"
+
+
+def draft_ready_to_publish(posts: Iterable[dict[str, Any]]) -> dict[str, Any] | None:
+    """Rascunho mais antigo que o robô pode publicar sozinho, para a reserva do `tick`
+    (pedido do PO, 2026-11-06: nenhum dia de compartilhar fica em branco). Nunca um que
+    aguarda autorização de terceiro — essa decisão é sempre do autor."""
+    candidatos = [
+        p for p in posts or []
+        if p.get("status") == "draft" and p.get("linkedinEnabled", True) and not _awaits_authorization(p)
+    ]
+    if not candidatos:
+        return None
+    return min(candidatos, key=lambda p: p.get("createdAt") or _FAR_FUTURE)
+
+
 def should_share(now: datetime, cfg: dict[str, Any], last_shared_at: datetime | None) -> bool:
     """É hora de mandar um post para o LinkedIn?
 

@@ -50,7 +50,8 @@ def _pick_reflection_theme(cfg: dict[str, Any]) -> str:
 
 def generate(topic: str | None, now: datetime | None = None, context: str = "",
              use_research: bool | None = None, from_topic: bool = False,
-             reflection: bool = False, with_image: bool = True) -> dict[str, Any]:
+             reflection: bool = False, with_image: bool = True, with_video: bool = True,
+             force_publish: bool = False) -> dict[str, Any]:
     """Escreve um post inteiro e grava conforme a configuração (agendado ou publicado).
 
     `use_research` sobrepõe a configuração para esta geração — é o que permite ao
@@ -65,6 +66,10 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
 
     `with_image` desligado pula a capa de IA — post só texto, como o Ricardo Amorim
     também posta (nem todo post de top voice tem imagem).
+
+    `with_video` desligado nunca busca vídeo no YouTube; `force_publish` publica na hora
+    em vez de agendar. As duas juntas são a reserva de `ensure_linkedin_share`: um post
+    que nunca pode esbarrar na autorização de terceiro que só o autor dá.
     """
     now = now or _now()
     cfg = store.get_config()
@@ -73,7 +78,8 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
     if reflection:
         theme = (topic or "").strip() or _pick_reflection_theme(cfg)
         return _save_generated(theme, profile.career_context(), research.Research(), "reflection",
-                               now, cfg, reflection=True, with_image=with_image)
+                               now, cfg, reflection=True, with_image=with_image, with_video=with_video,
+                               force_publish=force_publish)
 
     if from_topic:
         topic = (topic or "").strip()
@@ -84,7 +90,8 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
             motivo = ("a chave SERPER_API_KEY não está configurada no servidor" if not research.SERPER_KEY
                       else f"a busca não trouxe material sobre «{topic}»")
             raise NoResearchError(f"Nada escrito: {motivo}. Reformule o tema ou use outro modo.")
-        return _save_generated(topic, found.context, found, "tema", now, cfg, author_topic=True, with_image=with_image)
+        return _save_generated(topic, found.context, found, "tema", now, cfg, author_topic=True,
+                               with_image=with_image, with_video=with_video, force_publish=force_publish)
 
     if not (topic or "").strip():
         topic = _pick_subject(cfg)
@@ -108,7 +115,8 @@ def generate(topic: str | None, now: datetime | None = None, context: str = "",
         context = profile.career_context()
         source = f"{source}+curriculo"
 
-    return _save_generated(topic, context, found, source, now, cfg, with_image=with_image)
+    return _save_generated(topic, context, found, source, now, cfg, with_image=with_image,
+                           with_video=with_video, force_publish=force_publish)
 
 
 def _check_claims(draft: dict[str, Any], material: str) -> tuple[dict[str, Any], list[str], list[str] | None]:
@@ -185,7 +193,8 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
 
 def _save_generated(topic: str, context: str, found: research.Research, source: str,
                     now: datetime, cfg: dict[str, Any], author_topic: bool = False,
-                    reflection: bool = False, with_image: bool = True) -> dict[str, Any]:
+                    reflection: bool = False, with_image: bool = True, with_video: bool = True,
+                    force_publish: bool = False) -> dict[str, Any]:
     """Texto → capa → gravação, igual para os três caminhos de geração."""
     if reflection:
         draft = gemini.generate_reflection(topic, context, avoid_titles=store.recent_titles(),
@@ -220,7 +229,9 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     # de IP de datacenter. Notícia busca pelo título em inglês (o vídeo oficial costuma estar
     # em inglês) e só na última semana; reflexão busca pelo tema, com âncora de domínio.
     # Vários achados: o primeiro vira o vídeo, os outros ficam de reserva para o Mac.
-    if reflection:
+    if not with_video:
+        achados = []
+    elif reflection:
         achados = videos.search_candidates(topic, recent=False, anchor=True)
     else:
         titulo_en = ((draft.get("i18n") or {}).get("en") or {}).get("title") or topic
@@ -241,7 +252,7 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     if draft.get("clip") or (draft.get("image") or {}).get("provider") == "web":
         return post
 
-    if cfg.get("auto_publish"):
+    if force_publish or cfg.get("auto_publish"):
         return store.publish_post(post["id"], now=now) or post
     return store.schedule_post(post["id"], model.scheduled_for(now, cfg)) or post
 
@@ -390,6 +401,39 @@ def share_next(now: datetime | None = None) -> dict[str, Any] | None:
     return _send_to_linkedin(auth, fila[0], now)
 
 
+def ensure_linkedin_share(now: datetime | None = None) -> dict[str, Any] | None:
+    """Garante que o dia de compartilhar nunca fica em branco (pedido do PO, 2026-11-06).
+
+    Três camadas, cada uma só entra quando a anterior está vazia: a fila de publicados
+    (`linkedin_queue`); um rascunho que o robô pode publicar sozinho (`draft_ready_to_publish` —
+    nunca um que aguarda autorização de terceiro); e, se não houver nem isso, um post novo
+    escrito na hora — reflexão, sem buscar vídeo nem foto de banco, para não cair na mesma
+    espera que a reserva existe para evitar. É o `tick` que chama isto; o botão "compartilhar
+    o próximo da fila" do painel continua em `share_next`, só a fila, por decisão do autor.
+    """
+    now = now or _now()
+    auth = linkedin.get_auth()
+    if not auth:
+        raise NotConnectedError("conecte a conta do LinkedIn no painel")
+
+    posts = store.list_posts()
+    fila = model.linkedin_queue(posts)
+    if fila:
+        return _send_to_linkedin(auth, fila[0], now)
+
+    rascunho = model.draft_ready_to_publish(posts)
+    if rascunho:
+        try:
+            publicado = store.publish_post(rascunho["id"], now=now)
+        except ValueError:
+            publicado = None
+        if publicado:
+            return _send_to_linkedin(auth, publicado, now)
+
+    novo = generate(None, now=now, reflection=True, with_video=False, force_publish=True)
+    return _send_to_linkedin(auth, novo, now)
+
+
 def share_post(post_id: str, now: datetime | None = None) -> dict[str, Any] | None:
     """Manda ESTE post ao LinkedIn, por decisão do autor.
 
@@ -487,7 +531,7 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
     # marcada e não pode depender do Gemini estar de pé.
     if deve_compartilhar:
         try:
-            compartilhado = share_next(now=now)
+            compartilhado = ensure_linkedin_share(now=now)
             result["shared"] = 1 if compartilhado else 0
         except Exception as exc:
             result["error"] = (result["error"] + " | " if result["error"] else "") + f"linkedin: {exc}"
@@ -503,7 +547,9 @@ def tick(now: datetime | None = None) -> dict[str, Any]:
     except Exception as exc:
         result["error"] = (result["error"] + " | " if result["error"] else "") + f"recorte: {exc}"
 
-    if deve_gerar:
+    # Revalidado aqui, não só no `deve_gerar` do início: a reserva do LinkedIn, se entrou
+    # acima, já pode ter gerado o post do dia — gerar de novo faria dois na mesma batida.
+    if deve_gerar and model.should_generate(now, cfg, store.last_generated_at()):
         try:
             generate(None, now=now)
             result["generated"] = 1

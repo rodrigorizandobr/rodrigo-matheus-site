@@ -706,6 +706,26 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 - **A fila do LinkedIn anda do post mais ANTIGO para o mais novo**, um por dia agendado, e só
   pega `status == published` com `linkedinEnabled != false`. `linkedinEnabled`/`linkedinPostedAt`
   estão em `INTERNAL_FIELDS` — o site público nunca os vê.
+- **Nenhum dia de compartilhar fica em branco** (pedido do PO, 2026-11-06; `service.ensure_linkedin_share`,
+  `model.draft_ready_to_publish`, `TestGarantirPostNoLinkedin`). Antes, se a fila (`linkedin_queue`)
+  estivesse vazia no dia marcado, o `tick` simplesmente não compartilhava nada — e na cadência normal
+  (gerar segunda/quinta, `delay_days` deslocando a publicação para quarta/sábado) isso já acontecia
+  sozinho na maioria dos dias; a garantia cobre os dias em que não acontece (geração falhou, pauta
+  esgotada, tudo que existia já foi mandado). Três camadas, cada uma só entra se a anterior está
+  vazia: (1) a fila de publicados, como sempre; (2) um RASCUNHO que o robô pode publicar sozinho
+  (`draft_ready_to_publish` — nunca um com `clip` ou `image.provider == "web"`, porque esses esperam
+  a autorização que só o autor dá, e `clip` continua marcado mesmo depois de "ready"; só pega rascunho
+  de verdade, como o que `admin_create` deixa parado até alguém publicar); (3) sem fila e sem rascunho,
+  escreve um post NOVO ali mesmo — sempre `reflection=True, with_video=False, force_publish=True`
+  (`generate()` ganhou os dois parâmetros, default `True`/`False` para não mudar nenhum caminho
+  existente): reflexão porque não depende de pesquisa nem pode falhar por pauta vazia, sem vídeo
+  porque buscar um reintroduziria a mesma espera de autorização que a camada 2 evita, publicação
+  forçada porque agendar não resolveria o dia de hoje. **O `tick` revalida `should_generate` depois
+  do passo do LinkedIn, não só no início**: se a camada 3 gerou um post, isso já conta como a geração
+  do dia (`last_generated_at` muda), e sem essa revalidação o bloco de geração normal, mais abaixo no
+  mesmo `tick`, geraria um SEGUNDO post na mesma batida. O botão manual do painel ("compartilhar o
+  próximo da fila") continua em `share_next`, intacto — só a fila, nunca pula para rascunho nem escreve
+  post sozinho: é um clique do autor, não a garantia do agendador.
 - **O post no LinkedIn leva o TEXTO e a CAPA, não um cartão de link.** `linkedin.share_text` monta
   título, resumo e as seções (título da seção + primeiro parágrafo na mesma unidade) e fecha com
   hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e o post GERADO já nasce
@@ -728,7 +748,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 841 testes
+cd api && source .venv/bin/activate && pytest      # 857 testes
 cd web && npm test                                  # 474 testes
 ```
 

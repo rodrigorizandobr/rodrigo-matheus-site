@@ -388,6 +388,107 @@ class TestCompartilharNoLinkedIn:
         assert "linkedin" in resultado["error"]
 
 
+class TestGarantirPostNoLinkedin:
+    """Pedido do PO, 2026-11-06: nenhum dia de compartilhar pode ficar em branco.
+
+    Fila vazia → rascunho pronto (publica e compartilha) → post novo (reflexão, sem
+    vídeo nem foto de banco, para nunca esbarrar na autorização que só o autor dá)."""
+
+    def _com_token(self, monkeypatch, urn="urn:li:share:1"):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
+        enviados = []
+        monkeypatch.setattr(service.linkedin, "publish",
+                            lambda auth, texto, imagem=None, alt="": enviados.append(
+                                {"texto": texto, "imagem": imagem, "alt": alt}) or urn)
+        monkeypatch.setattr(service.media, "read_image", lambda digest: b"JPEG:" + digest[:4].encode())
+        return enviados
+
+    def _rascunho_manual(self, titulo="Rascunho manual"):
+        return store.create_post({
+            **DRAFT,
+            "i18n": {l: {"title": titulo, "excerpt": "e", "sections": [{"heading": "h", "paragraphs": ["p"]}]}
+                     for l in ("pt", "en")},
+        })
+
+    def test_fila_vazia_mas_tem_rascunho_pronto__publica_e_compartilha(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        rascunho = self._rascunho_manual()
+        assert rascunho["status"] == "draft"
+        compartilhado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert compartilhado["id"] == rascunho["id"]
+        assert store.get_post(rascunho["id"])["status"] == "published"
+        assert store.get_post(rascunho["id"])["linkedinPostedAt"] is not None
+        assert enviados[0]["texto"]
+
+    def test_rascunho_com_recorte_pendente_e_ignorado(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+        store.save_config({"reflection_topics": ["t"]})
+        com_recorte = self._rascunho_manual("Tem recorte pendente")
+        store.update_post(com_recorte["id"], {"clip": {"status": "pending"}})
+        gerado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert gerado["id"] != com_recorte["id"]
+        assert store.get_post(com_recorte["id"])["status"] == "draft", "espera a autorização do autor"
+
+    def test_rascunho_com_foto_de_banco_e_ignorado(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+        store.save_config({"reflection_topics": ["t"]})
+        com_foto = self._rascunho_manual("Tem foto de banco")
+        store.update_post(com_foto["id"], {"image": {"hash": "h" * 64, "provider": "web"}})
+        gerado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert gerado["id"] != com_foto["id"]
+        assert store.get_post(com_foto["id"])["status"] == "draft"
+
+    def test_sem_fila_e_sem_rascunho__escreve_publica_e_compartilha(self, env, monkeypatch):
+        enviados = self._com_token(monkeypatch)
+        recebido = {}
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None:
+                            (recebido.update(theme=theme) or dict(DRAFT)))
+        monkeypatch.setattr(service.videos, "search_candidates",
+                            lambda *a, **k: (_ for _ in ()).throw(AssertionError("não deveria buscar vídeo")))
+        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        resultado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert resultado["status"] == "published"
+        assert resultado["linkedinPostedAt"] is not None
+        assert recebido["theme"]
+        assert enviados[0]["texto"]
+
+    def test_sem_fila_sem_rascunho_e_sem_tema_de_reflexao__erro_explicado(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        store.save_config({"reflection_topics": []})
+        with pytest.raises(service.NoTopicError, match="reflex"):
+            service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+
+    def test_tick_nao_gera_duas_vezes_quando_a_reserva_entra_no_mesmo_dia(self, env, monkeypatch):
+        """Fila e rascunho vazios, dia de gerar E de compartilhar: a reserva do LinkedIn já
+        conta como a geração do dia — gerar de novo faria dois posts na mesma batida."""
+        self._com_token(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+        store.save_config({"linkedin_enabled": True, "generate_weekdays": [0], "generate_hour": 6,
+                           "news_terms": ["t"], "reflection_topics": ["t"]})
+        resultado = service.tick(now=utc(2026, 9, 14, 12))  # segunda, 9h SP
+        assert resultado["shared"] == 1
+        assert resultado["generated"] == 0
+        assert len(store.list_posts()) == 1
+
+    def test_botao_manual_de_fila_nao_cai_para_rascunho_nem_gera(self, env, monkeypatch):
+        """`share_next` continua só a fila — é o botão "próximo da fila", não a garantia do tick."""
+        self._com_token(monkeypatch)
+        self._rascunho_manual()
+        assert service.share_next(now=utc(2026, 9, 15, 12)) is None
+
+    def test_sem_conta_conectada_avisa_antes_de_qualquer_camada(self, env, monkeypatch):
+        monkeypatch.setattr(service.linkedin, "get_auth", lambda: None)
+        self._rascunho_manual()
+        with pytest.raises(service.NotConnectedError, match="conecte"):
+            service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+
+
 class TestCompartilharUmPost:
     def _com_token(self, monkeypatch):
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})

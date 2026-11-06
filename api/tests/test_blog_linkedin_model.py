@@ -14,6 +14,11 @@ def post(**over):
     return {**base, **over}
 
 
+def rascunho(**over):
+    base = {"id": "r", "status": "draft", "createdAt": utc(2026, 1, 1), "linkedinEnabled": True}
+    return {**base, **over}
+
+
 class TestFila:
     def test_do_mais_ANTIGO_para_o_mais_novo(self):
         posts = [post(id="novo", publishedAt=utc(2026, 5, 1)),
@@ -75,3 +80,42 @@ class TestAgenda:
     def test_sem_dia_marcado_nao_publica(self):
         cfg = {**self.cfg, "generate_weekdays": []}
         assert model.should_share(utc(2026, 9, 15, 13), cfg, None) is False
+
+
+class TestRascunhoProntoParaPublicar:
+    """A reserva do `tick` (pedido do PO, 2026-11-06): rascunho que o robô pode publicar
+    sozinho, SEM esperar a autorização que só o autor dá para vídeo recortado ou foto
+    de banco de terceiro."""
+
+    def test_o_mais_ANTIGO_primeiro(self):
+        posts = [rascunho(id="novo", createdAt=utc(2026, 5, 1)),
+                 rascunho(id="velho", createdAt=utc(2026, 1, 1))]
+        assert model.draft_ready_to_publish(posts)["id"] == "velho"
+
+    def test_so_rascunho_entra__agendado_e_publicado_ficam_de_fora(self):
+        posts = [post(id="no-ar"), rascunho(id="o-certo")]
+        assert model.draft_ready_to_publish(posts)["id"] == "o-certo"
+
+    def test_rascunho_com_recorte_pendente_fica_de_fora(self):
+        posts = [rascunho(id="com-recorte", clip={"status": "pending"})]
+        assert model.draft_ready_to_publish(posts) is None
+
+    def test_rascunho_com_recorte_PRONTO_tambem_fica_de_fora(self):
+        # pronto ainda espera o autor confirmar que tem autorização do dono do vídeo
+        posts = [rascunho(id="pronto", clip={"status": "ready", "hash": "h"})]
+        assert model.draft_ready_to_publish(posts) is None
+
+    def test_rascunho_com_foto_de_banco_fica_de_fora(self):
+        posts = [rascunho(id="foto-web", image={"provider": "web", "hash": "h"})]
+        assert model.draft_ready_to_publish(posts) is None
+
+    def test_rascunho_com_imagem_de_ia_entra(self):
+        posts = [rascunho(id="ia", image={"provider": "gemini", "hash": "h"})]
+        assert model.draft_ready_to_publish(posts)["id"] == "ia"
+
+    def test_rascunho_desabilitado_no_linkedin_fica_de_fora(self):
+        posts = [rascunho(id="off", linkedinEnabled=False), rascunho(id="on")]
+        assert model.draft_ready_to_publish(posts)["id"] == "on"
+
+    def test_sem_rascunho_nenhum(self):
+        assert model.draft_ready_to_publish([post()]) is None
