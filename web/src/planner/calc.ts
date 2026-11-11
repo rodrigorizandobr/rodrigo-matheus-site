@@ -37,10 +37,16 @@
  *
  * O FGTS do casal (8% do salário bruto, com depósito extra do 13º em dezembro,
  * rendendo a taxa legal do fundo) é calculado por dentro, não é parâmetro do
- * formulário. A cada 2 anos (prazo mínimo legal para saque-amortização), ele
- * abate o saldo devedor do APÊ (não dos studios) — a parcela cai na mesma
- * proporção do saldo (o banco mantém o prazo, não a parcela), e essa QUEDA vira
- * aporte mensal extra nos studios a partir do mês seguinte.
+ * formulário — mas o SALDO dele (`saldoFgts`) e o que ele faz a cada saque
+ * (`abatimentoApeFgts`, `compraAVistaFgts`) aparecem linha a linha no diário de
+ * bordo, não só escondidos dentro do aporte mensal. A cada 2 anos (prazo mínimo
+ * legal para saque-amortização), ele primeiro abate o saldo devedor do APÊ (não
+ * dos studios) — a parcela cai na mesma proporção do saldo (o banco mantém o
+ * prazo, não a parcela), e essa QUEDA vira aporte mensal extra nos studios a
+ * partir do mês seguinte. O que sobrar do saque (apê já quitado, ou saque maior
+ * que o que faltava) compra studio À VISTA, sem financiar nada: a unidade ainda
+ * passa pela obra, mas nasce sem saldo devedor — nunca é "financiada", só
+ * "em construção" e depois "quitada" direto.
  *
  * Tudo isso — aporte mensal, aporte anual e a queda de parcela do apê — para de
  * entrar no caixa no ano de transição; os aluguéis continuam sendo reinvestidos,
@@ -137,17 +143,40 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
     fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
     if (mesDoAno(mes) === MES_DO_13O) fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
 
-    // A cada 2 anos, o FGTS acumulado abate o saldo do apê; a parcela cai na mesma
-    // proporção do saldo (prazo mantido), e a queda vira aporte mensal dali em diante.
-    if (mes % MESES_POR_SAQUE_FGTS === 0 && saldoApe > 0) {
-      const abatimento = Math.min(fgtsSaldo, saldoApe)
-      if (abatimento > 0) {
-        const saldoNovo = saldoApe - abatimento
-        const parcelaNova = parcelaApe * (saldoNovo / saldoApe)
-        extraDoApe += parcelaApe - parcelaNova
-        parcelaApe = parcelaNova
-        saldoApe = saldoNovo
-        fgtsSaldo -= abatimento
+    // A cada 2 anos, o FGTS acumulado abate o saldo do apê primeiro; a parcela cai
+    // na mesma proporção do saldo (prazo mantido), e a queda vira aporte mensal
+    // dali em diante. O que sobrar (apê já quitado, ou saque maior que o saldo)
+    // compra studio à vista, sem financiar nada.
+    let abatimentoApeDoMes = 0
+    let compraAVistaFgtsDoMes = 0
+    if (mes % MESES_POR_SAQUE_FGTS === 0) {
+      if (saldoApe > 0) {
+        const abatimento = Math.min(fgtsSaldo, saldoApe)
+        if (abatimento > 0) {
+          const saldoNovo = saldoApe - abatimento
+          const parcelaNova = parcelaApe * (saldoNovo / saldoApe)
+          extraDoApe += parcelaApe - parcelaNova
+          parcelaApe = parcelaNova
+          saldoApe = saldoNovo
+          fgtsSaldo -= abatimento
+          abatimentoApeDoMes = abatimento
+        }
+      }
+      let comprasAVista = 0
+      while (comprasAVista < MAX_COMPRAS_POR_MES) {
+        const precoNovo = precoNovoNoMes(mes)
+        if (fgtsSaldo < precoNovo) break
+        fgtsSaldo -= precoNovo
+        compraAVistaFgtsDoMes += precoNovo
+        const fatorObra = Math.pow(1 + p.incc / 100, PRAZO_OBRA_MESES / 12)
+        unidades.push({
+          mesPronto: mes + PRAZO_OBRA_MESES,
+          pagoInicial: precoNovo,
+          valorNaEntrega: precoNovo * fatorObra,
+          saldoFinanciado: 0,
+          amortizacaoMensal: 0,
+        })
+        comprasAVista++
       }
     }
 
@@ -215,6 +244,9 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
       mesDoAno: mesDoAno(mes),
       aporteMensal: Math.round(aporteDoMes),
       aporteAnual: Math.round(aporteAnualDoMes),
+      abatimentoApeFgts: Math.round(abatimentoApeDoMes),
+      compraAVistaFgts: Math.round(compraAVistaFgtsDoMes),
+      saldoFgts: Math.round(fgtsSaldo),
       imoveisEmConstrucao,
       imoveisAlugados,
       imoveisQuitados,

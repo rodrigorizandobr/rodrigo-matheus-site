@@ -638,10 +638,28 @@ tem o próprio plano, ninguém vê o de outra.
   calculado em paralelo — os dois nunca podem discordar por construção.
 - **O diário de bordo é a tabela abaixo do gráfico** (`PlannerLedger.tsx`, um `MonthRow` por
   mês, do mês 1 ao fim do horizonte): aporte mensal, aporte anual (só no mês em que cai, "—" nos
-  outros), imóveis em construção/alugados/quitados/financiados, total de imóveis, total das
-  parcelas de financiamento do mês, renda e patrimônio. Cabeçalho `sticky` dentro de uma área
-  com `max-h` e rolagem própria — até 360 linhas (30 anos) não precisam de paginação nem
-  virtualização, só não ficar tudo visível ao mesmo tempo.
+  outros), abatimento do apê e compra à vista via FGTS (idem), saldo do FGTS, imóveis em
+  construção/alugados/quitados/financiados, total de imóveis, total das parcelas de
+  financiamento do mês, renda e patrimônio. Cabeçalho `sticky` dentro de uma área com `max-h` e
+  rolagem própria — até 360 linhas (30 anos) não precisam de paginação nem virtualização, só não
+  ficar tudo visível ao mesmo tempo.
+- **O FGTS também compra studio À VISTA, não só abate o apê** (pedido do PO, 2026-11-18: "kd as
+  amortizações com FGTS nas tabelas" + "compra a vista de imóveis usando o saldo do FGTS" +
+  "coloque o rendimento que o FGTS tem na conta dele"). A cada saque de 2 anos, a ORDEM é fixa:
+  primeiro abate o saldo do apê (se ainda houver); o que sobrar — porque o apê já foi quitado, ou
+  porque o saque foi maior que o que faltava — compra studio inteiro ao preço do lançamento
+  daquele mês, em loop (pode comprar mais de um de uma vez, se tiver sobrado o suficiente).
+  **Essa unidade nasce SEM saldo financiado** (paga 100% à vista, nunca passa por "financiada")
+  — ainda atravessa a obra normal (`PRAZO_OBRA_MESES`), só pula a parte do banco. `saldoFgts`,
+  `abatimentoApeFgts` e `compraAVistaFgts` ficam no `MonthRow`, não só escondidos dentro do
+  aporte mensal — o pedido era visibilidade, não só o mecanismo funcionar por baixo. O saldo do
+  FGTS **fica de fora do `patrimonioLiquido`** de propósito: é dinheiro do casal, mas de acesso
+  restrito e natureza diferente do patrimônio em studios; misturar os dois faria o número
+  principal da tela parecer líquido quando não é. Consequência que quebrou dois testes antigos:
+  "sem saldo devedor no apê, o salário não faz diferença" deixou de ser verdade — agora o salário
+  sempre importa, porque o excedente de FGTS compra studio sozinho mesmo sem dívida de apê
+  nenhuma para abater (o teste virou "mais salário, mais patrimônio", não mais "nenhuma
+  diferença").
 - **Ordem de atualização importa dentro do passo mensal, e os dois efeitos vão em sentidos
   opostos de propósito.** O dissídio (no mês escolhido) reajusta o aporte ANTES de somar a
   contribuição daquele mês — o salário já sobe aquele mês. O abatimento do apê via FGTS (a cada
@@ -876,7 +894,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 514 testes
+cd web && npm test                                  # 519 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

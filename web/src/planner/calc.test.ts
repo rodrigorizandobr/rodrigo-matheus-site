@@ -18,7 +18,7 @@ describe('simulate — motor puro do simulador de studios', () => {
   it('sem aporte e sem rendimento, o patrimônio não sai do lugar (conservação: pagar a própria dívida não cria nem destrói patrimônio)', () => {
     const r = simulate(base({
       initial: 50_000, monthlyAmount: 0, annualAmount: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0,
-      jurosFinHolding: 0, pctPagoChaves: 100, dividaApe: 0,
+      jurosFinHolding: 0, pctPagoChaves: 100, dividaApe: 0, salarioBrutoCasal: 0,
       anoTransicao: 0,
     }))
     expect(r.every((p) => p.patrimonioLiquido === 50_000)).toBe(true)
@@ -79,10 +79,10 @@ describe('simulate — motor puro do simulador de studios', () => {
     expect(com.patrimonioLiquido).toBeGreaterThan(sem.patrimonioLiquido)
   })
 
-  it('sem saldo devedor no apê, o salário não faz nenhuma diferença (não há o que o FGTS abater)', () => {
+  it('sem saldo devedor no apê, mais salário ainda ajuda: sobra de FGTS compra studio à vista', () => {
     const baixo = simulate(base({ dividaApe: 0, salarioBrutoCasal: 1_000 })).at(-1)!
     const alto = simulate(base({ dividaApe: 0, salarioBrutoCasal: 200_000 })).at(-1)!
-    expect(alto.patrimonioLiquido).toBe(baixo.patrimonioLiquido)
+    expect(alto.patrimonioLiquido).toBeGreaterThan(baixo.patrimonioLiquido)
   })
 
   it('o FGTS quita um saldo pequeno do apê, zera a parcela, e a queda vira aporte mensal dali em diante', () => {
@@ -164,5 +164,48 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
   it('uma linha por mês, do mês 1 ao fim do horizonte', () => {
     const linhas = simulateMonthly(base({ years: 3 }))
     expect(linhas.map((l) => l.mes)).toEqual(Array.from({ length: 36 }, (_, i) => i + 1))
+  })
+
+  describe('FGTS: abate o apê primeiro, e só depois compra studio à vista com a sobra', () => {
+    const comFgtsFolgado = () => base({
+      dividaApe: 50_000, parcelaApeAtual: 1_000, salarioBrutoCasal: 60_000,
+      monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0, years: 10,
+    })
+
+    it('o 1º saque quita o apê pequeno e NÃO sobra pra comprar nada ainda', () => {
+      const linhas = simulateMonthly(comFgtsFolgado())
+      const primeiroSaque = linhas.find((l) => l.abatimentoApeFgts > 0 || l.compraAVistaFgts > 0)!
+      expect(primeiroSaque.mes).toBe(24)
+      expect(primeiroSaque.abatimentoApeFgts).toBe(50_000)
+      expect(primeiroSaque.compraAVistaFgts).toBe(0)
+    })
+
+    it('um saque seguinte, com o apê já quitado, compra um studio à vista pelo preço do lançamento daquele mês', () => {
+      const linhas = simulateMonthly(comFgtsFolgado())
+      const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
+      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + DEFAULT_PARAMS.incc / 100, compra.mes / 12)
+      expect(compra.abatimentoApeFgts).toBe(0) // o apê já tinha sido quitado antes
+      expect(compra.compraAVistaFgts).toBeCloseTo(precoDoMes, -1)
+      expect(compra.imoveisEmConstrucao).toBeGreaterThanOrEqual(1)
+    })
+
+    it('studio comprado à vista nunca passa por "financiado" — nasce em construção e vira quitado direto', () => {
+      const linhas = simulateMonthly(comFgtsFolgado())
+      const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
+      const pronta = linhas.find((l) => l.mes === compra.mes + 30)! // PRAZO_OBRA_MESES
+      expect(pronta.imoveisFinanciados).toBe(0)
+      expect(pronta.imoveisQuitados).toBeGreaterThanOrEqual(1)
+      expect(pronta.totalParcelasFinanciamento).toBe(0)
+    })
+  })
+
+  it('o saldo do FGTS rende sozinho todo mês, mesmo sem nenhum saque ainda', () => {
+    const linhas = simulateMonthly(base({
+      dividaApe: 0, salarioBrutoCasal: 10_000, custoStudio: 50_000_000, // caro demais pra comprar
+      monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0, years: 2,
+    }))
+    for (let i = 1; i < linhas.length; i++) {
+      expect(linhas[i].saldoFgts).toBeGreaterThan(linhas[i - 1].saldoFgts)
+    }
   })
 })

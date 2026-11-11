@@ -5,6 +5,7 @@ import type { MonthRow } from '../../planner/types'
 
 const linha = (over: Partial<MonthRow> = {}): MonthRow => ({
   mes: 1, anoDoPlano: 1, mesDoAno: 1, aporteMensal: 2_000, aporteAnual: 0,
+  abatimentoApeFgts: 0, compraAVistaFgts: 0, saldoFgts: 0,
   imoveisEmConstrucao: 0, imoveisAlugados: 0, imoveisQuitados: 0, imoveisFinanciados: 0,
   totalImoveis: 0, totalParcelasFinanciamento: 0, rendaMensalLiquida: 0, patrimonioLiquido: 75_000,
   ...over,
@@ -22,8 +23,16 @@ describe('PlannerLedger — diário de bordo mês a mês', () => {
       linha({ mes: 12, mesDoAno: 12, aporteAnual: 96_000 }),
     ]} />)
     const linhas = screen.getAllByRole('row')
-    expect(within(linhas[1]).getByText('—')).toBeInTheDocument()
     expect(within(linhas[2]).getByText(/R\$\s?96\.000/)).toBeInTheDocument()
+  })
+
+  it('mostra as amortizações, compras à vista e o saldo do FGTS', () => {
+    render(<PlannerLedger linhas={[linha({
+      abatimentoApeFgts: 50_000, compraAVistaFgts: 0, saldoFgts: 12_345,
+    })]} />)
+    const row = screen.getAllByRole('row')[1]
+    expect(within(row).getByText(/R\$\s?50\.000/)).toBeInTheDocument()
+    expect(within(row).getByText(/R\$\s?12\.345/)).toBeInTheDocument()
   })
 
   it('mostra a contagem de imóveis por status', () => {

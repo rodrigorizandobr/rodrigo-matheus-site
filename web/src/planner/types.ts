@@ -88,6 +88,12 @@ export type MonthRow = {
   mesDoAno: number
   aporteMensal: number
   aporteAnual: number
+  /** Quanto o FGTS abateu do saldo do apê neste mês (0 na maioria — só nos meses de saque). */
+  abatimentoApeFgts: number
+  /** Quanto da sobra do FGTS (depois de abater o apê) comprou um studio à vista neste mês. */
+  compraAVistaFgts: number
+  /** Saldo do FUNDO do FGTS no fim do mês — rende sozinho, à parte do patrimônio em studios. */
+  saldoFgts: number
   imoveisEmConstrucao: number
   imoveisAlugados: number
   imoveisQuitados: number

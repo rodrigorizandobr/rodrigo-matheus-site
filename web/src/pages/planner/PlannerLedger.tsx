@@ -17,6 +17,9 @@ export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
               <th className="py-1.5 pr-3 font-normal">Mês</th>
               <th className="py-1.5 pr-3 font-normal">Aporte mensal</th>
               <th className="py-1.5 pr-3 font-normal">Aporte anual</th>
+              <th className="py-1.5 pr-3 font-normal">Abatimento apê (FGTS)</th>
+              <th className="py-1.5 pr-3 font-normal">Compra à vista (FGTS)</th>
+              <th className="py-1.5 pr-3 font-normal">Saldo do FGTS</th>
               <th className="py-1.5 pr-3 font-normal">Em construção</th>
               <th className="py-1.5 pr-3 font-normal">Alugados</th>
               <th className="py-1.5 pr-3 font-normal">Quitados</th>
@@ -34,6 +37,9 @@ export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
                 <td className="py-1 pr-3 text-muted">{MESES_ABREV[l.mesDoAno - 1]}</td>
                 <td className="py-1 pr-3">{formatBRL(l.aporteMensal)}</td>
                 <td className="py-1 pr-3">{l.aporteAnual > 0 ? formatBRL(l.aporteAnual) : '—'}</td>
+                <td className="py-1 pr-3">{l.abatimentoApeFgts > 0 ? formatBRL(l.abatimentoApeFgts) : '—'}</td>
+                <td className="py-1 pr-3">{l.compraAVistaFgts > 0 ? formatBRL(l.compraAVistaFgts) : '—'}</td>
+                <td className="py-1 pr-3">{formatBRL(l.saldoFgts)}</td>
                 <td className="py-1 pr-3 text-center">{l.imoveisEmConstrucao}</td>
                 <td className="py-1 pr-3 text-center">{l.imoveisAlugados}</td>
                 <td className="py-1 pr-3 text-center">{l.imoveisQuitados}</td>
