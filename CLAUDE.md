@@ -860,6 +860,23 @@ o que falta de um plano corporativo de verdade: aporte em % do salário (não R$
   só esconderia exatamente o número que esse simulador existe para mostrar. A idade aparece
   junto do ano na legenda e na tabela "ver ano a ano", porque é ela que explica uma mudança de
   inclinação quando a pessoa entra numa faixa de contrapartida melhor.
+- **Mesmo bug de responsividade do simulador de imóveis, causa diferente** (pedido do PO,
+  2026-11-11: "a página não está responsiva... mesmo problema da página de imóveis"). Lá a causa
+  era `min-width: auto` em item de grid sem `min-w-0` (ver armadilha do planner acima); aqui o
+  grid inteiro já tinha `min-w-0` em cada filho, do jeito certo — a causa era outra: `Campo`
+  (dentro de `CompanyBandsField.tsx`) tinha `!w-auto` no `<input>`, sobrescrevendo o
+  `width: 100%` de `.field` e forçando o input a assumir a largura INTRÍNSECA do navegador
+  (bem mais larga que a coluna `1fr` disponível). Três inputs lado a lado nessa largura
+  estouravam qualquer tela de celular. Conserto: tirar o `!w-auto` (deixa `.field` preencher a
+  célula) e, por garantia, `min-w-0` na linha da faixa e no `<label>` de cada `Campo` — mesma
+  receita de sempre, raiz diferente. **Lição**: "a página não está responsiva" nem sempre é o
+  grid externo; QUALQUER input/elemento substituído (`<input>`, `<select>`, `<img>`) dentro de um
+  grid pode ter largura intrínseca maior que a coluna, e `w-full`/`.field` sozinho não resolve
+  isso sem `min-w-0` no item. Verificado com `mcp__chrome-devtools__emulate` em 390px e 320px
+  (`document.documentElement.scrollWidth === clientWidth` nos dois), não só lido no código —
+  o simulador real exige login do Google, então a conferência usou uma bancada temporária
+  (`dev-pension-check.html` + `dev/pension-check.tsx`, apagada depois, no mesmo espírito do
+  `dev-admin.html` do painel).
 
 ## Git dentro do Google Drive
 

@@ -26,14 +26,14 @@ export function CompanyBandsField({ value, onChange }: {
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-2 min-w-0">
       <span className="text-[12px] text-muted">Faixas de contrapartida da empresa, por idade</span>
       {value.length === 0 && (
         <p className="text-[11px] text-muted">Nenhuma faixa cadastrada — a empresa não aporta nada.</p>
       )}
-      <div className="grid gap-2">
+      <div className="grid gap-2 min-w-0">
         {value.map((faixa, i) => (
-          <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-end">
+          <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-end min-w-0">
             <Campo label="De (anos)" value={faixa.idadeMin}
                    onChange={(v) => atualizar(i, { idadeMin: v })} />
             <Campo label="Até (anos)" value={faixa.idadeMax}
@@ -61,14 +61,14 @@ function Campo({ label, value, onChange, step = 1 }: {
   step?: number
 }) {
   return (
-    <label className="grid gap-1">
+    <label className="grid gap-1 min-w-0">
       <span className="text-[10px] text-muted">{label}</span>
       <input type="number" step={step} value={value}
              onChange={(e) => {
                const n = Number(e.target.value)
                if (!Number.isNaN(n)) onChange(n)
              }}
-             className="field !w-auto tabular-nums" />
+             className="field tabular-nums min-w-0" />
     </label>
   )
 }
