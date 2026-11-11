@@ -50,9 +50,10 @@ describe('depois de logado', () => {
 
   it('carrega o plano e mostra os cartões de resultado', async () => {
     await logar()
-    // "Studios c/ chaves" também é cabeçalho da tabela escondida do gráfico — usa as outras duas, únicas.
-    expect(await screen.findByText('Studios 100% quitados (equiv.)')).toBeInTheDocument()
-    expect(screen.getByText('Renda mensal líquida')).toBeInTheDocument()
+    // "Studios c/ chaves"/"Studios quitados" também são cabeçalho de tabela (gráfico e
+    // diário de bordo) — só "Renda mensal líquida" é exclusiva do cartão de resultado.
+    expect(await screen.findByText('Renda mensal líquida')).toBeInTheDocument()
+    expect(screen.getByText('Diário de bordo')).toBeInTheDocument()
   })
 
   it('mexer num slider agenda um autosave, sem salvar antes do tempo', async () => {

@@ -600,34 +600,54 @@ tem o próprio plano, ninguém vê o de outra.
 | Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |
 | Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (18 campos) e `Intl.NumberFormat('pt-BR')`. |
 | Cliente da API | `web/src/planner/api.ts` | `GET`/`PUT /api/planner/plan`, sempre com ID token. |
-| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 18 sliders, 3 cartões, gráfico. |
+| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 18 sliders, 3 cartões, gráfico, diário de bordo mês a mês. |
 | Backend | `api/planner/` | `model.py` (valida), `auth.py` (qualquer conta, sem allowlist), `store.py` (1 doc por uid), `routes.py`. |
 
 - **O código do canvas do Gemini não deu para extrair.** É um editor virtualizado (tipo
   Monaco/CodeMirror): só renderiza as linhas visíveis no DOM/accessibility tree, então nem
   `get_page_text` nem `read_page` trazem o arquivo inteiro — só o que estava na tela no
   momento do print. `calc.ts` é reconstrução própria a partir da metodologia que o Gemini
-  descreveu em TEXTO ao longo da conversa (aluguel líquido + valorização líquida, alavancagem
-  pelo financiamento dos 30% finais, dissídio em agosto, abatimento do apê a cada 3 anos).
-  Validado por amostragem: rodando os parâmetros do cenário final do Gemini (aportando até o
-  Ano 15), `calc.ts` devolve R$9,56M/21 studios com chaves contra os R$9,22M/20 que o Gemini
-  relatou — a poucos % de diferença, dentro da faixa que o próprio Gemini já admitia ("podendo
-  variar"). Os testes de `calc.test.ts` não travam no número exato do Gemini, só na ordem de
-  grandeza e nas propriedades econômicas (mais aporte → mais patrimônio, alavancar quando o
-  retorno do imóvel supera o custo da dívida → mais patrimônio, etc.).
+  descreveu em TEXTO ao longo da conversa — e, desde 2026-11-14, já não é mais nem uma tradução
+  literal dela: ver "unidades discretas" abaixo. Os testes de `calc.test.ts` não travam em
+  número de referência nenhum, só na ordem de grandeza e nas propriedades econômicas (mais
+  aporte → mais patrimônio, alavancar quando o retorno do imóvel supera o custo da dívida →
+  mais patrimônio, etc.) — o motor mudou de formato uma vez (contínuo → discreto) e pode mudar
+  de novo; prender o teste a um valor de outro sistema é frágil por natureza.
 - **O cálculo roda inteiro no navegador, nunca no servidor.** É matemática pura, sem segredo
   e sem I/O — rodar no Flask a cada arrasto de slider seria uma viagem de rede por tecla. O
-  backend só guarda e devolve os 15 números; ele não sabe simular nada.
-- **Alavancagem do financiamento é a fórmula padrão de retorno alavancado**, não um ajuste
-  arbitrário: `R_equity = R_ativo / LTV_investido − (1/LTV_investido − 1) × custo_da_dívida`.
-  Com `pctPagoChaves = 100` (sem financiar nada) ela vira o retorno sem alavancagem, por
-  construção — testado (`test_blog_*` não, é `calc.test.ts`).
+  backend só guarda e devolve os parâmetros; ele não sabe simular nada.
+- **Unidades discretas, não um bolo de patrimônio só** (pedido do PO, 2026-11-18: "um diário de
+  bordo completo" com imóveis em construção/alugados/quitados/financiados mês a mês). A versão
+  anterior tratava tudo como UM patrimônio crescendo numa taxa alavancada média — impossível de
+  decompor em "quantos imóveis estão em cada estado". Agora `simulateMonthly` (`calc.ts`) mantém
+  uma LISTA de unidades, cada uma com o próprio ciclo: comprada (paga `pctPagoChaves`% na hora,
+  trava o preço do lançamento daquele mês) → em construção (`PRAZO_OBRA_MESES`, fixo em 30 — não
+  é slider, é quanto uma obra leva, não escolha de quem simula) → pronta na entrega (o valor
+  SALTA para o preço já corrigido pelo INCC da obra inteira — é a "valorização capturada na
+  entrega" que a conversa original descrevia, reconhecida de uma vez, não dia a dia) → financiada
+  (o saldo não pago amortiza em SAC ao longo de `PRAZO_FIN_HOLDING_MESES`, fixo em 48, a
+  `jurosFinHolding` ao mês) → quitada (saldo chega a zero, continua alugando). **Durante a
+  construção o equity fica PARADO no que já foi pago**, não no valor de mercado antecipado: não
+  existe ainda um empréstimo bancário contra uma dívida que não foi contraída, só uma promessa
+  contratual — por isso a passagem de em-construção para pronta é um DEGRAU no patrimônio, não
+  uma curva (testado: `a unidade fica "em construção" até o mês da obra, e "alugada" a partir
+  dele`). Não existe mais "retorno alavancado médio" nenhum: o retorno emerge sozinho da soma de
+  aluguel recebido, parcela paga e valorização de cada unidade: o caixa (aportes + aluguéis
+  recebidos − parcelas pagas) se acumula até dar para comprar a próxima unidade sozinho.
+  `YearPoint` (o que o gráfico e os cartões usam) é DERIVADO de `simulateMonthly`, nunca
+  calculado em paralelo — os dois nunca podem discordar por construção.
+- **O diário de bordo é a tabela abaixo do gráfico** (`PlannerLedger.tsx`, um `MonthRow` por
+  mês, do mês 1 ao fim do horizonte): aporte mensal, aporte anual (só no mês em que cai, "—" nos
+  outros), imóveis em construção/alugados/quitados/financiados, total de imóveis, total das
+  parcelas de financiamento do mês, renda e patrimônio. Cabeçalho `sticky` dentro de uma área
+  com `max-h` e rolagem própria — até 360 linhas (30 anos) não precisam de paginação nem
+  virtualização, só não ficar tudo visível ao mesmo tempo.
 - **Ordem de atualização importa dentro do passo mensal, e os dois efeitos vão em sentidos
-  opostos de propósito.** O dissídio de agosto reajusta o aporte ANTES de somar a contribuição
-  daquele mês — o salário já sobe aquele mês. O abatimento do apê (a cada 36 meses) só eleva o
-  aporte extra a partir do mês SEGUINTE ao ciclo — primeiro o dinheiro paga a amortização,
-  depois é que sobra. Inverter qualquer um dos dois desloca a conta em 1 mês e quebra os testes
-  que fixam o valor exato (`o abatimento do apê soma ao aporte a cada 3 anos...`).
+  opostos de propósito.** O dissídio (no mês escolhido) reajusta o aporte ANTES de somar a
+  contribuição daquele mês — o salário já sobe aquele mês. O abatimento do apê via FGTS (a cada
+  2 anos) só eleva o aporte extra a partir do mês SEGUINTE ao ciclo — primeiro o dinheiro paga a
+  amortização, depois é que sobra. Inverter qualquer um dos dois desloca a conta em 1 mês e
+  quebra o teste que fixa o valor exato (`o FGTS quita um saldo pequeno do apê...`).
 - **Aporte mensal e aporte anual são campos separados, nunca uma média** (pedido do PO,
   2026-11-14: "não deixe juntos"; `monthlyAmount` + `annualAmount` + `annualMonth`, antes um
   único `monthly` = parcela + bônus/12). O aporte anual cai INTEIRO no mês escolhido
@@ -856,7 +876,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 508 testes
+cd web && npm test                                  # 514 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

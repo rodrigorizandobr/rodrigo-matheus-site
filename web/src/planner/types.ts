@@ -73,3 +73,27 @@ export type YearPoint = {
   studiosQuitadosEquiv: number
   rendaMensalLiquida: number
 }
+
+/**
+ * Uma linha do diário de bordo — um mês, com tudo que se moveu nele. `studiosComChaves`
+ * é o mesmo "pronto/alugado" de `YearPoint`; aqui ele já vem separado em quitado vs.
+ * ainda financiado, porque é exatamente essa separação que o diário existe pra mostrar.
+ */
+export type MonthRow = {
+  /** Índice absoluto do mês desde o início da simulação: 1, 2, 3… */
+  mes: number
+  /** Ano do plano a que este mês pertence: 1 no primeiro ano, 2 no segundo… */
+  anoDoPlano: number
+  /** Mês do ano civil: 1 = janeiro … 12 = dezembro. */
+  mesDoAno: number
+  aporteMensal: number
+  aporteAnual: number
+  imoveisEmConstrucao: number
+  imoveisAlugados: number
+  imoveisQuitados: number
+  imoveisFinanciados: number
+  totalImoveis: number
+  totalParcelasFinanciamento: number
+  rendaMensalLiquida: number
+  patrimonioLiquido: number
+}

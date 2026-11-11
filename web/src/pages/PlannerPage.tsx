@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { plannerApi } from '../planner/api'
-import { simulate } from '../planner/calc'
+import { simulate, simulateMonthly } from '../planner/calc'
 import { DEFAULT_PARAMS, type PlannerParams } from '../planner/types'
 import { formatBRL, formatBRLCompact } from '../planner/format'
 import { ParamField } from './planner/ParamField'
 import { PlannerChart } from './planner/PlannerChart'
+import { PlannerLedger } from './planner/PlannerLedger'
 
 type Session = { email: string } | null
 type SaveState = 'salvo' | 'salvando' | 'erro' | null
@@ -67,6 +68,7 @@ export function PlannerPage() {
     setParams((p) => ({ ...p, [key]: value })), [])
 
   const pontos = useMemo(() => simulate(params), [params])
+  const linhas = useMemo(() => simulateMonthly(params), [params])
   const final = pontos.at(-1)!
 
   if (session === undefined) {
@@ -170,10 +172,11 @@ export function PlannerPage() {
           <div className="grid gap-6 content-start">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Stat label="Studios c/ chaves" value={String(final.studiosComChaves)} />
-              <Stat label="Studios 100% quitados (equiv.)" value={String(final.studiosQuitadosEquiv)} />
+              <Stat label="Studios quitados" value={String(final.studiosQuitadosEquiv)} />
               <Stat label="Renda mensal líquida" value={formatBRLCompact(final.rendaMensalLiquida)} title={formatBRL(final.rendaMensalLiquida)} />
             </div>
             <PlannerChart points={pontos} />
+            <PlannerLedger linhas={linhas} />
             <p className="text-[11px] text-muted leading-relaxed">
               Simulação educativa, não é recomendação de investimento. Os números dependem inteiramente dos
               parâmetros ao lado — ajuste para o seu caso real.
