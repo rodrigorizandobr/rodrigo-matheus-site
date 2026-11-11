@@ -1,6 +1,6 @@
 """Núcleo puro do simulador — sem Firestore, sem rede.
 
-Os 17 parâmetros são os mesmos nomes (camelCase) do `PlannerParams` em
+Os 18 parâmetros são os mesmos nomes (camelCase) do `PlannerParams` em
 `web/src/planner/types.ts`: o documento do Firestore é essa mesma forma, sem
 tradução no meio. O cálculo em si mora no front (`calc.ts`); aqui só se valida
 o que entra, para o Firestore nunca guardar um número fora de faixa."""
@@ -15,11 +15,12 @@ DEFAULT_PARAMS: dict[str, float] = {
     "impostoHolding": 11.5,
     "rate": 0.8,
     "dissidio": 5,
+    "mesDissidio": 8,
     "incc": 6,
     "depreciacao": 1.5,
-    "abate3anos": 110_000,
     "dividaApe": 400_000,
-    "extra100k": 1_000,
+    "salarioBrutoCasal": 34_000,
+    "parcelaApeAtual": 4_000,
     "monthlyAmount": 2_000,
     "annualAmount": 96_000,
     "annualMonth": 12,
@@ -37,11 +38,12 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "impostoHolding": (0, 27.5),
     "rate": (0, 10),
     "dissidio": (0, 50),
+    "mesDissidio": (1, 12),
     "incc": (-20, 50),
     "depreciacao": (0, 50),
-    "abate3anos": (0, 50_000_000),
     "dividaApe": (0, 50_000_000),
-    "extra100k": (0, 1_000_000),
+    "salarioBrutoCasal": (0, 10_000_000),
+    "parcelaApeAtual": (0, 10_000_000),
     "monthlyAmount": (0, 10_000_000),
     "annualAmount": (0, 50_000_000),
     "annualMonth": (1, 12),

@@ -11,21 +11,35 @@
  * financiada custa jurosFinHolding ao mês — fórmula padrão de retorno alavancado
  * (R_equity = R_ativo / LTV_investido - (1/LTV_investido - 1) × custo_da_dívida).
  *
- * Dissídio (sempre em agosto) reajusta o aporte mensal E o aporte anual ANTES do
- * aporte daquele mês — o salário já sobe aquele mês. O aporte anual (o bônus) cai
+ * Dissídio (no mês escolhido, `mesDissidio`) reajusta o aporte mensal, o aporte
+ * anual E o salário bruto ANTES do aporte daquele mês — o salário já sobe aquele
+ * mês, e o FGTS (que depende do salário) sobe junto. O aporte anual (o bônus) cai
  * de uma vez só no mês escolhido (`annualMonth`), não espalhado pelo ano — por
  * isso rende mais patrimônio no fim quanto mais cedo no ano ele cai, já que tem
- * mais meses pela frente para compor. O abatimento do apê, a cada 3 anos, só eleva
- * o aporte mensal a partir do mês SEGUINTE ao ciclo: primeiro o dinheiro paga a
- * amortização, depois é que sobra para os studios. Os três param de contar no ano
- * de transição, quando os aportes do bolso caem para R$0 e a carteira passa a
- * crescer só com os próprios aluguéis reinvestidos.
+ * mais meses pela frente para compor.
+ *
+ * O FGTS do casal (8% do salário bruto, com depósito extra do 13º em dezembro,
+ * rendendo a taxa legal do fundo) é calculado por dentro, não é um parâmetro do
+ * formulário. A cada 2 anos (prazo mínimo legal para saque-amortização), ele abate
+ * o saldo devedor do apê. Como o banco recalcula a parcela mantendo o PRAZO (e não
+ * o prazo mantendo a parcela), a parcela cai na mesma proporção do saldo — e essa
+ * QUEDA, a partir do mês seguinte, vira aporte mensal extra nos studios: é dinheiro
+ * que já saía do orçamento da família e deixou de ser preciso para o apê.
+ *
+ * Todos esses efeitos param de contar no ano de transição, quando os aportes do
+ * bolso caem para R$0 e a carteira passa a crescer só com os próprios aluguéis
+ * reinvestidos — mas o FGTS e a queda de parcela continuam computados por baixo
+ * (só não entram mais no aporte, porque não há mais aporte).
  */
 import type { PlannerParams, YearPoint } from './types'
 
-const MESES_POR_CICLO_APE = 36
-const MES_DO_DISSIDIO = 8 // agosto, contando janeiro = mês 1 do ano
 const PCT_PAGO_CHAVES_MINIMO = 10
+
+//: FGTS — regra do fundo, não escolha do autor do plano: por isso não é slider do formulário.
+const FGTS_DEPOSITO_PCT = 8 // % do salário bruto, depósito patronal mensal
+const FGTS_RENDIMENTO_ANUAL = 5.5 // % a.a. (TR + juros + distribuição de lucros)
+const MES_DO_13O = 12 // o 13º salário também gera depósito de FGTS
+const MESES_POR_SAQUE_FGTS = 24 // saque para amortizar financiamento imobiliário: a cada 2 anos
 
 function taxaMensal(pctAnual: number): number {
   return Math.pow(1 + pctAnual / 100, 1 / 12) - 1
@@ -46,12 +60,16 @@ export function simulate(p: PlannerParams): YearPoint[] {
   const retornoAtivoMensal = aluguelLiquidoMensal + valorizacaoLiquidaMensal
   const custoDividaMensal = p.jurosFinHolding / 100
   const retornoEquityMensal = alavancagem * retornoAtivoMensal - (alavancagem - 1) * custoDividaMensal
+  const fgtsRendimentoMensal = taxaMensal(FGTS_RENDIMENTO_ANUAL)
 
   let patrimonio = p.initial
   let aporteMensal = p.monthlyAmount
   let aporteAnual = p.annualAmount
+  let salario = p.salarioBrutoCasal
+  let parcelaApe = p.parcelaApeAtual
+  let saldoApe = p.dividaApe
+  let fgtsSaldo = 0
   let extraDoApe = 0
-  let abatidoAcumulado = 0
 
   const pontos: YearPoint[] = []
   const registra = (mesFim: number) => {
@@ -73,9 +91,29 @@ export function simulate(p: PlannerParams): YearPoint[] {
 
   for (let mes = 1; mes <= meses; mes++) {
     const transicionou = mes > p.anoTransicao * 12
-    if (!transicionou && mesDoAno(mes) === MES_DO_DISSIDIO) {
+    if (!transicionou && mesDoAno(mes) === p.mesDissidio) {
       aporteMensal *= 1 + p.dissidio / 100
       aporteAnual *= 1 + p.dissidio / 100
+      salario *= 1 + p.dissidio / 100
+    }
+
+    // FGTS: rende todo mês e recebe o depósito patronal — o do 13º soma em dezembro.
+    fgtsSaldo *= 1 + fgtsRendimentoMensal
+    fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
+    if (mesDoAno(mes) === MES_DO_13O) fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
+
+    // A cada 2 anos, o FGTS acumulado abate o saldo do apê; a parcela cai na mesma
+    // proporção do saldo (prazo mantido), e a queda vira aporte mensal dali em diante.
+    if (mes % MESES_POR_SAQUE_FGTS === 0 && saldoApe > 0) {
+      const abatimento = Math.min(fgtsSaldo, saldoApe)
+      if (abatimento > 0) {
+        const saldoNovo = saldoApe - abatimento
+        const parcelaNova = parcelaApe * (saldoNovo / saldoApe)
+        extraDoApe += parcelaApe - parcelaNova
+        parcelaApe = parcelaNova
+        saldoApe = saldoNovo
+        fgtsSaldo -= abatimento
+      }
     }
 
     let aporteDoMes = 0
@@ -84,13 +122,6 @@ export function simulate(p: PlannerParams): YearPoint[] {
       if (mesDoAno(mes) === p.annualMonth) aporteDoMes += aporteAnual
     }
     patrimonio = patrimonio * (1 + retornoEquityMensal) + aporteDoMes
-
-    if (mes % MESES_POR_CICLO_APE === 0) {
-      const novoAbatido = Math.min(abatidoAcumulado + p.abate3anos, p.dividaApe)
-      const abatidoNoCiclo = novoAbatido - abatidoAcumulado
-      abatidoAcumulado = novoAbatido
-      if (abatidoNoCiclo > 0) extraDoApe += (abatidoNoCiclo / 100_000) * p.extra100k
-    }
 
     if (mes % 12 === 0) registra(mes)
   }

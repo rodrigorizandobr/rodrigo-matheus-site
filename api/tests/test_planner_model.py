@@ -23,6 +23,15 @@ class TestSanitize:
         with pytest.raises(ValueError, match="annualMonth"):
             model.sanitize({"annualMonth": 0})
 
+    def test_mesDissidio_so_aceita_1_a_12(self):
+        assert model.sanitize({"mesDissidio": 1}) == {"mesDissidio": 1}
+        with pytest.raises(ValueError, match="mesDissidio"):
+            model.sanitize({"mesDissidio": 13})
+
+    def test_abate3anos_e_extra100k_nao_existem_mais(self):
+        # campo removido do simulador (FGTS automático substitui) — vira payload ignorado
+        assert model.sanitize({"abate3anos": 110_000, "extra100k": 1_000}) == {}
+
     def test_campo_negativo_fora_da_faixa_levanta_ValueError(self):
         with pytest.raises(ValueError, match="years"):
             model.sanitize({"years": -1})

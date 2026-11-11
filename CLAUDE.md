@@ -598,9 +598,9 @@ tem o próprio plano, ninguém vê o de outra.
 | Camada | Onde | Papel |
 |---|---|---|
 | Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |
-| Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (17 campos) e `Intl.NumberFormat('pt-BR')`. |
+| Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (18 campos) e `Intl.NumberFormat('pt-BR')`. |
 | Cliente da API | `web/src/planner/api.ts` | `GET`/`PUT /api/planner/plan`, sempre com ID token. |
-| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 17 sliders, 3 cartões, gráfico. |
+| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 18 sliders, 3 cartões, gráfico. |
 | Backend | `api/planner/` | `model.py` (valida), `auth.py` (qualquer conta, sem allowlist), `store.py` (1 doc por uid), `routes.py`. |
 
 - **O código do canvas do Gemini não deu para extrair.** É um editor virtualizado (tipo
@@ -631,13 +631,32 @@ tem o próprio plano, ninguém vê o de outra.
 - **Aporte mensal e aporte anual são campos separados, nunca uma média** (pedido do PO,
   2026-11-14: "não deixe juntos"; `monthlyAmount` + `annualAmount` + `annualMonth`, antes um
   único `monthly` = parcela + bônus/12). O aporte anual cai INTEIRO no mês escolhido
-  (`annualMonth`, 1 a 12, configurável — antes só existia "dissídio em agosto", que continua
-  fixo em agosto e reajusta os dois aportes), não espalhado pelos 12 meses: por isso o mesmo
-  valor rende mais patrimônio no fim quanto mais cedo no ano ele cai (mais meses pela frente
-  pra compor — testado em `calc.test.ts`). **`mesDoAno(mes)` existe porque `mes % 12` quebra em
-  dezembro**: mês-índice 12 (dezembro do ano 0) dá `12 % 12 === 0`, não `12` — bateria com
-  "nenhum mês" em vez de dezembro. `mesDoAno` normaliza para 1–12 sempre (`((mes - 1) % 12) + 1`)
-  e é usada tanto para o dissídio quanto para o aporte anual, não só código novo duplicado.
+  (`annualMonth`, 1 a 12, configurável), não espalhado pelos 12 meses: por isso o mesmo valor
+  rende mais patrimônio no fim quanto mais cedo no ano ele cai (mais meses pela frente pra
+  compor — testado em `calc.test.ts`). O mês do DISSÍDIO também virou configurável
+  (`mesDissidio`, mesmo pedido, antes fixo em agosto) e reajusta os dois aportes E o salário
+  (ver FGTS abaixo). **`mesDoAno(mes)` existe porque `mes % 12` quebra em dezembro**: mês-índice
+  12 (dezembro do ano 0) dá `12 % 12 === 0`, não `12` — bateria com "nenhum mês" em vez de
+  dezembro. `mesDoAno` normaliza para 1–12 sempre (`((mes - 1) % 12) + 1`) e é usada tanto para
+  o dissídio quanto para o aporte anual, não só código novo duplicado.
+- **O FGTS abate o apê sozinho — não é mais o autor quem digita um valor de abatimento**
+  (pedido do PO, 2026-11-14: "remove [abatimento a cada 3 anos], o sistema tem que
+  automaticamente calcular o FGTS e fazer o abatimento a cada 2 anos" — 2 anos é literalmente o
+  prazo legal mínimo entre saques de FGTS para amortizar financiamento imobiliário no Brasil).
+  `abate3anos` e `extra100k` morreram juntos (o segundo não fazia mais sentido sem o primeiro);
+  entraram `salarioBrutoCasal` (só alimenta o cálculo do FGTS, não é um aporte) e
+  `parcelaApeAtual` (a parcela de hoje do financiamento do apê). Por dentro, TODO MÊS: o FGTS
+  rende (`FGTS_RENDIMENTO_ANUAL = 5.5% a.a.`, a mesma taxa que o Gemini tinha usado) e recebe o
+  depósito patronal (`FGTS_DEPOSITO_PCT = 8%` do salário, com um depósito A MAIS em dezembro
+  por causa do 13º). Nenhuma das duas é slider do formulário — são regra do fundo, não escolha
+  de quem está planejando. A CADA 2 ANOS, se ainda houver saldo devedor, o FGTS acumulado abate
+  o saldo (até o teto do próprio saldo) e **a parcela cai na MESMA PROPORÇÃO do saldo**
+  (`parcelaNova = parcelaApe * saldoNovo/saldoApe` — o banco mantém o PRAZO, não a parcela,
+  que é a opção "redução de prestação" que existe de verdade no saque-amortização). A QUEDA na
+  parcela (`parcelaAntiga − parcelaNova`) vira aporte mensal extra nos studios, PERMANENTEMENTE,
+  a partir do mesmo mês do abatimento — é o "esses mil reais se somam ao aporte mensal" que o PO
+  descreveu. Sem saldo devedor (`dividaApe = 0`), nada disso roda e o salário não muda nada no
+  resultado (testado: `sem saldo devedor no apê, o salário não faz nenhuma diferença`).
 - **`model.sanitize` (grava) é estrito; `model.merged` (lê) é tolerante.** `sanitize` barra uma
   GRAVAÇÃO fora de faixa antes de ela acontecer — levanta `ValueError` no primeiro campo ruim.
   `merged` nunca levanta: um campo salvo que ficasse fora de uma faixa apertada depois (o limite
@@ -836,8 +855,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 893 testes
-cd web && npm test                                  # 506 testes
+cd api && source .venv/bin/activate && pytest      # 895 testes
+cd web && npm test                                  # 508 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

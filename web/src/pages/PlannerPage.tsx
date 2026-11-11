@@ -111,9 +111,9 @@ export function PlannerPage() {
         <div className="grid lg:grid-cols-[360px_1fr] gap-8">
           <div className="grid gap-7 content-start">
             <Group title="Seus aportes">
-              <ParamField label="Aporte mensal (a parcela)" kind="brl" min={0} max={30_000} step={100}
+              <ParamField label="Aporte mensal" kind="brl" min={0} max={30_000} step={100}
                           value={params.monthlyAmount} onChange={set('monthlyAmount')} />
-              <ParamField label="Aporte anual (o bônus)" kind="brl" min={0} max={500_000} step={1_000}
+              <ParamField label="Aporte anual" kind="brl" min={0} max={500_000} step={1_000}
                           value={params.annualAmount} onChange={set('annualAmount')}
                           hint="Cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
               <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
@@ -130,7 +130,7 @@ export function PlannerPage() {
                           value={params.custoStudio} onChange={set('custoStudio')} />
               <ParamField label="% pago até pegar as chaves" kind="pct" min={10} max={100} step={5}
                           value={params.pctPagoChaves} onChange={set('pctPagoChaves')}
-                          hint="O resto é financiado direto na holding." />
+                          hint="O resto é financiado direto na construtora." />
               <ParamField label="Juros do financiamento do saldo (holding)" kind="pct" min={0} max={3} step={0.1}
                           value={params.jurosFinHolding} onChange={set('jurosFinHolding')} />
               <ParamField label="Imposto sobre o aluguel na Holding" kind="pct" min={0} max={27.5} step={0.5}
@@ -145,17 +145,20 @@ export function PlannerPage() {
               <ParamField label="Perda por envelhecimento do imóvel" kind="pct" min={0} max={10} step={0.5}
                           value={params.depreciacao} onChange={set('depreciacao')}
                           hint="Reduz a valorização dos studios já comprados em relação aos lançamentos." />
-              <ParamField label="Dissídio anual (salário e bônus), em agosto" kind="pct" min={0} max={15} step={0.5}
+              <ParamField label="Dissídio anual (salário e bônus)" kind="pct" min={0} max={15} step={0.5}
                           value={params.dissidio} onChange={set('dissidio')} />
+              <ParamField label="Mês do dissídio" kind="mes" min={1} max={12} step={1}
+                          value={params.mesDissidio} onChange={set('mesDissidio')} />
             </Group>
 
             <Group title="Seu apartamento">
-              <ParamField label="Saldo financiado do apê" kind="brl" min={0} max={2_000_000} step={10_000}
+              <ParamField label="Saldo devedor do apartamento em que você mora hoje" kind="brl" min={0} max={2_000_000} step={10_000}
                           value={params.dividaApe} onChange={set('dividaApe')} />
-              <ParamField label="Abatimento a cada 3 anos" kind="brl" min={0} max={500_000} step={5_000}
-                          value={params.abate3anos} onChange={set('abate3anos')} />
-              <ParamField label="Aporte extra por R$100k abatidos" kind="brl" min={0} max={10_000} step={100}
-                          value={params.extra100k} onChange={set('extra100k')} />
+              <ParamField label="Parcela atual do financiamento do apê" kind="brl" min={0} max={30_000} step={100}
+                          value={params.parcelaApeAtual} onChange={set('parcelaApeAtual')} />
+              <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
+                          value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
+                          hint="Só serve para calcular o FGTS: a cada 2 anos ele abate o saldo do apê sozinho, e a queda na parcela vira aporte mensal extra nos studios." />
             </Group>
 
             <Group title="Horizonte">

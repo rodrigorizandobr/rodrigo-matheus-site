@@ -1,5 +1,5 @@
 /**
- * Os 15 parâmetros do simulador "Vivendo de Imóveis" — uma estratégia só (comprar
+ * Os 18 parâmetros do simulador "Vivendo de Imóveis" — uma estratégia só (comprar
  * direto na holding, financiando o saldo remanescente nas chaves), reconstruída a
  * partir de uma conversa longa no Gemini (ver PR). O motor em `calc.ts` é
  * implementação própria, testada: o código do canvas do Gemini não dava para
@@ -8,7 +8,7 @@
 export type PlannerParams = {
   /** Ano em que para de aportar do bolso — a carteira passa a crescer só com os próprios aluguéis. */
   anoTransicao: number
-  /** % pago até pegar as chaves (0–100); o resto é financiado na holding. */
+  /** % pago até pegar as chaves (0–100); o resto é financiado direto na construtora. */
   pctPagoChaves: number
   /** Juros do financiamento do saldo remanescente na holding, % a.m. */
   jurosFinHolding: number
@@ -16,18 +16,20 @@ export type PlannerParams = {
   impostoHolding: number
   /** Aluguel bruto mensal sobre o valor do imóvel, % a.m. */
   rate: number
-  /** Dissídio anual de salário e bônus, sempre em agosto, % a.a. */
+  /** Dissídio anual de salário e bônus, % a.a. — cai no mês de `mesDissidio`. */
   dissidio: number
+  /** Mês em que o dissídio reajusta salário e bônus (1 = janeiro … 12 = dezembro). */
+  mesDissidio: number
   /** INCC / valorização dos studios NOVOS (lançamentos), % a.a. */
   incc: number
   /** Envelhecimento do imóvel + INCC de obra — reduz a valorização dos studios já comprados, % a.a. */
   depreciacao: number
-  /** Abatimento no financiamento do apartamento a cada 3 anos, R$. */
-  abate3anos: number
-  /** Saldo financiado atual do apartamento, R$. */
+  /** Saldo devedor hoje do apartamento em que você mora, R$. */
   dividaApe: number
-  /** Aporte extra por mês para cada R$100k abatidos no apê, R$. */
-  extra100k: number
+  /** Salário bruto combinado do casal (CLT), R$/mês — só serve para calcular o FGTS. */
+  salarioBrutoCasal: number
+  /** Parcela mensal de hoje do financiamento do apê, R$. */
+  parcelaApeAtual: number
   /** Aporte mensal do bolso — a parcela, sozinha, sem o bônus. */
   monthlyAmount: number
   /** Aporte anual do bolso — o bônus, pago de uma vez, não espalhado pelo ano. */
@@ -49,11 +51,12 @@ export const DEFAULT_PARAMS: PlannerParams = {
   impostoHolding: 11.5,
   rate: 0.8,
   dissidio: 5,
+  mesDissidio: 8,
   incc: 6,
   depreciacao: 1.5,
-  abate3anos: 110_000,
   dividaApe: 400_000,
-  extra100k: 1_000,
+  salarioBrutoCasal: 34_000,
+  parcelaApeAtual: 4_000,
   monthlyAmount: 2_000,
   annualAmount: 96_000,
   annualMonth: 12,

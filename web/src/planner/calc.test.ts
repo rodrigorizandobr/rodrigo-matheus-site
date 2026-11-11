@@ -18,7 +18,7 @@ describe('simulate — motor puro do simulador de studios', () => {
   it('sem aporte e sem rendimento, o patrimônio não sai do lugar', () => {
     const r = simulate(base({
       initial: 50_000, monthlyAmount: 0, annualAmount: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0,
-      jurosFinHolding: 0, pctPagoChaves: 100, abate3anos: 0, dividaApe: 0, extra100k: 0,
+      jurosFinHolding: 0, pctPagoChaves: 100, dividaApe: 0,
       anoTransicao: 0,
     }))
     expect(r.every((p) => p.patrimonioLiquido === 50_000)).toBe(true)
@@ -39,8 +39,8 @@ describe('simulate — motor puro do simulador de studios', () => {
   it('o aporte anual cai inteiro no mês escolhido, não espalhado pelo ano', () => {
     // sem aporte mensal nem dissídio: o único dinheiro que entra é o aporte anual
     const r = simulate(base({
-      years: 1, monthlyAmount: 0, annualAmount: 120_000, dissidio: 0, extra100k: 0,
-      abate3anos: 0, dividaApe: 0, initial: 0, annualMonth: 1,
+      years: 1, monthlyAmount: 0, annualAmount: 120_000, dissidio: 0,
+      dividaApe: 0, initial: 0, annualMonth: 1,
     }))
     // caiu em janeiro: só falta 1 mês pra fechar o ano, então o ano 1 é ~120k + quase nada de juro
     expect(r.find((p) => p.ano === 1)!.patrimonioLiquido).toBeGreaterThan(120_000)
@@ -48,11 +48,11 @@ describe('simulate — motor puro do simulador de studios', () => {
 
   it('aporte anual mais cedo no ano rende mais no fim do mesmo ano do que mais tarde', () => {
     const cedo = simulate(base({
-      years: 1, monthlyAmount: 0, dissidio: 0, extra100k: 0, abate3anos: 0, dividaApe: 0,
+      years: 1, monthlyAmount: 0, dissidio: 0, dividaApe: 0,
       initial: 0, annualAmount: 100_000, annualMonth: 1,
     })).at(-1)!
     const tarde = simulate(base({
-      years: 1, monthlyAmount: 0, dissidio: 0, extra100k: 0, abate3anos: 0, dividaApe: 0,
+      years: 1, monthlyAmount: 0, dissidio: 0, dividaApe: 0,
       initial: 0, annualAmount: 100_000, annualMonth: 12,
     })).at(-1)!
     expect(cedo.patrimonioLiquido).toBeGreaterThan(tarde.patrimonioLiquido)
@@ -83,24 +83,42 @@ describe('simulate — motor puro do simulador de studios', () => {
     expect(depois.patrimonioLiquido).toBeGreaterThan(noTransicao.patrimonioLiquido)
   })
 
-  it('dissídio em agosto aumenta o aporte — mais dissídio, mais patrimônio no fim', () => {
+  it('dissídio no mês escolhido aumenta o aporte — mais dissídio, mais patrimônio no fim', () => {
     const sem = simulate(base({ dissidio: 0 })).at(-1)!
     const com = simulate(base({ dissidio: 10 })).at(-1)!
     expect(com.patrimonioLiquido).toBeGreaterThan(sem.patrimonioLiquido)
   })
 
-  it('o abatimento do apê soma ao aporte a cada 3 anos, até o teto da dívida', () => {
-    // dívida pequena, abatida inteira no 1º ciclo: o aporte extra para de crescer depois disso
+  it('dissídio mais cedo no ano rende mais no fim do mesmo ano do que mais tarde', () => {
+    const cedo = simulate(base({
+      years: 1, annualAmount: 0, dividaApe: 0, salarioBrutoCasal: 0, initial: 0,
+      monthlyAmount: 1_000, dissidio: 100, mesDissidio: 1,
+    })).at(-1)!
+    const tarde = simulate(base({
+      years: 1, annualAmount: 0, dividaApe: 0, salarioBrutoCasal: 0, initial: 0,
+      monthlyAmount: 1_000, dissidio: 100, mesDissidio: 12,
+    })).at(-1)!
+    expect(cedo.patrimonioLiquido).toBeGreaterThan(tarde.patrimonioLiquido)
+  })
+
+  it('sem saldo devedor no apê, o salário não faz nenhuma diferença (não há o que o FGTS abater)', () => {
+    const baixo = simulate(base({ dividaApe: 0, salarioBrutoCasal: 1_000 })).at(-1)!
+    const alto = simulate(base({ dividaApe: 0, salarioBrutoCasal: 200_000 })).at(-1)!
+    expect(alto.patrimonioLiquido).toBe(baixo.patrimonioLiquido)
+  })
+
+  it('o FGTS quita um saldo pequeno do apê, zera a parcela, e a queda vira aporte mensal dali em diante', () => {
+    // retorno do patrimônio zerado (sem aluguel, sem valorização, sem alavancagem): só soma quem entra
     const r = simulate(base({
-      years: 9, dividaApe: 110_000, abate3anos: 110_000, extra100k: 1_000,
-      monthlyAmount: 0, annualAmount: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0, jurosFinHolding: 0,
-      pctPagoChaves: 100, anoTransicao: 9, initial: 0,
+      years: 4, dividaApe: 1, parcelaApeAtual: 1_000, salarioBrutoCasal: 34_000,
+      monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0,
+      rate: 0, incc: 0, depreciacao: 0, jurosFinHolding: 0, pctPagoChaves: 100, anoTransicao: 100,
     }))
-    const ano3 = r.find((p) => p.ano === 3)!.patrimonioLiquido
-    const ano6 = r.find((p) => p.ano === 6)!.patrimonioLiquido
-    // 3 anos de R$0 de aporte, depois 3 anos de R$1.100/mês (110k/100k × 1000)
-    expect(ano3).toBe(0)
-    expect(ano6).toBeCloseTo(36 * 1_100, -2)
+    // saldo de R$1 é quitado de sobra no 1º saque de FGTS (mês 24, ano 2): a parcela de
+    // R$1.000 cai a ~R$0, e esse R$1.000 vira aporte mensal a partir do próprio mês 24.
+    expect(r.find((p) => p.ano === 2)!.patrimonioLiquido).toBeCloseTo(1_000, -1)
+    // do ano 2 ao ano 4: mais 24 meses de R$1.000/mês de aporte extra, sem mais nada mudando
+    expect(r.find((p) => p.ano === 4)!.patrimonioLiquido).toBeCloseTo(1_000 + 24 * 1_000, -1)
   })
 
   it('o preço do studio novo sobe pelo INCC composto ao ano', () => {
