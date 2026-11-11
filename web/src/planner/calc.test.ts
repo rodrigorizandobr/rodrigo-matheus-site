@@ -17,7 +17,7 @@ describe('simulate — motor puro do simulador de studios', () => {
 
   it('sem aporte e sem rendimento, o patrimônio não sai do lugar', () => {
     const r = simulate(base({
-      initial: 50_000, monthly: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0,
+      initial: 50_000, monthlyAmount: 0, annualAmount: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0,
       jurosFinHolding: 0, pctPagoChaves: 100, abate3anos: 0, dividaApe: 0, extra100k: 0,
       anoTransicao: 0,
     }))
@@ -25,9 +25,37 @@ describe('simulate — motor puro do simulador de studios', () => {
   })
 
   it('mais aporte mensal sempre deixa MAIS patrimônio no fim', () => {
-    const baixo = simulate(base({ monthly: 5_000 })).at(-1)!
-    const alto = simulate(base({ monthly: 15_000 })).at(-1)!
+    const baixo = simulate(base({ monthlyAmount: 5_000 })).at(-1)!
+    const alto = simulate(base({ monthlyAmount: 15_000 })).at(-1)!
     expect(alto.patrimonioLiquido).toBeGreaterThan(baixo.patrimonioLiquido)
+  })
+
+  it('mais aporte anual (bônus) sempre deixa MAIS patrimônio no fim', () => {
+    const baixo = simulate(base({ annualAmount: 20_000 })).at(-1)!
+    const alto = simulate(base({ annualAmount: 150_000 })).at(-1)!
+    expect(alto.patrimonioLiquido).toBeGreaterThan(baixo.patrimonioLiquido)
+  })
+
+  it('o aporte anual cai inteiro no mês escolhido, não espalhado pelo ano', () => {
+    // sem aporte mensal nem dissídio: o único dinheiro que entra é o aporte anual
+    const r = simulate(base({
+      years: 1, monthlyAmount: 0, annualAmount: 120_000, dissidio: 0, extra100k: 0,
+      abate3anos: 0, dividaApe: 0, initial: 0, annualMonth: 1,
+    }))
+    // caiu em janeiro: só falta 1 mês pra fechar o ano, então o ano 1 é ~120k + quase nada de juro
+    expect(r.find((p) => p.ano === 1)!.patrimonioLiquido).toBeGreaterThan(120_000)
+  })
+
+  it('aporte anual mais cedo no ano rende mais no fim do mesmo ano do que mais tarde', () => {
+    const cedo = simulate(base({
+      years: 1, monthlyAmount: 0, dissidio: 0, extra100k: 0, abate3anos: 0, dividaApe: 0,
+      initial: 0, annualAmount: 100_000, annualMonth: 1,
+    })).at(-1)!
+    const tarde = simulate(base({
+      years: 1, monthlyAmount: 0, dissidio: 0, extra100k: 0, abate3anos: 0, dividaApe: 0,
+      initial: 0, annualAmount: 100_000, annualMonth: 12,
+    })).at(-1)!
+    expect(cedo.patrimonioLiquido).toBeGreaterThan(tarde.patrimonioLiquido)
   })
 
   it('pagar uma fatia menor nas chaves (mais alavancagem) rende mais patrimônio no fim, quando o retorno do imóvel supera o custo da dívida', () => {
@@ -49,7 +77,7 @@ describe('simulate — motor puro do simulador de studios', () => {
   })
 
   it('depois do ano de transição, a carteira ainda cresce sozinha (reinveste os aluguéis)', () => {
-    const r = simulate(base({ anoTransicao: 3, years: 6, monthly: 10_000, initial: 300_000 }))
+    const r = simulate(base({ anoTransicao: 3, years: 6, monthlyAmount: 10_000, initial: 300_000 }))
     const noTransicao = r.find((p) => p.ano === 3)!
     const depois = r.find((p) => p.ano === 6)!
     expect(depois.patrimonioLiquido).toBeGreaterThan(noTransicao.patrimonioLiquido)
@@ -65,7 +93,7 @@ describe('simulate — motor puro do simulador de studios', () => {
     // dívida pequena, abatida inteira no 1º ciclo: o aporte extra para de crescer depois disso
     const r = simulate(base({
       years: 9, dividaApe: 110_000, abate3anos: 110_000, extra100k: 1_000,
-      monthly: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0, jurosFinHolding: 0,
+      monthlyAmount: 0, annualAmount: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0, jurosFinHolding: 0,
       pctPagoChaves: 100, anoTransicao: 9, initial: 0,
     }))
     const ano3 = r.find((p) => p.ano === 3)!.patrimonioLiquido

@@ -598,9 +598,9 @@ tem o próprio plano, ninguém vê o de outra.
 | Camada | Onde | Papel |
 |---|---|---|
 | Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |
-| Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (15 campos) e `Intl.NumberFormat('pt-BR')`. |
+| Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (17 campos) e `Intl.NumberFormat('pt-BR')`. |
 | Cliente da API | `web/src/planner/api.ts` | `GET`/`PUT /api/planner/plan`, sempre com ID token. |
-| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 15 sliders, 3 cartões, gráfico. |
+| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 17 sliders, 3 cartões, gráfico. |
 | Backend | `api/planner/` | `model.py` (valida), `auth.py` (qualquer conta, sem allowlist), `store.py` (1 doc por uid), `routes.py`. |
 
 - **O código do canvas do Gemini não deu para extrair.** É um editor virtualizado (tipo
@@ -628,6 +628,16 @@ tem o próprio plano, ninguém vê o de outra.
   aporte extra a partir do mês SEGUINTE ao ciclo — primeiro o dinheiro paga a amortização,
   depois é que sobra. Inverter qualquer um dos dois desloca a conta em 1 mês e quebra os testes
   que fixam o valor exato (`o abatimento do apê soma ao aporte a cada 3 anos...`).
+- **Aporte mensal e aporte anual são campos separados, nunca uma média** (pedido do PO,
+  2026-11-14: "não deixe juntos"; `monthlyAmount` + `annualAmount` + `annualMonth`, antes um
+  único `monthly` = parcela + bônus/12). O aporte anual cai INTEIRO no mês escolhido
+  (`annualMonth`, 1 a 12, configurável — antes só existia "dissídio em agosto", que continua
+  fixo em agosto e reajusta os dois aportes), não espalhado pelos 12 meses: por isso o mesmo
+  valor rende mais patrimônio no fim quanto mais cedo no ano ele cai (mais meses pela frente
+  pra compor — testado em `calc.test.ts`). **`mesDoAno(mes)` existe porque `mes % 12` quebra em
+  dezembro**: mês-índice 12 (dezembro do ano 0) dá `12 % 12 === 0`, não `12` — bateria com
+  "nenhum mês" em vez de dezembro. `mesDoAno` normaliza para 1–12 sempre (`((mes - 1) % 12) + 1`)
+  e é usada tanto para o dissídio quanto para o aporte anual, não só código novo duplicado.
 - **`model.sanitize` (grava) é estrito; `model.merged` (lê) é tolerante.** `sanitize` barra uma
   GRAVAÇÃO fora de faixa antes de ela acontecer — levanta `ValueError` no primeiro campo ruim.
   `merged` nunca levanta: um campo salvo que ficasse fora de uma faixa apertada depois (o limite
@@ -826,8 +836,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 892 testes
-cd web && npm test                                  # 503 testes
+cd api && source .venv/bin/activate && pytest      # 893 testes
+cd web && npm test                                  # 506 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

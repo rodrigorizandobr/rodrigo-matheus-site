@@ -111,8 +111,13 @@ export function PlannerPage() {
         <div className="grid lg:grid-cols-[360px_1fr] gap-8">
           <div className="grid gap-7 content-start">
             <Group title="Seus aportes">
-              <ParamField label="Aporte médio mensal (parcela + bônus/12)" kind="brl" min={0} max={30_000} step={100}
-                          value={params.monthly} onChange={set('monthly')} />
+              <ParamField label="Aporte mensal (a parcela)" kind="brl" min={0} max={30_000} step={100}
+                          value={params.monthlyAmount} onChange={set('monthlyAmount')} />
+              <ParamField label="Aporte anual (o bônus)" kind="brl" min={0} max={500_000} step={1_000}
+                          value={params.annualAmount} onChange={set('annualAmount')}
+                          hint="Cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
+              <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
+                          value={params.annualMonth} onChange={set('annualMonth')} />
               <ParamField label="Já pago no 1º studio" kind="brl" min={0} max={500_000} step={1_000}
                           value={params.initial} onChange={set('initial')} />
               <ParamField label="Ano de transição para renda passiva" kind="anos" min={0} max={params.years} step={1}

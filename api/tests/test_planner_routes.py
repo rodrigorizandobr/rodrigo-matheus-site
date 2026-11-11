@@ -41,7 +41,7 @@ class TestLerPlano:
         assert resposta.get_json()["params"] == model.DEFAULT_PARAMS
 
     def test_so_ve_o_proprio_plano(self, client, db, monkeypatch):
-        store.save_plan("uid-outro", {"monthly": 1})
+        store.save_plan("uid-outro", {"monthlyAmount": 1})
         monkeypatch.setattr(routes, "verify_user", lambda h: {"uid": "uid-1", "email": "a@a.com"})
         resposta = client.get("/api/planner/plan", headers=AUTH)
         assert resposta.get_json()["params"] == model.DEFAULT_PARAMS
@@ -49,10 +49,10 @@ class TestLerPlano:
 
 class TestSalvarPlano:
     def test_salva_e_devolve_o_plano_atualizado(self, client, db, logado):
-        resposta = client.put("/api/planner/plan", headers=AUTH, json={"monthly": 20_000, "years": 20})
+        resposta = client.put("/api/planner/plan", headers=AUTH, json={"monthlyAmount": 20_000, "years": 20})
         assert resposta.status_code == 200
         body = resposta.get_json()
-        assert body["params"]["monthly"] == 20_000
+        assert body["params"]["monthlyAmount"] == 20_000
         assert body["updatedAt"]
 
     def test_campo_fora_da_faixa_devolve_400_e_nao_salva(self, client, db, logado):

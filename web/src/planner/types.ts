@@ -28,8 +28,12 @@ export type PlannerParams = {
   dividaApe: number
   /** Aporte extra por mês para cada R$100k abatidos no apê, R$. */
   extra100k: number
-  /** Aporte médio mensal do bolso — parcela + rateio do bônus anual, R$. */
-  monthly: number
+  /** Aporte mensal do bolso — a parcela, sozinha, sem o bônus. */
+  monthlyAmount: number
+  /** Aporte anual do bolso — o bônus, pago de uma vez, não espalhado pelo ano. */
+  annualAmount: number
+  /** Mês em que o aporte anual cai (1 = janeiro … 12 = dezembro). */
+  annualMonth: number
   /** Já pago no 1º studio, R$. */
   initial: number
   /** Custo hoje de 1 studio completo (imóvel + mobília/ITBI), R$. */
@@ -50,7 +54,9 @@ export const DEFAULT_PARAMS: PlannerParams = {
   abate3anos: 110_000,
   dividaApe: 400_000,
   extra100k: 1_000,
-  monthly: 10_000,
+  monthlyAmount: 2_000,
+  annualAmount: 96_000,
+  annualMonth: 12,
   initial: 75_000,
   custoStudio: 260_000,
   years: 15,
