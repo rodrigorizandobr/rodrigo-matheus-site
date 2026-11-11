@@ -10,6 +10,7 @@ const SECTIONS = ['about', 'experience', 'projects', 'education', 'contact'] as 
 /** Formulários avulsos, fora das seções da home. Mais um entra aqui, não vira seção nova. */
 const UTILS = [
   { label: 'Vivendo de Imóveis', href: '/vivendo-de-imoveis' },
+  { label: 'Previdência Privada', href: '/previdencia-privada' },
 ]
 
 export function Header() {

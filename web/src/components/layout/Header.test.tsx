@@ -88,17 +88,19 @@ describe('menu mobile — os links precisam funcionar em qualquer página', () =
 })
 
 describe('Utilitários — submenu de formulários avulsos', () => {
-  it('no desktop, "Utilitários" não navega sozinho; o submenu tem Vivendo de Imóveis', () => {
+  it('no desktop, "Utilitários" não navega sozinho; o submenu tem Vivendo de Imóveis e Previdência Privada', () => {
     r()
     const nav = screen.getAllByRole('navigation', { name: 'Sections' })[0]
     expect(within(nav).getByRole('button', { name: /utilitários/i })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
+    expect(within(nav).getByRole('link', { name: /previdência privada/i })).toHaveAttribute('href', '/previdencia-privada')
   })
 
   it('no menu mobile, os itens de Utilitários entram direto, sem precisar de hover', async () => {
     const menu = await abrirMenu()
     expect(within(menu).getByText(/utilitários/i)).toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
+    expect(within(menu).getByRole('link', { name: /previdência privada/i })).toHaveAttribute('href', '/previdencia-privada')
   })
 
   it('clicar no item do mobile fecha a folha', async () => {

@@ -18,6 +18,7 @@ import { useHashLanding } from './hooks/useHashLanding'
 // propósito: quem só lê o site nunca baixa isso.
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })))
+const PensionPage = lazy(() => import('./pages/PensionPage').then((m) => ({ default: m.PensionPage })))
 
 export default function App() {
   const { t } = useI18n()
@@ -50,6 +51,20 @@ export default function App() {
         <main className="relative z-10" data-stage="false">
           <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando simulador…</div>}>
             <PlannerPage />
+          </Suspense>
+        </main>
+        <div className="relative z-10"><Footer /></div>
+      </>
+    )
+  }
+
+  if (route.page === 'pension') {
+    return (
+      <>
+        <Header />
+        <main className="relative z-10" data-stage="false">
+          <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando simulador…</div>}>
+            <PensionPage />
           </Suspense>
         </main>
         <div className="relative z-10"><Footer /></div>

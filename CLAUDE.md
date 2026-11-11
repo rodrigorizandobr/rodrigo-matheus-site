@@ -13,6 +13,7 @@ Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 | Frontend | `site/index.html` | Single-page, HTML/CSS/JS vanilla inline (~630 linhas). Canvas Matrix rain, cards 3D flip, sparklines SVG. |
 | Blog | `web/src/pages/BlogPage.tsx` + `api/blog/` | **Gerenciado por IA.** Posts em Firestore, escritos pelo Gemini Flash Lite, painel em `/admin`. |
 | Simulador | `web/src/pages/PlannerPage.tsx` + `api/planner/` | "Vivendo de Imóveis", em `/vivendo-de-imoveis`. Qualquer conta Google loga (sem allowlist); cálculo no navegador, 1 plano por uid no Firestore. |
+| Simulador | `web/src/pages/PensionPage.tsx` + `api/pension/` | "Previdência Privada" (PGBL/VGBL), em `/previdencia-privada`. Irmão do de imóveis — mesmo salário CLT + FGTS, destino é um fundo com IR de verdade. |
 | Backend | `api/server.py` | Flask. Agrega repos/commits do GitHub, gera sparklines de 28 dias, serve i18n. |
 | Hosting | Firebase Hosting | Serve `site/`; faz rewrite de `/api/**` → Cloud Run. |
 | API runtime | Cloud Run `portfolio-api` (`southamerica-east1`) | Gunicorn + Dockerfile. |
@@ -765,6 +766,74 @@ tem o próprio plano, ninguém vê o de outra.
   aberto, sem JS para abrir/fechar. No menu mobile (sem hover) os itens de `UTILS` entram
   direto na folha, sob um rótulo "Utilitários", em vez de replicar o hover que não existe em
   touch.
+
+## Simulador "Previdência Privada" (/previdencia-privada)
+
+Pedido do PO, 2026-11-11, logo depois do de imóveis: "crie esta outra página, agora de
+previdência privada", a partir de um canvas do Gemini **sem conversa em volta** — só o app
+interativo, num iframe sandboxed cross-origin que nenhuma ferramenta de automação deste
+projeto conseguiu ler (nem `get_page_text`, nem `read_page`, nem JS direto — `iframe.src`
+vinha redigido como `[BLOCKED: ...]`; um `<select>` nativo dentro dele nunca abriu uma lista
+visível em screenshot, em nenhuma tentativa de clique/teclado). Perguntado diretamente, o PO
+respondeu "1 e 2": construir o produto de PGBL/VGBL **de verdade** (regras fiscais reais),
+reaproveitando a MESMA estrutura de salário CLT + FGTS automático do simulador de imóveis — o
+destino do aporte deixa de ser "comprar studio" e vira "entrar num fundo de previdência".
+
+| Camada | Onde | Papel |
+|---|---|---|
+| Motor | `web/src/pension/calc.ts` | Puro, testado (`calc.test.ts`, 17 testes). FGTS/apê é cópia do motor de imóveis; o novo é o fundo com IR de verdade. |
+| Tipos/API | `web/src/pension/types.ts`, `api.ts` | `PensionParams` (15 campos, incl. `vehicle`/`regime` categóricos); `GET`/`PUT /api/pension/plan`. |
+| Tela | `web/src/pages/PensionPage.tsx` + `pages/pension/` | Mesmo portão de login do planner; `ChoiceField` (PGBL/VGBL, regressiva/progressiva), gráfico bruto×líquido, diário de bordo. |
+| Backend | `api/pension/` | `model.py`, `auth.py`, `store.py`, `routes.py` — cópias quase literais do `planner/` equivalente, coleção `pension_plans`. |
+
+- **Cada aporte do mês vira uma TRANCHE própria, com o próprio mês de entrada** — é o que a
+  tabela regressiva exige: a alíquota de cada real depende de HÁ QUANTO TEMPO ele entrou, não
+  de quando o fundo como um todo começou. Aporte mensal + anual + sobra do FGTS + restituição
+  do PGBL do mesmo mês são somados numa tranche SÓ (mesma idade, mesmo tratamento fiscal) —
+  manter uma por fonte inflaria o array sem mudar o resultado. Como o rendimento líquido mensal
+  é CONSTANTE ao longo da simulação, somar o valor composto de cada tranche dá exatamente o
+  mesmo saldo bruto que compor um saldo único mês a mês (`saldoBruto = Σ valor_k×(1+r)^(mês−mês_k)`
+  é matematicamente idêntico à recorrência `saldo×(1+r)+aporte`) — por isso dá para ter as duas
+  contas (saldo bruto simples e imposto por tranche) sem duas fontes de verdade.
+- **PGBL tributa o resgate CHEIO; VGBL só o GANHO** — a diferença que define o produto. PGBL
+  deduziu o aporte na declaração (até 12% da renda bruta anual), então todo o resgate depois é
+  renda tributável; VGBL não deduziu nada, então só o que o dinheiro RENDEU é tributado.
+  `resumoNoMes` calcula `valorHoje` e `ganhoHoje` (`valorHoje − valor_original`) por tranche e
+  escolhe a base conforme `vehicle` (testado: PGBL tributa o bruto inteiro, VGBL nunca toca o
+  aporte original). **Simplificação assumida**: PGBL aqui trata o saldo INTEIRO como dedutível —
+  o que passar do teto de 12% num ano real não deveria entrar nessa base, mas simular o
+  excedente exigiria separar dois saldos dentro do mesmo fundo; documentado, não escondido.
+- **Tabela regressiva por tranche, nunca por fundo** (`aliquotaRegressiva`: 35% até 2 anos, caindo
+  a cada 2 até 10% depois de 10 anos — tabela oficial do produto, por isso não é slider). A
+  alíquota MÉDIA do saldo (`aliquotaMedia`, ponderada pelo valor hoje de cada tranche) só pode
+  CAIR com o tempo, nunca subir (testado) — tranches antigas vão se acumulando na faixa mínima,
+  novas entram sempre na máxima. Regime **progressivo** é uma simplificação deliberada: toda a
+  base tributável entra pela alíquota marginal que a pessoa informa (`aliquotaIrMarginal`) — a
+  regra real retém 15% na fonte e ajusta na declaração anual junto com o RESTO da renda da
+  pessoa, que este simulador não conhece; documentado no rodapé da própria tela, não só aqui.
+- **A restituição do PGBL é automática e reinvestida** — mesmo padrão do FGTS no simulador de
+  imóveis ("o que sobra vira aporte"), aplicado à dedução fiscal: fecha o ano civil em dezembro
+  (`aportesPgblDoAno` acumulado desde janeiro), calcula a dedução limitada a 12% da renda bruta
+  anual (`salário do mês × 12`, aproximação — não separa 13º/bônus do resto), multiplica pela
+  alíquota marginal informada, e guarda o valor para cair como tranche nova em MAIO do ano
+  seguinte (`MES_RESTITUICAO_IR`) — mês real em que a maioria recebe a restituição do IR no
+  Brasil. VGBL nunca gera restituição (não há dedução a devolver) — testado explicitamente.
+- **FGTS e apê são cópia functional do motor de imóveis, com uma mudança**: lá, a sobra do saque
+  (depois de abater o apê) comprava studio à vista; aqui não existe "studio", então a sobra
+  INTEIRA vira mais uma tranche no fundo de previdência (`aporteFgtsExtra`) — mais simples que o
+  original, porque não precisa do loop de "comprar quantas unidades couberem".
+- **Campos categóricos (`vehicle`, `regime`) não cabiam no `sanitize` 100% numérico do planner**
+  — `pension/model.py` tem dois dicionários de validação, `_LIMITS` (faixa, como sempre) e
+  `_ENUMS` (conjunto fechado de strings); `sanitize` escolhe qual regra aplicar pela própria
+  chave. `ChoiceField.tsx` é um componente novo (dois botões lado a lado, `.neon-red` no
+  selecionado) — não é um `ParamField` adaptado, porque a escolha não é um valor numa régua.
+- **Gráfico mostra DUAS linhas, bruto e líquido** (`PensionChart.tsx`) — a distância entre elas
+  É o imposto que o regime escolhido cobraria se resgatasse tudo hoje; um gráfico de uma linha
+  só esconderia exatamente o número que esse simulador existe para mostrar.
+- **Backend é cópia quase literal do `planner/`** (mesmo padrão descrito na armadilha de
+  "`clip`-style de autorização" acima: uid como chave do documento, sem allowlist, `auth.py`
+  duplicado em vez de importado — consistente com a decisão já tomada lá). Única extensão:
+  `model.py` valida enums além de faixas numéricas.
 
 ## Git dentro do Google Drive
 
