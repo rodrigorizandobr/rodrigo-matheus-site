@@ -3,6 +3,11 @@ import type { MonthRow } from '../../planner/types'
 
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
+const numero = new Intl.NumberFormat('pt-BR')
+/** Valor compacto para célula estreita: sem o "R$" repetido em toda linha — o cabeçalho do
+ * grupo já diz que é dinheiro. */
+const curto = (v: number) => numero.format(v)
+
 const COLUNAS: { rotulo: string; valor: (l: MonthRow) => string }[] = [
   { rotulo: 'Aporte mensal', valor: (l) => formatBRL(l.aporteMensal) },
   { rotulo: 'Aporte anual', valor: (l) => (l.aporteAnual > 0 ? formatBRL(l.aporteAnual) : '—') },
@@ -19,22 +24,56 @@ const COLUNAS: { rotulo: string; valor: (l: MonthRow) => string }[] = [
 ]
 
 /**
- * Diário de bordo: uma linha por mês, com tudo que se moveu naquele mês. Tabela a
- * partir de `md`; abaixo disso 15 colunas não cabem em tela de celular nem rolando
- * de lado (texto minúsculo, sem como relacionar rótulo e valor) — vira uma lista de
- * cartões, um por mês, rótulo:valor empilhado.
- *
- * `min-w-0` em volta de `overflow-x-auto` não é enfeite: sem isso, dentro de um
- * grid o item nunca encolhe abaixo do tamanho do próprio conteúdo (aqui, a tabela
- * inteira) — a rolagem interna nunca entra em ação e é a PÁGINA que vaza pra
- * direita, cartões e sliders inclusive, porque todos dividem a mesma trilha do grid.
+ * No mobile continua TABELA — não cartão: cartão quebra a leitura "mesmo tipo de dado,
+ * uma linha por mês" que uma tabela dá de graça (pedido do PO, 2026-11-20, depois de ver
+ * a versão em cartão: "não é útil como a tabela que vejo os mesmos tipos de dados um
+ * abaixo do outro"). O que muda é só o número de colunas: grupos relacionados (os dois
+ * aportes, os três números do FGTS, os cinco status de imóvel, parcela+renda) viram UMA
+ * coluna cada, com os valores empilhados dentro da célula — "menos colunas, mais de uma
+ * informação em algumas, uma abaixo da outra", exatamente como pedido.
  */
+const GRUPOS_MOBILE: { cabecalho: string; linhas: { rotulo: string; valor: (l: MonthRow) => string }[] }[] = [
+  {
+    cabecalho: 'Aportes (R$)',
+    linhas: [
+      { rotulo: 'mensal', valor: (l) => curto(l.aporteMensal) },
+      { rotulo: 'anual', valor: (l) => (l.aporteAnual > 0 ? curto(l.aporteAnual) : '—') },
+    ],
+  },
+  {
+    cabecalho: 'FGTS (R$)',
+    linhas: [
+      { rotulo: 'abate apê', valor: (l) => (l.abatimentoApeFgts > 0 ? curto(l.abatimentoApeFgts) : '—') },
+      { rotulo: 'à vista', valor: (l) => (l.compraAVistaFgts > 0 ? curto(l.compraAVistaFgts) : '—') },
+      { rotulo: 'saldo', valor: (l) => curto(l.saldoFgts) },
+    ],
+  },
+  {
+    cabecalho: 'Imóveis (nº)',
+    linhas: [
+      { rotulo: 'construção', valor: (l) => String(l.imoveisEmConstrucao) },
+      { rotulo: 'alugados', valor: (l) => String(l.imoveisAlugados) },
+      { rotulo: 'quitados', valor: (l) => String(l.imoveisQuitados) },
+      { rotulo: 'financiados', valor: (l) => String(l.imoveisFinanciados) },
+      { rotulo: 'total', valor: (l) => String(l.totalImoveis) },
+    ],
+  },
+  {
+    cabecalho: 'Financeiro (R$)',
+    linhas: [
+      { rotulo: 'parcelas', valor: (l) => curto(l.totalParcelasFinanciamento) },
+      { rotulo: 'renda', valor: (l) => curto(l.rendaMensalLiquida) },
+    ],
+  },
+]
+
 export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
   return (
     <div className="panel hud-frame p-4 md:p-6 min-w-0">
       <div className="hud-label mb-1">Diário de bordo</div>
       <p className="text-[11px] text-muted mb-3">Um mês por linha, do mês 1 ao fim do horizonte.</p>
 
+      {/* Desktop/tablet: uma coluna por tipo de dado. */}
       <div className="hidden md:block overflow-x-auto max-h-[480px] overflow-y-auto min-w-0">
         <table className="w-full border-collapse text-[12px] whitespace-nowrap">
           <thead>
@@ -58,27 +97,38 @@ export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
         </table>
       </div>
 
-      <div className="md:hidden grid gap-3 max-h-[480px] overflow-y-auto pr-1">
-        {linhas.map((l) => (
-          <div key={l.mes} className="panel p-3 grid gap-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-display font-semibold text-heading text-[12px]">
-                Ano {l.anoDoPlano} · {MESES_ABREV[l.mesDoAno - 1]}
-              </span>
-              <span className="font-display font-semibold text-heading text-[13px] tabular-nums">
-                {formatBRL(l.patrimonioLiquido)}
-              </span>
-            </div>
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
-              {COLUNAS.map((c) => (
-                <div key={c.rotulo} className="min-w-0">
-                  <dt className="text-muted text-[10px] uppercase tracking-wide truncate">{c.rotulo}</dt>
-                  <dd className="text-heading tabular-nums">{c.valor(l)}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        ))}
+      {/* Mobile: menos colunas, grupos relacionados empilhados dentro da mesma célula. */}
+      <div className="md:hidden overflow-x-auto max-h-[480px] overflow-y-auto min-w-0">
+        <table className="w-full border-collapse text-[10px] whitespace-nowrap">
+          <thead>
+            <tr className="text-left text-muted sticky top-0 bg-surface">
+              <th className="py-1.5 pr-2 font-normal">Mês</th>
+              {GRUPOS_MOBILE.map((g) => <th key={g.cabecalho} className="py-1.5 pr-2 font-normal">{g.cabecalho}</th>)}
+              <th className="py-1.5 font-normal">Patrim. (R$)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l) => (
+              <tr key={l.mes} className="border-t border-line align-top">
+                <td className="py-1.5 pr-2 text-muted">
+                  <div>{l.anoDoPlano}</div>
+                  <div>{MESES_ABREV[l.mesDoAno - 1]}</div>
+                </td>
+                {GRUPOS_MOBILE.map((g) => (
+                  <td key={g.cabecalho} className="py-1.5 pr-2">
+                    {g.linhas.map((sub) => (
+                      <div key={sub.rotulo}>
+                        <span className="text-muted">{sub.rotulo} </span>
+                        <span className="text-heading">{sub.valor(l)}</span>
+                      </div>
+                    ))}
+                  </td>
+                ))}
+                <td className="py-1.5 font-semibold text-heading">{curto(l.patrimonioLiquido)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

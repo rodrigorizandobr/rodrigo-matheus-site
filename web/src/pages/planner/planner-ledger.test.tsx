@@ -11,10 +11,15 @@ const linha = (over: Partial<MonthRow> = {}): MonthRow => ({
   ...over,
 })
 
-describe('PlannerLedger — diário de bordo mês a mês', () => {
+// As duas tabelas (desktop e mobile) ficam as duas no DOM — CSS decide qual aparece, não
+// os testes. A desktop é sempre a primeira no JSX.
+const tabelaDesktop = () => screen.getAllByRole('table')[0]
+const tabelaMobile = () => screen.getAllByRole('table')[1]
+
+describe('PlannerLedger — tabela de desktop (uma coluna por tipo de dado)', () => {
   it('uma linha de tabela por mês', () => {
     render(<PlannerLedger linhas={[linha({ mes: 1 }), linha({ mes: 2, anoDoPlano: 1, mesDoAno: 2 })]} />)
-    expect(screen.getAllByRole('row')).toHaveLength(3) // cabeçalho + 2 meses
+    expect(within(tabelaDesktop()).getAllByRole('row')).toHaveLength(3) // cabeçalho + 2 meses
   })
 
   it('mostra o aporte anual só quando ele cai naquele mês', () => {
@@ -22,15 +27,15 @@ describe('PlannerLedger — diário de bordo mês a mês', () => {
       linha({ mes: 1, aporteAnual: 0 }),
       linha({ mes: 12, mesDoAno: 12, aporteAnual: 96_000 }),
     ]} />)
-    const linhas = screen.getAllByRole('row')
-    expect(within(linhas[2]).getByText(/R\$\s?96\.000/)).toBeInTheDocument()
+    const linhasTabela = within(tabelaDesktop()).getAllByRole('row')
+    expect(within(linhasTabela[2]).getByText(/R\$\s?96\.000/)).toBeInTheDocument()
   })
 
   it('mostra as amortizações, compras à vista e o saldo do FGTS', () => {
     render(<PlannerLedger linhas={[linha({
       abatimentoApeFgts: 50_000, compraAVistaFgts: 0, saldoFgts: 12_345,
     })]} />)
-    const row = screen.getAllByRole('row')[1]
+    const row = within(tabelaDesktop()).getAllByRole('row')[1]
     expect(within(row).getByText(/R\$\s?50\.000/)).toBeInTheDocument()
     expect(within(row).getByText(/R\$\s?12\.345/)).toBeInTheDocument()
   })
@@ -39,18 +44,43 @@ describe('PlannerLedger — diário de bordo mês a mês', () => {
     render(<PlannerLedger linhas={[linha({
       imoveisEmConstrucao: 2, imoveisAlugados: 3, imoveisQuitados: 1, imoveisFinanciados: 2, totalImoveis: 5,
     })]} />)
-    const row = screen.getAllByRole('row')[1]
+    const row = within(tabelaDesktop()).getAllByRole('row')[1]
     const cols = within(row).getAllByRole('cell')
     expect(cols.map((c) => c.textContent)).toEqual(
       expect.arrayContaining(['2', '3', '1', '2', '5']),
     )
   })
+})
 
-  it('no mobile, cada mês vira um cartão em vez de uma linha de tabela estreita demais', () => {
-    render(<PlannerLedger linhas={[linha({ mes: 7, anoDoPlano: 1, mesDoAno: 7, patrimonioLiquido: 492_151 })]} />)
-    expect(screen.getByText('Ano 1 · jul')).toBeInTheDocument()
-    // a tabela de desktop tem o mesmo mês escondida (md:hidden é CSS, não testável em jsdom) —
-    // os dois existem no DOM; o que garante que não há uma tabela de 15 colunas squeezed é a
-    // classe md:hidden/hidden md:block, não o teste (visual, conferido no navegador).
+describe('PlannerLedger — tabela de mobile (menos colunas, grupos empilhados na célula)', () => {
+  it('continua sendo uma TABELA, não cartão — pedido do PO depois de ver a versão em cartão', () => {
+    render(<PlannerLedger linhas={[linha()]} />)
+    expect(tabelaMobile().tagName).toBe('TABLE')
+  })
+
+  it('tem menos colunas que a de desktop', () => {
+    render(<PlannerLedger linhas={[linha()]} />)
+    const colunasDesktop = within(tabelaDesktop()).getAllByRole('columnheader').length
+    const colunasMobile = within(tabelaMobile()).getAllByRole('columnheader').length
+    expect(colunasMobile).toBeLessThan(colunasDesktop)
+  })
+
+  it('empilha mensal e anual dentro da mesma célula de "Aportes"', () => {
+    render(<PlannerLedger linhas={[linha({ aporteMensal: 2_080, aporteAnual: 96_000 })]} />)
+    const row = within(tabelaMobile()).getAllByRole('row')[1]
+    const celulaAportes = within(row).getAllByRole('cell')[1]
+    expect(within(celulaAportes).getByText('2.080')).toBeInTheDocument()
+    expect(within(celulaAportes).getByText('96.000')).toBeInTheDocument()
+  })
+
+  it('empilha os 5 status de imóvel dentro da mesma célula', () => {
+    render(<PlannerLedger linhas={[linha({
+      imoveisEmConstrucao: 2, imoveisAlugados: 3, imoveisQuitados: 1, imoveisFinanciados: 2, totalImoveis: 5,
+    })]} />)
+    const row = within(tabelaMobile()).getAllByRole('row')[1]
+    const celulaImoveis = within(row).getAllByRole('cell')[3]
+    expect(celulaImoveis.textContent).toContain('2')
+    expect(celulaImoveis.textContent).toContain('3')
+    expect(celulaImoveis.textContent).toContain('5')
   })
 })

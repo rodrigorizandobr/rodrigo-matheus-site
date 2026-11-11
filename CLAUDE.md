@@ -636,20 +636,27 @@ tem o próprio plano, ninguém vê o de outra.
   recebidos − parcelas pagas) se acumula até dar para comprar a próxima unidade sozinho.
   `YearPoint` (o que o gráfico e os cartões usam) é DERIVADO de `simulateMonthly`, nunca
   calculado em paralelo — os dois nunca podem discordar por construção.
-- **O diário de bordo é tabela no desktop, cartão por mês no mobile** (`PlannerLedger.tsx`, um
-  `MonthRow` por mês, do mês 1 ao fim do horizonte): aporte mensal, aporte anual (só no mês em
-  que cai, "—" nos outros), abatimento do apê e compra à vista via FGTS (idem), saldo do FGTS,
-  imóveis em construção/alugados/quitados/financiados, total de imóveis, total das parcelas de
-  financiamento do mês, renda e patrimônio. `COLUNAS` é uma lista `{rotulo, valor(linha)}` usada
-  para gerar TANTO as colunas da tabela (`hidden md:block`) QUANTO os pares rótulo/valor de cada
-  cartão (`md:hidden`) — nunca escrito duas vezes. 15 colunas de texto não cabem num celular nem
-  rolando de lado (pedido do PO, 2026-11-20: "se a tabela não encaixa bem em mobile, dê outra
-  sugestão, card"); abaixo de `md` cada mês vira um cartão com `grid grid-cols-2`, rótulo em cima
-  (uppercase, pequeno) e valor embaixo. Os dois ficam sempre no DOM (CSS decide o que aparece,
-  não JS) — mais simples e sem risco de descompasso de hidratação, ao custo de montar o dobro de
-  nós por mês; para até 360 meses isso não pesa. Cabeçalho `sticky` (só na tabela) dentro de uma
-  área com `max-h` e rolagem própria nos dois formatos — até 360 linhas/cartões não precisam de
-  paginação nem virtualização, só não ficar tudo visível ao mesmo tempo.
+- **O diário de bordo é SEMPRE tabela — desktop e mobile — só o número de colunas muda**
+  (`PlannerLedger.tsx`, um `MonthRow` por mês, do mês 1 ao fim do horizonte). Primeira tentativa
+  no mobile foi virar cartão (um por mês, rótulo em cima do valor); o PO rejeitou assim que viu
+  (2026-11-20): "ficou bonito com card, mas não é útil como a tabela que vejo os mesmos tipos de
+  dados um abaixo do outro" — cartão quebra exatamente a leitura que uma tabela dá de graça,
+  comparar o mesmo dado descendo a coluna. O pedido certo era "menos colunas, em algumas coloque
+  mais de uma informação, uma abaixo da outra": duas tabelas lado a lado no código, não uma só
+  reestilizada. `COLUNAS` (desktop, `hidden md:block`) tem uma entrada por dado, 15 colunas.
+  `GRUPOS_MOBILE` (`md:hidden`) tem uma entrada por GRUPO relacionado — "Aportes" (mensal+anual),
+  "FGTS" (abate apê+à vista+saldo), "Imóveis" (construção+alugados+quitados+financiados+total),
+  "Financeiro" (parcelas+renda) —, e cada célula empilha as linhas do grupo dentro de si (`<div>`
+  por linha, sem quebrar a tabela). 6 colunas em vez de 15, mesmo dado comparável descendo a
+  coluna, sem cartão. Valores do mobile usam `curto()` (só o número, sem "R$" repetido em cada
+  linha — o cabeçalho do grupo já diz "(R$)"); o cabeçalho de cada coluna some o rótulo completo,
+  então rótulos dentro da célula também são abreviados ("mensal", "anual", "abate apê"...). As
+  DUAS tabelas ficam sempre no DOM (CSS decide qual aparece, não JS) — mais simples, sem risco de
+  descompasso de hidratação, ao custo de montar o dobro de linhas; para até 360 meses isso não
+  pesa. Testes usam `getAllByRole('table')[0 ou 1]` pra escopar qual tabela checar — sem isso,
+  `getAllByRole('row')` pega as duas tabelas juntas e os testes antigos quebram sozinhos.
+  Cabeçalho `sticky` dentro de uma área com `max-h` e rolagem própria nas duas — até 360 linhas
+  não precisam de paginação nem virtualização, só não ficar tudo visível ao mesmo tempo.
 - **`min-w-0` em cada filho de um grid que pode conter algo largo — sem isso, a página inteira
   vazava pra direita no mobile**, sliders inclusive (pedido do PO, 2026-11-20: "não está
   responsivo, tudo tem que renderizar em todas as telas"). Causa raiz, confirmada ao vivo num
@@ -916,7 +923,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 520 testes
+cd web && npm test                                  # 523 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
