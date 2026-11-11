@@ -1,0 +1,107 @@
+import { describe, expect, it } from 'vitest'
+import { simulate } from './calc'
+import { DEFAULT_PARAMS, type PlannerParams } from './types'
+
+const base = (over: Partial<PlannerParams> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...over })
+
+describe('simulate — motor puro do simulador de studios', () => {
+  it('devolve um ponto por ano, do ano 0 ao horizonte', () => {
+    const r = simulate(base({ years: 5 }))
+    expect(r.map((p) => p.ano)).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  it('o ano 0 é exatamente o que já foi pago, sem nenhum mês de rendimento', () => {
+    const r = simulate(base({ initial: 123_000 }))
+    expect(r[0].patrimonioLiquido).toBe(123_000)
+  })
+
+  it('sem aporte e sem rendimento, o patrimônio não sai do lugar', () => {
+    const r = simulate(base({
+      initial: 50_000, monthly: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0,
+      jurosFinHolding: 0, pctPagoChaves: 100, abate3anos: 0, dividaApe: 0, extra100k: 0,
+      anoTransicao: 0,
+    }))
+    expect(r.every((p) => p.patrimonioLiquido === 50_000)).toBe(true)
+  })
+
+  it('mais aporte mensal sempre deixa MAIS patrimônio no fim', () => {
+    const baixo = simulate(base({ monthly: 5_000 })).at(-1)!
+    const alto = simulate(base({ monthly: 15_000 })).at(-1)!
+    expect(alto.patrimonioLiquido).toBeGreaterThan(baixo.patrimonioLiquido)
+  })
+
+  it('pagar uma fatia menor nas chaves (mais alavancagem) rende mais patrimônio no fim, quando o retorno do imóvel supera o custo da dívida', () => {
+    // aluguel líquido + valorização líquida aqui ficam acima do custo do financiamento
+    const semAlavancar = simulate(base({ pctPagoChaves: 100 })).at(-1)!
+    const alavancado = simulate(base({ pctPagoChaves: 50 })).at(-1)!
+    expect(alavancado.patrimonioLiquido).toBeGreaterThan(semAlavancar.patrimonioLiquido)
+  })
+
+  it('pctPagoChaves tem piso de 10% — não divide por quase-zero', () => {
+    const r = simulate(base({ pctPagoChaves: 0, years: 1 }))
+    expect(Number.isFinite(r.at(-1)!.patrimonioLiquido)).toBe(true)
+  })
+
+  it('parar de aportar no ano de transição trava o patrimônio em relação a quem segue aportando', () => {
+    const para = simulate(base({ anoTransicao: 5, years: 15 })).at(-1)!
+    const segue = simulate(base({ anoTransicao: 15, years: 15 })).at(-1)!
+    expect(para.patrimonioLiquido).toBeLessThan(segue.patrimonioLiquido)
+  })
+
+  it('depois do ano de transição, a carteira ainda cresce sozinha (reinveste os aluguéis)', () => {
+    const r = simulate(base({ anoTransicao: 3, years: 6, monthly: 10_000, initial: 300_000 }))
+    const noTransicao = r.find((p) => p.ano === 3)!
+    const depois = r.find((p) => p.ano === 6)!
+    expect(depois.patrimonioLiquido).toBeGreaterThan(noTransicao.patrimonioLiquido)
+  })
+
+  it('dissídio em agosto aumenta o aporte — mais dissídio, mais patrimônio no fim', () => {
+    const sem = simulate(base({ dissidio: 0 })).at(-1)!
+    const com = simulate(base({ dissidio: 10 })).at(-1)!
+    expect(com.patrimonioLiquido).toBeGreaterThan(sem.patrimonioLiquido)
+  })
+
+  it('o abatimento do apê soma ao aporte a cada 3 anos, até o teto da dívida', () => {
+    // dívida pequena, abatida inteira no 1º ciclo: o aporte extra para de crescer depois disso
+    const r = simulate(base({
+      years: 9, dividaApe: 110_000, abate3anos: 110_000, extra100k: 1_000,
+      monthly: 0, dissidio: 0, rate: 0, incc: 0, depreciacao: 0, jurosFinHolding: 0,
+      pctPagoChaves: 100, anoTransicao: 9, initial: 0,
+    }))
+    const ano3 = r.find((p) => p.ano === 3)!.patrimonioLiquido
+    const ano6 = r.find((p) => p.ano === 6)!.patrimonioLiquido
+    // 3 anos de R$0 de aporte, depois 3 anos de R$1.100/mês (110k/100k × 1000)
+    expect(ano3).toBe(0)
+    expect(ano6).toBeCloseTo(36 * 1_100, -2)
+  })
+
+  it('o preço do studio novo sobe pelo INCC composto ao ano', () => {
+    const r = simulate(base({ incc: 6, custoStudio: 260_000, years: 5 }))
+    const ano5 = r.find((p) => p.ano === 5)!
+    expect(ano5.precoStudioNovo).toBeCloseTo(260_000 * Math.pow(1.06, 5), -1)
+  })
+
+  it('studiosComChaves usa o % pago nas chaves; studiosQuitadosEquiv usa o preço cheio', () => {
+    const r = simulate(base({ pctPagoChaves: 50, years: 1 }))
+    const ano1 = r.find((p) => p.ano === 1)!
+    expect(ano1.studiosComChaves).toBe(Math.floor(ano1.patrimonioLiquido / (ano1.precoStudioNovo * 0.5)))
+    expect(ano1.studiosQuitadosEquiv).toBe(Math.floor(ano1.patrimonioLiquido / ano1.precoStudioNovo))
+  })
+
+  it('renda mensal líquida é o aluguel líquido sobre os studios equivalentes quitados', () => {
+    const r = simulate(base({ years: 10 }))
+    const ano10 = r.find((p) => p.ano === 10)!
+    const esperado = ano10.studiosQuitadosEquiv * ano10.precoStudioNovo * (base().rate / 100) * (1 - base().impostoHolding / 100)
+    expect(ano10.rendaMensalLiquida).toBeCloseTo(esperado, -1)
+  })
+
+  it('plausível contra a referência do Gemini (cenário base, aportando até o Ano 15): mesma ordem de grandeza', () => {
+    const r = simulate(base({ anoTransicao: 15, years: 15 })).at(-1)!
+    // Gemini relatou R$9,22M / 20 com chaves / 14 quitados / R$63.245 no mesmo cenário.
+    // Não travamos no número exato (o próprio Gemini dava faixas), só a ordem de grandeza.
+    expect(r.patrimonioLiquido).toBeGreaterThan(7_000_000)
+    expect(r.patrimonioLiquido).toBeLessThan(12_000_000)
+    expect(r.studiosComChaves).toBeGreaterThanOrEqual(15)
+    expect(r.studiosQuitadosEquiv).toBeGreaterThanOrEqual(10)
+  })
+})

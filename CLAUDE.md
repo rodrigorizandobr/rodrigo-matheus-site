@@ -12,6 +12,7 @@ Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 |---|---|---|
 | Frontend | `site/index.html` | Single-page, HTML/CSS/JS vanilla inline (~630 linhas). Canvas Matrix rain, cards 3D flip, sparklines SVG. |
 | Blog | `web/src/pages/BlogPage.tsx` + `api/blog/` | **Gerenciado por IA.** Posts em Firestore, escritos pelo Gemini Flash Lite, painel em `/admin`. |
+| Simulador | `web/src/pages/PlannerPage.tsx` + `api/planner/` | "Vivendo de Imóveis", em `/vivendo-de-imoveis`. Qualquer conta Google loga (sem allowlist); cálculo no navegador, 1 plano por uid no Firestore. |
 | Backend | `api/server.py` | Flask. Agrega repos/commits do GitHub, gera sparklines de 28 dias, serve i18n. |
 | Hosting | Firebase Hosting | Serve `site/`; faz rewrite de `/api/**` → Cloud Run. |
 | API runtime | Cloud Run `portfolio-api` (`southamerica-east1`) | Gunicorn + Dockerfile. |
@@ -585,6 +586,76 @@ mesmo caminho (`gemini.FREE_JSON` = JSON livre). **Capa por IA continua no Gemin
 - `conftest.isolate` zera `claude.API_KEY`: quem rodou `source .env` não manda teste de Gemini para o Claude.
 - Rotina do Mac: o instalador copia `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID` e `BLOG_LLM`; rode-o de novo.
 
+## Simulador "Vivendo de Imóveis" (/vivendo-de-imoveis)
+
+Pedido do PO, 2026-11-11: simule "quantos studios terei em 15 anos" a partir de uma conversa
+longa no Gemini (link compartilhado) que foi refinando o modelo turno a turno — aportes,
+amortização do apê a cada 3 anos, valorização (INCC) menos depreciação por idade, dissídio
+em agosto, holding financiando o saldo remanescente nas chaves, ano de transição para renda
+passiva. Diferente do `/admin`: **qualquer conta Google loga, sem allowlist** — cada pessoa
+tem o próprio plano, ninguém vê o de outra.
+
+| Camada | Onde | Papel |
+|---|---|---|
+| Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |
+| Tipos/formatação | `web/src/planner/types.ts`, `format.ts` | `PlannerParams` (15 campos) e `Intl.NumberFormat('pt-BR')`. |
+| Cliente da API | `web/src/planner/api.ts` | `GET`/`PUT /api/planner/plan`, sempre com ID token. |
+| Tela | `web/src/pages/PlannerPage.tsx` + `pages/planner/` | Portão de login, 15 sliders, 3 cartões, gráfico. |
+| Backend | `api/planner/` | `model.py` (valida), `auth.py` (qualquer conta, sem allowlist), `store.py` (1 doc por uid), `routes.py`. |
+
+- **O código do canvas do Gemini não deu para extrair.** É um editor virtualizado (tipo
+  Monaco/CodeMirror): só renderiza as linhas visíveis no DOM/accessibility tree, então nem
+  `get_page_text` nem `read_page` trazem o arquivo inteiro — só o que estava na tela no
+  momento do print. `calc.ts` é reconstrução própria a partir da metodologia que o Gemini
+  descreveu em TEXTO ao longo da conversa (aluguel líquido + valorização líquida, alavancagem
+  pelo financiamento dos 30% finais, dissídio em agosto, abatimento do apê a cada 3 anos).
+  Validado por amostragem: rodando os parâmetros do cenário final do Gemini (aportando até o
+  Ano 15), `calc.ts` devolve R$9,56M/21 studios com chaves contra os R$9,22M/20 que o Gemini
+  relatou — a poucos % de diferença, dentro da faixa que o próprio Gemini já admitia ("podendo
+  variar"). Os testes de `calc.test.ts` não travam no número exato do Gemini, só na ordem de
+  grandeza e nas propriedades econômicas (mais aporte → mais patrimônio, alavancar quando o
+  retorno do imóvel supera o custo da dívida → mais patrimônio, etc.).
+- **O cálculo roda inteiro no navegador, nunca no servidor.** É matemática pura, sem segredo
+  e sem I/O — rodar no Flask a cada arrasto de slider seria uma viagem de rede por tecla. O
+  backend só guarda e devolve os 15 números; ele não sabe simular nada.
+- **Alavancagem do financiamento é a fórmula padrão de retorno alavancado**, não um ajuste
+  arbitrário: `R_equity = R_ativo / LTV_investido − (1/LTV_investido − 1) × custo_da_dívida`.
+  Com `pctPagoChaves = 100` (sem financiar nada) ela vira o retorno sem alavancagem, por
+  construção — testado (`test_blog_*` não, é `calc.test.ts`).
+- **Ordem de atualização importa dentro do passo mensal, e os dois efeitos vão em sentidos
+  opostos de propósito.** O dissídio de agosto reajusta o aporte ANTES de somar a contribuição
+  daquele mês — o salário já sobe aquele mês. O abatimento do apê (a cada 36 meses) só eleva o
+  aporte extra a partir do mês SEGUINTE ao ciclo — primeiro o dinheiro paga a amortização,
+  depois é que sobra. Inverter qualquer um dos dois desloca a conta em 1 mês e quebra os testes
+  que fixam o valor exato (`o abatimento do apê soma ao aporte a cada 3 anos...`).
+- **`model.sanitize` (grava) é estrito; `model.merged` (lê) é tolerante.** `sanitize` barra uma
+  GRAVAÇÃO fora de faixa antes de ela acontecer — levanta `ValueError` no primeiro campo ruim.
+  `merged` nunca levanta: um campo salvo que ficasse fora de uma faixa apertada depois (o limite
+  mudou) não pode travar a LEITURA do plano de alguém; ele só volta pro padrão daquele campo
+  específico, campo a campo, não o documento inteiro.
+- **`clip`-style de autorização não existe aqui — é mais simples que o blog.** Sem allowlist,
+  sem rascunho esperando o dono: o uid do token é a chave do documento (`planner_plans/{uid}`)
+  e isso já é a proteção inteira. `api/planner/auth.py` é quase idêntico a `blog/auth.py`
+  (mesma checagem de `aud`/`iss`/`email_verified`), só sem a comparação contra a allowlist —
+  por isso é um módulo separado, não uma flag no mesmo.
+- **`firestore.rules` continua "nega tudo"** (ver armadilha de `/api/refresh` acima e o
+  comentário do próprio arquivo): o navegador nunca fala com o Firestore, nem aqui — o cálculo
+  é no cliente, mas a PERSISTÊNCIA passa pela API, igual ao blog. Nenhuma regra nova foi
+  necessária.
+- **`web/src/lib/firebase.ts`** (antes `blog/firebase.ts`, movido nesta mudança): Firebase Auth
+  compartilhado entre `/admin` e `/vivendo-de-imoveis` — é só o SDK de login, quem autoriza é
+  cada backend (`blog/auth.py` com allowlist, `planner/auth.py` sem). Mover para fora de `blog/`
+  evita inicializar o app do Firebase duas vezes se as duas rotas um dia coexistirem na mesma
+  aba. `signOutAdmin` virou `signOutUser` no mesmo commit — não é mais só do painel.
+- **Sliders usam `accent-color: var(--red)`** (`tokens.css`, dentro de `@layer components`,
+  igual a todo CSS próprio do site) em vez de componente customizado — `<input type="range">`
+  nativo já é operável por teclado de graça, e customizar o thumb por cima de `appearance: none`
+  custaria muito mais para o mesmo resultado visual (thumb vermelho, trilha neutra).
+- **O gráfico é SVG próprio** (`PlannerChart.tsx`), não biblioteca: uma linha só (patrimônio
+  líquido por ano), cristal de foco ao passar o mouse (crosshair + tooltip), e uma tabela
+  ano-a-ano escondida atrás de `<details>` — é a "visão em tabela" que a skill de dataviz do
+  projeto pede para todo gráfico, de graça com HTML nativo, sem JS extra.
+
 ## Git dentro do Google Drive
 
 O repositório vive numa pasta do Google Drive. Em 2026-10-16 o Drive deixou 23 arquivos do `.git` como
@@ -748,8 +819,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 857 testes
-cd web && npm test                                  # 474 testes
+cd api && source .venv/bin/activate && pytest      # 892 testes
+cd web && npm test                                  # 500 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

@@ -14,9 +14,10 @@ import { currentRoute } from './pages/router'
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { useHashLanding } from './hooks/useHashLanding'
 
-// O painel carrega o SDK do Firebase (~100 kB gzip). Sob demanda de propósito:
-// quem só lê o site nunca baixa isso.
+// O painel e o simulador carregam o SDK do Firebase (~100 kB gzip). Sob demanda de
+// propósito: quem só lê o site nunca baixa isso.
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })))
 
 export default function App() {
   const { t } = useI18n()
@@ -35,6 +36,20 @@ export default function App() {
         <main className="relative z-10" data-stage="false">
           <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando painel…</div>}>
             <AdminPage />
+          </Suspense>
+        </main>
+        <div className="relative z-10"><Footer /></div>
+      </>
+    )
+  }
+
+  if (route.page === 'planner') {
+    return (
+      <>
+        <Header />
+        <main className="relative z-10" data-stage="false">
+          <Suspense fallback={<div className="w-[min(var(--max),94vw)] mx-auto py-16 text-muted text-[13px]">Carregando simulador…</div>}>
+            <PlannerPage />
           </Suspense>
         </main>
         <div className="relative z-10"><Footer /></div>

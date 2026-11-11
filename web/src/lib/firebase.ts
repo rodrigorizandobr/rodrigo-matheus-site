@@ -5,13 +5,14 @@ import {
 } from 'firebase/auth'
 
 /**
- * Firebase só para o painel. Estas chaves são PÚBLICAS por desenho — quem
- * protege o blog é a allowlist de e-mail no backend (api/blog/auth.py), que
- * confere o ID token contra as chaves públicas do Google. Sem isso, qualquer
- * conta Google logaria e não conseguiria fazer nada.
+ * Firebase Auth compartilhado por /admin (painel do blog) e /vivendo-de-imoveis
+ * (simulador). Estas chaves são PÚBLICAS por desenho — quem protege cada rota é o
+ * backend: o painel confere o ID token contra uma allowlist de e-mail
+ * (api/blog/auth.py); o simulador aceita qualquer conta autenticada, mas cada uma
+ * só enxerga o próprio plano, pelo uid (api/planner/auth.py).
  *
- * O módulo é carregado sob demanda (import() dentro da rota /admin): o visitante
- * do site não baixa o SDK do Firebase.
+ * O módulo é carregado sob demanda (import() dentro de cada rota): quem só lê o
+ * site nunca baixa o SDK do Firebase.
  */
 const config = {
   apiKey: 'AIzaSyC90k4Q_ThK6ZX4Up5pmPJjLYkChvh84Dw',
@@ -43,7 +44,7 @@ export async function signInWithGoogle(): Promise<User> {
   return user
 }
 
-export const signOutAdmin = () => signOut(getAuthInstance())
+export const signOutUser = () => signOut(getAuthInstance())
 
 export function watchUser(cb: (user: User | null) => void): () => void {
   return onAuthStateChanged(getAuthInstance(), cb)

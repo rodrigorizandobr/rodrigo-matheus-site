@@ -561,4 +561,8 @@ body::before {
     .post-body h2 { font-size: 23px; }
     .post-body section + section { margin-top: 3rem; }
   }
+
+  /* Sliders do simulador /vivendo-de-imoveis: thumb vermelho, igual a todo "ligado" do
+     site, em vez do azul nativo do navegador. */
+  input[type="range"] { accent-color: var(--red); }
 }

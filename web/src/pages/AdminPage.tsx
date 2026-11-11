@@ -11,7 +11,7 @@ import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { TopicComposer } from './admin/TopicComposer'
 import { ReflectionComposer } from './admin/ReflectionComposer'
-import { idToken, signInWithGoogle, signOutAdmin, watchUser } from '../blog/firebase'
+import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
 import { adminPath, parseAdminPath, readStashedPreview, resolvePreview, stashPreview, type AdminTab as Tab, type AdminView } from './admin/adminRoute'
 type Session = { email: string } | null
@@ -236,7 +236,7 @@ export function AdminPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="font-mono text-[11px] text-muted">{session.email}</span>
-          <button type="button" onClick={() => signOutAdmin()} className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">sair</button>
+          <button type="button" onClick={() => signOutUser()} className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">sair</button>
         </div>
       </div>
 

@@ -31,9 +31,12 @@ app = Flask(__name__, static_folder=None)
 # Blog gerenciado por IA (rotas públicas, painel e agendador) — ver api/blog/.
 from blog.routes import bp as blog_bp  # noqa: E402
 from blog.page import bp as blog_page_bp  # noqa: E402
+# Simulador "Vivendo de Imóveis" (/vivendo-de-imoveis) — ver api/planner/.
+from planner.routes import bp as planner_bp  # noqa: E402
 
 app.register_blueprint(blog_bp)
 app.register_blueprint(blog_page_bp)
+app.register_blueprint(planner_bp)
 
 # Lock to prevent concurrent refresh
 _refresh_lock = threading.Lock()

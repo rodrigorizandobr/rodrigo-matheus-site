@@ -8,9 +8,9 @@ const api = vi.hoisted(() => ({
   shareToLinkedin: vi.fn(), linkedin: { status: vi.fn() },
 }))
 
-vi.mock('../../blog/firebase', () => ({
+vi.mock('../../lib/firebase', () => ({
   idToken: async () => 't',
-  signInWithGoogle: vi.fn(), signOutAdmin: vi.fn(),
+  signInWithGoogle: vi.fn(), signOutUser: vi.fn(),
   watchUser: (cb: (u: { email: string }) => void) => { cb({ email: 'eu@example.com' }); return () => {} },
 }))
 vi.mock('../../blog/api', async (orig) => ({
