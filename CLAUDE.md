@@ -655,6 +655,13 @@ tem o próprio plano, ninguém vê o de outra.
   líquido por ano), cristal de foco ao passar o mouse (crosshair + tooltip), e uma tabela
   ano-a-ano escondida atrás de `<details>` — é a "visão em tabela" que a skill de dataviz do
   projeto pede para todo gráfico, de graça com HTML nativo, sem JS extra.
+- **"Utilitários" é um rótulo que abre submenu, não um link** (`Header.tsx`, pedido do PO,
+  2026-11-11: "já vou te pedir mais um formulário parecido"). `UTILS` é uma lista — o próximo
+  formulário entra como mais um item, não precisa de outro menu. No desktop abre em CSS puro
+  (`group-hover`/`group-focus-within`, sem `useState`): passar o mouse OU chegar por Tab mantém
+  aberto, sem JS para abrir/fechar. No menu mobile (sem hover) os itens de `UTILS` entram
+  direto na folha, sob um rótulo "Utilitários", em vez de replicar o hover que não existe em
+  touch.
 
 ## Git dentro do Google Drive
 
@@ -820,7 +827,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 892 testes
-cd web && npm test                                  # 500 testes
+cd web && npm test                                  # 503 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

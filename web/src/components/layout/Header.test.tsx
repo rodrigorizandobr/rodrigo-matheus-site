@@ -86,3 +86,24 @@ describe('menu mobile — os links precisam funcionar em qualquer página', () =
     expect(within(nav).getByRole('link', { name: /sobre|about/i })).toHaveAttribute('href', '/#about')
   })
 })
+
+describe('Utilitários — submenu de formulários avulsos', () => {
+  it('no desktop, "Utilitários" não navega sozinho; o submenu tem Vivendo de Imóveis', () => {
+    r()
+    const nav = screen.getAllByRole('navigation', { name: 'Sections' })[0]
+    expect(within(nav).getByRole('button', { name: /utilitários/i })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
+  })
+
+  it('no menu mobile, os itens de Utilitários entram direto, sem precisar de hover', async () => {
+    const menu = await abrirMenu()
+    expect(within(menu).getByText(/utilitários/i)).toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
+  })
+
+  it('clicar no item do mobile fecha a folha', async () => {
+    const menu = await abrirMenu()
+    await userEvent.click(within(menu).getByRole('link', { name: /vivendo de imóveis/i }))
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull()
+  })
+})

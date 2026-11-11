@@ -7,6 +7,11 @@ import { isSoundOn, playConfirm, playTick, setSoundOn } from '../../motion/sound
 
 const SECTIONS = ['about', 'experience', 'projects', 'education', 'contact'] as const
 
+/** Formulários avulsos, fora das seções da home. Mais um entra aqui, não vira seção nova. */
+const UTILS = [
+  { label: 'Vivendo de Imóveis', href: '/vivendo-de-imoveis' },
+]
+
 export function Header() {
   const { t, lang, setLang } = useI18n()
   const [open, setOpen] = useState(false)
@@ -54,7 +59,10 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/90">
       <div className="w-[min(var(--max),96vw)] mx-auto h-14 flex items-center justify-between gap-3">
         <a href="/" className="font-mono text-sm text-heading">rodrigo<span className="text-red">_</span>matheus</a>
-        <nav className="hidden md:flex gap-1" aria-label="Sections">{links('hud-label px-3 py-2 hover:text-red transition-colors')}</nav>
+        <nav className="hidden md:flex items-center gap-1" aria-label="Sections">
+          {links('hud-label px-3 py-2 hover:text-red transition-colors')}
+          <UtilsMenu linkCls="hud-label px-3 py-2 hover:text-red transition-colors" />
+        </nav>
         <div className="flex items-center gap-2">
           <button type="button" aria-label={t.nav_menu.sound} aria-pressed={sound}
             onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (on) playConfirm() }}
@@ -83,6 +91,13 @@ export function Header() {
              style={{ top: 'var(--header-h)' }}>
           <nav aria-label="Sections" className="w-[min(var(--max),94vw)] mx-auto pt-4 pb-10 flex flex-col gap-2">
             {links('panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-["▶"] after:text-red after:text-[10px]')}
+            <div className="hud-label px-4 pt-3 pb-1">Utilitários</div>
+            {UTILS.map((u) => (
+              <a key={u.href} href={u.href} onClick={() => setOpen(false)}
+                 className="panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-['▶'] after:text-red after:text-[10px]">
+                {u.label}
+              </a>
+            ))}
             {/* Saída própria da folha: o X do cabeçalho pode sair de vista em telas curtas. */}
             <button type="button" onClick={() => setOpen(false)}
                     className="chip !h-11 mt-2 justify-center font-display font-semibold text-[11px] uppercase tracking-wider">
@@ -93,5 +108,34 @@ export function Header() {
         document.body,
       )}
     </header>
+  )
+}
+
+/**
+ * "Utilitários" é um rótulo, não um link — só abre o submenu. Some ao mouse E ao
+ * teclado (`group-focus-within`, sem JS): tabular até o primeiro item mantém o
+ * menu aberto, igual passar o mouse. Só existe no nav de desktop; no menu mobile
+ * (`open && createPortal`, acima) os itens entram direto, sem hover para abrir.
+ */
+function UtilsMenu({ linkCls }: { linkCls: string }) {
+  return (
+    <div className="relative group/utils">
+      <button type="button" aria-haspopup="true" className={`${linkCls} flex items-center gap-1 cursor-default`}>
+        Utilitários
+        <span aria-hidden="true" className="text-[9px] translate-y-px">▾</span>
+      </button>
+      <div className="absolute left-0 top-full pt-2 opacity-0 invisible -translate-y-1 transition-all duration-150
+                      group-hover/utils:opacity-100 group-hover/utils:visible group-hover/utils:translate-y-0
+                      group-focus-within/utils:opacity-100 group-focus-within/utils:visible group-focus-within/utils:translate-y-0">
+        <div className="panel hud-frame min-w-[200px] py-1.5">
+          {UTILS.map((u) => (
+            <a key={u.href} href={u.href} onPointerEnter={playTick}
+               className="block px-4 py-2.5 hud-label hover:text-red transition-colors whitespace-nowrap">
+              {u.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
