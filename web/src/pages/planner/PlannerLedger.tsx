@@ -30,22 +30,23 @@ const COLUNAS: { rotulo: string; valor: (l: MonthRow) => string }[] = [
  * abaixo do outro"). O que muda é só o número de colunas: grupos relacionados (os dois
  * aportes, os três números do FGTS, os cinco status de imóvel, parcela+renda) viram UMA
  * coluna cada, com os valores empilhados dentro da célula — "menos colunas, mais de uma
- * informação em algumas, uma abaixo da outra", exatamente como pedido.
+ * informação em algumas, uma abaixo da outra", exatamente como pedido. Dois ajustes
+ * depois (2026-11-21): aporte e FGTS viraram UMA coluna só ("faz sentido" — o FGTS é
+ * dinheiro que vira aporte), e cada célula só mostra as linhas que aconteceram naquele
+ * mês — "anual: —" não ocupa espaço num mês sem aporte anual, só aparece quando há valor.
  */
 const GRUPOS_MOBILE: { cabecalho: string; linhas: { rotulo: string; valor: (l: MonthRow) => string }[] }[] = [
   {
-    cabecalho: 'Aportes (R$)',
+    // Aporte e FGTS na mesma coluna de propósito: os dois são "dinheiro entrando" — o FGTS é
+    // literalmente o que vira aporte mensal extra (ver armadilha do apê). Junta as duas
+    // colunas da 1ª versão em uma, economizando a coluna que mais ficava vazia.
+    cabecalho: 'Aportes/FGTS (R$)',
     linhas: [
       { rotulo: 'mensal', valor: (l) => curto(l.aporteMensal) },
       { rotulo: 'anual', valor: (l) => (l.aporteAnual > 0 ? curto(l.aporteAnual) : '—') },
-    ],
-  },
-  {
-    cabecalho: 'FGTS (R$)',
-    linhas: [
       { rotulo: 'abate apê', valor: (l) => (l.abatimentoApeFgts > 0 ? curto(l.abatimentoApeFgts) : '—') },
       { rotulo: 'à vista', valor: (l) => (l.compraAVistaFgts > 0 ? curto(l.compraAVistaFgts) : '—') },
-      { rotulo: 'saldo', valor: (l) => curto(l.saldoFgts) },
+      { rotulo: 'saldo FGTS', valor: (l) => curto(l.saldoFgts) },
     ],
   },
   {
@@ -116,7 +117,9 @@ export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
                 </td>
                 {GRUPOS_MOBILE.map((g) => (
                   <td key={g.cabecalho} className="py-1.5 pr-2">
-                    {g.linhas.map((sub) => (
+                    {/* "—" é "não aconteceu neste mês" (aporte anual, saque de FGTS…) — não
+                        ocupa linha à toa; só os meses em que algo de fato aconteceu mostram. */}
+                    {g.linhas.filter((sub) => sub.valor(l) !== '—').map((sub) => (
                       <div key={sub.rotulo}>
                         <span className="text-muted">{sub.rotulo} </span>
                         <span className="text-heading">{sub.valor(l)}</span>

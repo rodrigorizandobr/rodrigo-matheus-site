@@ -65,12 +65,30 @@ describe('PlannerLedger — tabela de mobile (menos colunas, grupos empilhados n
     expect(colunasMobile).toBeLessThan(colunasDesktop)
   })
 
-  it('empilha mensal e anual dentro da mesma célula de "Aportes"', () => {
-    render(<PlannerLedger linhas={[linha({ aporteMensal: 2_080, aporteAnual: 96_000 })]} />)
+  it('aporte e FGTS dividem a MESMA célula — uma coluna a menos', () => {
+    render(<PlannerLedger linhas={[linha({
+      aporteMensal: 2_080, aporteAnual: 96_000, abatimentoApeFgts: 50_000, saldoFgts: 12_345,
+    })]} />)
     const row = within(tabelaMobile()).getAllByRole('row')[1]
-    const celulaAportes = within(row).getAllByRole('cell')[1]
-    expect(within(celulaAportes).getByText('2.080')).toBeInTheDocument()
-    expect(within(celulaAportes).getByText('96.000')).toBeInTheDocument()
+    const celulaAportesFgts = within(row).getAllByRole('cell')[1]
+    expect(within(celulaAportesFgts).getByText('2.080')).toBeInTheDocument()
+    expect(within(celulaAportesFgts).getByText('96.000')).toBeInTheDocument()
+    expect(within(celulaAportesFgts).getByText('50.000')).toBeInTheDocument()
+    expect(within(celulaAportesFgts).getByText('12.345')).toBeInTheDocument()
+  })
+
+  it('só mostra o que aconteceu naquele mês — sem aporte anual nem saque de FGTS, não aparece linha nenhuma pra eles', () => {
+    render(<PlannerLedger linhas={[linha({
+      aporteMensal: 2_080, aporteAnual: 0, abatimentoApeFgts: 0, compraAVistaFgts: 0, saldoFgts: 3_000,
+    })]} />)
+    const row = within(tabelaMobile()).getAllByRole('row')[1]
+    const celulaAportesFgts = within(row).getAllByRole('cell')[1]
+    expect(celulaAportesFgts.textContent).not.toContain('anual')
+    expect(celulaAportesFgts.textContent).not.toContain('abate apê')
+    expect(celulaAportesFgts.textContent).not.toContain('à vista')
+    // o que SEMPRE existe (mensal e saldo do FGTS) continua aparecendo
+    expect(celulaAportesFgts.textContent).toContain('mensal')
+    expect(celulaAportesFgts.textContent).toContain('saldo FGTS')
   })
 
   it('empilha os 5 status de imóvel dentro da mesma célula', () => {
@@ -78,7 +96,7 @@ describe('PlannerLedger — tabela de mobile (menos colunas, grupos empilhados n
       imoveisEmConstrucao: 2, imoveisAlugados: 3, imoveisQuitados: 1, imoveisFinanciados: 2, totalImoveis: 5,
     })]} />)
     const row = within(tabelaMobile()).getAllByRole('row')[1]
-    const celulaImoveis = within(row).getAllByRole('cell')[3]
+    const celulaImoveis = within(row).getAllByRole('cell')[2]
     expect(celulaImoveis.textContent).toContain('2')
     expect(celulaImoveis.textContent).toContain('3')
     expect(celulaImoveis.textContent).toContain('5')

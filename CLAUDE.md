@@ -644,19 +644,26 @@ tem o próprio plano, ninguém vê o de outra.
   comparar o mesmo dado descendo a coluna. O pedido certo era "menos colunas, em algumas coloque
   mais de uma informação, uma abaixo da outra": duas tabelas lado a lado no código, não uma só
   reestilizada. `COLUNAS` (desktop, `hidden md:block`) tem uma entrada por dado, 15 colunas.
-  `GRUPOS_MOBILE` (`md:hidden`) tem uma entrada por GRUPO relacionado — "Aportes" (mensal+anual),
-  "FGTS" (abate apê+à vista+saldo), "Imóveis" (construção+alugados+quitados+financiados+total),
-  "Financeiro" (parcelas+renda) —, e cada célula empilha as linhas do grupo dentro de si (`<div>`
-  por linha, sem quebrar a tabela). 6 colunas em vez de 15, mesmo dado comparável descendo a
-  coluna, sem cartão. Valores do mobile usam `curto()` (só o número, sem "R$" repetido em cada
-  linha — o cabeçalho do grupo já diz "(R$)"); o cabeçalho de cada coluna some o rótulo completo,
-  então rótulos dentro da célula também são abreviados ("mensal", "anual", "abate apê"...). As
-  DUAS tabelas ficam sempre no DOM (CSS decide qual aparece, não JS) — mais simples, sem risco de
-  descompasso de hidratação, ao custo de montar o dobro de linhas; para até 360 meses isso não
-  pesa. Testes usam `getAllByRole('table')[0 ou 1]` pra escopar qual tabela checar — sem isso,
-  `getAllByRole('row')` pega as duas tabelas juntas e os testes antigos quebram sozinhos.
-  Cabeçalho `sticky` dentro de uma área com `max-h` e rolagem própria nas duas — até 360 linhas
-  não precisam de paginação nem virtualização, só não ficar tudo visível ao mesmo tempo.
+  `GRUPOS_MOBILE` (`md:hidden`) tem uma entrada por GRUPO relacionado — "Aportes/FGTS" (mensal,
+  anual, abate apê, à vista, saldo FGTS — fundidos numa coluna só, pedido do PO, 2026-11-21:
+  "faz sentido", porque o FGTS literalmente VIRA aporte mensal, ver armadilha do apê acima),
+  "Imóveis" (construção+alugados+quitados+financiados+total), "Financeiro" (parcelas+renda) —, e
+  cada célula empilha as linhas do grupo dentro de si (`<div>` por linha, sem quebrar a tabela).
+  5 colunas em vez de 15, mesmo dado comparável descendo a coluna, sem cartão. **Cada célula só
+  mostra as linhas que de fato aconteceram naquele mês** (mesmo pedido: "só mostre os campos que
+  tem valor, não precisa mostrar anual: —") — o filtro é `sub.valor(l) !== '—'`, então "anual" e
+  "abate apê"/"à vista" (que já usavam "—" como placeholder de "não rolou esse mês") somem
+  sozinhos nos meses em que não têm nada pra mostrar; "mensal" e "saldo FGTS" nunca produzem "—",
+  então aparecem sempre. Valores do mobile usam `curto()` (só o número, sem "R$" repetido em
+  cada linha — o cabeçalho do grupo já diz "(R$)"); o cabeçalho de cada coluna some o rótulo
+  completo, então rótulos dentro da célula também são abreviados ("mensal", "anual", "abate
+  apê"...). As DUAS tabelas ficam sempre no DOM (CSS decide qual aparece, não JS) — mais simples,
+  sem risco de descompasso de hidratação, ao custo de montar o dobro de linhas; para até 360
+  meses isso não pesa. Testes usam `getAllByRole('table')[0 ou 1]` pra escopar qual tabela
+  checar — sem isso, `getAllByRole('row')` pega as duas tabelas juntas e os testes antigos
+  quebram sozinhos. Cabeçalho `sticky` dentro de uma área com `max-h` e rolagem própria nas
+  duas — até 360 linhas não precisam de paginação nem virtualização, só não ficar tudo visível
+  ao mesmo tempo.
 - **`min-w-0` em cada filho de um grid que pode conter algo largo — sem isso, a página inteira
   vazava pra direita no mobile**, sliders inclusive (pedido do PO, 2026-11-20: "não está
   responsivo, tudo tem que renderizar em todas as telas"). Causa raiz, confirmada ao vivo num
@@ -923,7 +930,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 523 testes
+cd web && npm test                                  # 524 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
