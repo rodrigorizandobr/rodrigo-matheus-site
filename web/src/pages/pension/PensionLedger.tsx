@@ -9,12 +9,11 @@ const numero = new Intl.NumberFormat('pt-BR')
 const curto = (v: number) => numero.format(v)
 
 const COLUNAS: { rotulo: string; valor: (l: PensionMonthRow) => string }[] = [
-  { rotulo: 'Aporte mensal', valor: (l) => formatBRL(l.aporteMensal) },
-  { rotulo: 'Aporte anual', valor: (l) => (l.aporteAnual > 0 ? formatBRL(l.aporteAnual) : '—') },
+  { rotulo: 'Idade', valor: (l) => String(l.idade) },
+  { rotulo: 'Aporte básico', valor: (l) => formatBRL(l.aporteBasico) },
+  { rotulo: 'Aporte extra', valor: (l) => (l.aporteExtra > 0 ? formatBRL(l.aporteExtra) : '—') },
+  { rotulo: 'Contrapartida empresa', valor: (l) => formatBRL(l.aporteEmpresa) },
   { rotulo: 'Restituição PGBL', valor: (l) => (l.restituicaoPgbl > 0 ? formatBRL(l.restituicaoPgbl) : '—') },
-  { rotulo: 'Abatimento apê (FGTS)', valor: (l) => (l.abatimentoApeFgts > 0 ? formatBRL(l.abatimentoApeFgts) : '—') },
-  { rotulo: 'Aporte extra (FGTS)', valor: (l) => (l.aporteFgtsExtra > 0 ? formatBRL(l.aporteFgtsExtra) : '—') },
-  { rotulo: 'Saldo do FGTS', valor: (l) => formatBRL(l.saldoFgts) },
   { rotulo: 'Saldo bruto', valor: (l) => formatBRL(l.saldoBruto) },
   { rotulo: 'Rendimento do mês', valor: (l) => formatBRL(l.rendimentoDoMes) },
 ]
@@ -27,14 +26,12 @@ const COLUNAS: { rotulo: string; valor: (l: PensionMonthRow) => string }[] = [
  */
 const GRUPOS_MOBILE: { cabecalho: string; linhas: { rotulo: string; valor: (l: PensionMonthRow) => string }[] }[] = [
   {
-    cabecalho: 'Aportes/FGTS (R$)',
+    cabecalho: 'Aportes (R$)',
     linhas: [
-      { rotulo: 'mensal', valor: (l) => curto(l.aporteMensal) },
-      { rotulo: 'anual', valor: (l) => (l.aporteAnual > 0 ? curto(l.aporteAnual) : '—') },
+      { rotulo: 'básico', valor: (l) => curto(l.aporteBasico) },
+      { rotulo: 'extra', valor: (l) => (l.aporteExtra > 0 ? curto(l.aporteExtra) : '—') },
+      { rotulo: 'empresa', valor: (l) => curto(l.aporteEmpresa) },
       { rotulo: 'restituição PGBL', valor: (l) => (l.restituicaoPgbl > 0 ? curto(l.restituicaoPgbl) : '—') },
-      { rotulo: 'abate apê', valor: (l) => (l.abatimentoApeFgts > 0 ? curto(l.abatimentoApeFgts) : '—') },
-      { rotulo: 'extra FGTS', valor: (l) => (l.aporteFgtsExtra > 0 ? curto(l.aporteFgtsExtra) : '—') },
-      { rotulo: 'saldo FGTS', valor: (l) => curto(l.saldoFgts) },
     ],
   },
   {
@@ -92,6 +89,7 @@ export function PensionLedger({ linhas }: { linhas: PensionMonthRow[] }) {
                 <td className="py-1.5 pr-2 text-muted">
                   <div>{l.anoDoPlano}</div>
                   <div>{MESES_ABREV[l.mesDoAno - 1]}</div>
+                  <div>{l.idade}a</div>
                 </td>
                 {GRUPOS_MOBILE.map((g) => (
                   <td key={g.cabecalho} className="py-1.5 pr-2">

@@ -41,7 +41,7 @@ class TestLerPlano:
         assert resposta.get_json()["params"] == model.DEFAULT_PARAMS
 
     def test_so_ve_o_proprio_plano(self, client, db, monkeypatch):
-        store.save_plan("uid-outro", {"monthlyAmount": 1})
+        store.save_plan("uid-outro", {"aporteBasicoPct": 1})
         monkeypatch.setattr(routes, "verify_user", lambda h: {"uid": "uid-1", "email": "a@a.com"})
         resposta = client.get("/api/pension/plan", headers=AUTH)
         assert resposta.get_json()["params"] == model.DEFAULT_PARAMS
@@ -49,12 +49,24 @@ class TestLerPlano:
 
 class TestSalvarPlano:
     def test_salva_e_devolve_o_plano_atualizado(self, client, db, logado):
-        resposta = client.put("/api/pension/plan", headers=AUTH, json={"monthlyAmount": 20_000, "vehicle": "VGBL"})
+        resposta = client.put("/api/pension/plan", headers=AUTH, json={"aporteBasicoPct": 20, "vehicle": "VGBL"})
         assert resposta.status_code == 200
         body = resposta.get_json()
-        assert body["params"]["monthlyAmount"] == 20_000
+        assert body["params"]["aporteBasicoPct"] == 20
         assert body["params"]["vehicle"] == "VGBL"
         assert body["updatedAt"]
+
+    def test_salva_as_faixas_de_contrapartida_da_empresa(self, client, db, logado):
+        faixas = [{"idadeMin": 0, "idadeMax": 40, "percentual": 100}]
+        resposta = client.put("/api/pension/plan", headers=AUTH, json={"faixasEmpresa": faixas})
+        assert resposta.status_code == 200
+        assert resposta.get_json()["params"]["faixasEmpresa"] == faixas
+
+    def test_faixa_invalida_devolve_400_e_nao_salva(self, client, db, logado):
+        resposta = client.put("/api/pension/plan", headers=AUTH,
+                               json={"faixasEmpresa": [{"idadeMin": 50, "idadeMax": 40, "percentual": 100}]})
+        assert resposta.status_code == 400
+        assert store.get_plan("uid-1")["params"]["faixasEmpresa"] == model.DEFAULT_PARAMS["faixasEmpresa"]
 
     def test_campo_fora_da_faixa_devolve_400_e_nao_salva(self, client, db, logado):
         resposta = client.put("/api/pension/plan", headers=AUTH, json={"years": 999})

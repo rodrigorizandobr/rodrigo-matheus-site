@@ -4,8 +4,8 @@ import { PensionLedger } from './PensionLedger'
 import type { PensionMonthRow } from '../../pension/types'
 
 const linha = (over: Partial<PensionMonthRow> = {}): PensionMonthRow => ({
-  mes: 1, anoDoPlano: 1, mesDoAno: 1, aporteMensal: 2_000, aporteAnual: 0,
-  restituicaoPgbl: 0, abatimentoApeFgts: 0, aporteFgtsExtra: 0, saldoFgts: 0,
+  mes: 1, anoDoPlano: 1, mesDoAno: 1, idade: 35, aporteBasico: 500, aporteExtra: 0,
+  aporteEmpresa: 500, restituicaoPgbl: 0,
   saldoBruto: 75_000, saldoLiquidoEstimado: 60_000, rendimentoDoMes: 500, aliquotaMedia: 20,
   ...over,
 })
@@ -29,11 +29,20 @@ describe('PensionLedger — tabela de desktop', () => {
     expect(within(row).getByText(/R\$\s?3\.960/)).toBeInTheDocument()
   })
 
-  it('mostra o abatimento do apê e o aporte extra do FGTS', () => {
-    render(<PensionLedger linhas={[linha({ abatimentoApeFgts: 30_000, aporteFgtsExtra: 10_000 })]} />)
+  it('mostra o aporte básico, extra e a contrapartida da empresa', () => {
+    render(<PensionLedger linhas={[linha({
+      aporteBasico: 510, aporteExtra: 200, aporteEmpresa: 1_020, rendimentoDoMes: 777,
+    })]} />)
     const row = within(tabelaDesktop()).getAllByRole('row')[1]
-    expect(within(row).getByText(/R\$\s?30\.000/)).toBeInTheDocument()
-    expect(within(row).getByText(/R\$\s?10\.000/)).toBeInTheDocument()
+    expect(within(row).getByText(/R\$\s?510/)).toBeInTheDocument()
+    expect(within(row).getByText(/R\$\s?200/)).toBeInTheDocument()
+    expect(within(row).getByText(/R\$\s?1\.020/)).toBeInTheDocument()
+  })
+
+  it('mostra a idade da pessoa naquele mês', () => {
+    render(<PensionLedger linhas={[linha({ idade: 41 })]} />)
+    const row = within(tabelaDesktop()).getAllByRole('row')[1]
+    expect(within(row).getByText('41')).toBeInTheDocument()
   })
 })
 
@@ -52,13 +61,20 @@ describe('PensionLedger — tabela de mobile', () => {
 
   it('só mostra o que aconteceu naquele mês', () => {
     render(<PensionLedger linhas={[linha({
-      aporteMensal: 2_080, aporteAnual: 0, restituicaoPgbl: 0, abatimentoApeFgts: 0, aporteFgtsExtra: 0, saldoFgts: 3_000,
+      aporteBasico: 500, aporteExtra: 0, aporteEmpresa: 500, restituicaoPgbl: 0,
     })]} />)
     const row = within(tabelaMobile()).getAllByRole('row')[1]
     const celula = within(row).getAllByRole('cell')[1]
-    expect(celula.textContent).not.toContain('anual')
+    expect(celula.textContent).not.toContain('extra')
     expect(celula.textContent).not.toContain('restituição')
-    expect(celula.textContent).toContain('mensal')
-    expect(celula.textContent).toContain('saldo FGTS')
+    expect(celula.textContent).toContain('básico')
+    expect(celula.textContent).toContain('empresa')
+  })
+
+  it('mostra a idade junto do ano/mês', () => {
+    render(<PensionLedger linhas={[linha({ idade: 41 })]} />)
+    const row = within(tabelaMobile()).getAllByRole('row')[1]
+    const primeiraCelula = within(row).getAllByRole('cell')[0]
+    expect(primeiraCelula.textContent).toContain('41')
   })
 })

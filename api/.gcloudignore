@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env
+public/
+github_cache.json
+cv.md
+profile.yml
+cv-pt-br.pdf
+
+# Testes — nao vao para a imagem do Cloud Run
+tests/
+conftest.py
+pytest.ini
+requirements-dev.txt
+.pytest_cache/

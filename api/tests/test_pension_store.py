@@ -19,10 +19,10 @@ class TestGetPlan:
         assert plano["updatedAt"] is None
 
     def test_cada_uid_tem_o_proprio_documento(self, env):
-        store.save_plan("uid-1", {"monthlyAmount": 20_000})
-        store.save_plan("uid-2", {"monthlyAmount": 5_000})
-        assert store.get_plan("uid-1")["params"]["monthlyAmount"] == 20_000
-        assert store.get_plan("uid-2")["params"]["monthlyAmount"] == 5_000
+        store.save_plan("uid-1", {"aporteBasicoPct": 20})
+        store.save_plan("uid-2", {"aporteBasicoPct": 5})
+        assert store.get_plan("uid-1")["params"]["aporteBasicoPct"] == 20
+        assert store.get_plan("uid-2")["params"]["aporteBasicoPct"] == 5
 
 
 class TestSavePlan:
@@ -32,11 +32,17 @@ class TestSavePlan:
         assert plano["updatedAt"] is not None
 
     def test_patch_parcial_mantem_o_resto_do_que_ja_estava_salvo(self, env):
-        store.save_plan("uid-1", {"monthlyAmount": 20_000, "vehicle": "VGBL"})
+        store.save_plan("uid-1", {"aporteBasicoPct": 20, "vehicle": "VGBL"})
         plano = store.save_plan("uid-1", {"years": 8})
-        assert plano["params"]["monthlyAmount"] == 20_000
+        assert plano["params"]["aporteBasicoPct"] == 20
         assert plano["params"]["vehicle"] == "VGBL"
         assert plano["params"]["years"] == 8
+
+    def test_salva_as_faixas_de_contrapartida_da_empresa(self, env):
+        faixas = [{"idadeMin": 0, "idadeMax": 40, "percentual": 100}]
+        plano = store.save_plan("uid-1", {"faixasEmpresa": faixas})
+        assert plano["params"]["faixasEmpresa"] == faixas
+        assert store.get_plan("uid-1")["params"]["faixasEmpresa"] == faixas
 
     def test_campo_fora_da_faixa_nao_salva_nada(self, env):
         with pytest.raises(ValueError):

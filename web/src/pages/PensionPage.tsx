@@ -6,6 +6,7 @@ import { DEFAULT_PARAMS, type PensionParams } from '../pension/types'
 import { formatBRL, formatBRLCompact, formatPct } from '../planner/format'
 import { ParamField } from './planner/ParamField'
 import { ChoiceField } from './pension/ChoiceField'
+import { CompanyBandsField } from './pension/CompanyBandsField'
 import { PensionChart } from './pension/PensionChart'
 import { PensionLedger } from './pension/PensionLedger'
 
@@ -15,11 +16,11 @@ type SaveState = 'salvo' | 'salvando' | 'erro' | null
 const SAVE_DEBOUNCE_MS = 900
 
 /**
- * /previdencia-privada — simulador de PGBL/VGBL, irmão do "Vivendo de Imóveis":
- * mesmo salário CLT + FGTS automático amortizando o apê, aberto a qualquer
- * conta Google (sem allowlist). Cada pessoa tem o próprio plano, guardado pelo
- * uid (api/pension/). O cálculo roda inteiro no navegador (pension/calc.ts); o
- * backend só guarda e devolve os parâmetros.
+ * /previdencia-privada — simulador de PGBL/VGBL de um plano corporativo (salário,
+ * idade, contrapartida da empresa por faixa etária), aberto a qualquer conta Google
+ * (sem allowlist). Cada pessoa tem o próprio plano, guardado pelo uid (api/pension/).
+ * O cálculo roda inteiro no navegador (pension/calc.ts); o backend só guarda e devolve
+ * os parâmetros.
  */
 export function PensionPage() {
   const [session, setSession] = useState<Session | undefined>(undefined)
@@ -126,16 +127,31 @@ export function PensionPage() {
                           hint="Usada para estimar a restituição do PGBL e o imposto no regime progressivo." />
             </Group>
 
+            <Group title="Você">
+              <ParamField label="Idade atual" kind="anos" min={18} max={75} step={1}
+                          value={params.idadeAtual} onChange={set('idadeAtual')}
+                          hint="Decide em qual faixa de contrapartida da empresa você está a cada mês." />
+              <ParamField label="Salário bruto" kind="brl" min={0} max={200_000} step={500}
+                          value={params.salarioBruto} onChange={set('salarioBruto')} />
+              <ParamField label="Dissídio anual (salário)" kind="pct" min={0} max={15} step={0.5}
+                          value={params.dissidio} onChange={set('dissidio')} />
+              <ParamField label="Mês do dissídio" kind="mes" min={1} max={12} step={1}
+                          value={params.mesDissidio} onChange={set('mesDissidio')} />
+            </Group>
+
             <Group title="Seus aportes">
-              <ParamField label="Aporte mensal" kind="brl" min={0} max={30_000} step={100}
-                          value={params.monthlyAmount} onChange={set('monthlyAmount')} />
-              <ParamField label="Aporte anual" kind="brl" min={0} max={500_000} step={1_000}
-                          value={params.annualAmount} onChange={set('annualAmount')}
-                          hint="Cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
-              <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
-                          value={params.annualMonth} onChange={set('annualMonth')} />
+              <ParamField label="Aporte básico" kind="pct" min={0} max={20} step={0.5}
+                          value={params.aporteBasicoPct} onChange={set('aporteBasicoPct')}
+                          hint="% do salário — recebe a contrapartida da empresa, pela faixa de idade abaixo." />
+              <ParamField label="Aporte extra" kind="pct" min={0} max={20} step={0.5}
+                          value={params.aporteExtraPct} onChange={set('aporteExtraPct')}
+                          hint="% do salário, só do seu bolso — a empresa não contribui em cima dele." />
               <ParamField label="Já acumulado hoje" kind="brl" min={0} max={5_000_000} step={5_000}
                           value={params.initial} onChange={set('initial')} />
+            </Group>
+
+            <Group title="Contrapartida da empresa">
+              <CompanyBandsField value={params.faixasEmpresa} onChange={set('faixasEmpresa')} />
             </Group>
 
             <Group title="O fundo">
@@ -143,23 +159,6 @@ export function PensionPage() {
                           value={params.rendimentoAnual} onChange={set('rendimentoAnual')} />
               <ParamField label="Taxa de administração" kind="pct" min={0} max={5} step={0.1}
                           value={params.taxaAdministracaoAnual} onChange={set('taxaAdministracaoAnual')} />
-            </Group>
-
-            <Group title="Mercado">
-              <ParamField label="Dissídio anual (salário)" kind="pct" min={0} max={15} step={0.5}
-                          value={params.dissidio} onChange={set('dissidio')} />
-              <ParamField label="Mês do dissídio" kind="mes" min={1} max={12} step={1}
-                          value={params.mesDissidio} onChange={set('mesDissidio')} />
-            </Group>
-
-            <Group title="Seu apartamento">
-              <ParamField label="Saldo devedor do apartamento em que você mora hoje" kind="brl" min={0} max={2_000_000} step={10_000}
-                          value={params.dividaApe} onChange={set('dividaApe')} />
-              <ParamField label="Parcela atual do financiamento do apê" kind="brl" min={0} max={30_000} step={100}
-                          value={params.parcelaApeAtual} onChange={set('parcelaApeAtual')} />
-              <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
-                          value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
-                          hint="Calcula o FGTS (abate o apê a cada 2 anos, a queda da parcela vira aporte extra) e o teto de 12% de dedução do PGBL." />
             </Group>
 
             <Group title="Horizonte">

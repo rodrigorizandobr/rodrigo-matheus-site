@@ -13,7 +13,7 @@ Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 | Frontend | `site/index.html` | Single-page, HTML/CSS/JS vanilla inline (~630 linhas). Canvas Matrix rain, cards 3D flip, sparklines SVG. |
 | Blog | `web/src/pages/BlogPage.tsx` + `api/blog/` | **Gerenciado por IA.** Posts em Firestore, escritos pelo Gemini Flash Lite, painel em `/admin`. |
 | Simulador | `web/src/pages/PlannerPage.tsx` + `api/planner/` | "Vivendo de Imóveis", em `/vivendo-de-imoveis`. Qualquer conta Google loga (sem allowlist); cálculo no navegador, 1 plano por uid no Firestore. |
-| Simulador | `web/src/pages/PensionPage.tsx` + `api/pension/` | "Previdência Privada" (PGBL/VGBL), em `/previdencia-privada`. Irmão do de imóveis — mesmo salário CLT + FGTS, destino é um fundo com IR de verdade. |
+| Simulador | `web/src/pages/PensionPage.tsx` + `api/pension/` | "Previdência Privada" (PGBL/VGBL), em `/previdencia-privada`. Plano corporativo: aporte em % do salário + contrapartida da empresa por faixa de idade, editável. |
 | Backend | `api/server.py` | Flask. Agrega repos/commits do GitHub, gera sparklines de 28 dias, serve i18n. |
 | Hosting | Firebase Hosting | Serve `site/`; faz rewrite de `/api/**` → Cloud Run. |
 | API runtime | Cloud Run `portfolio-api` (`southamerica-east1`) | Gunicorn + Dockerfile. |
@@ -772,29 +772,58 @@ tem o próprio plano, ninguém vê o de outra.
 Pedido do PO, 2026-11-11, logo depois do de imóveis: "crie esta outra página, agora de
 previdência privada", a partir de um canvas do Gemini **sem conversa em volta** — só o app
 interativo, num iframe sandboxed cross-origin que nenhuma ferramenta de automação deste
-projeto conseguiu ler (nem `get_page_text`, nem `read_page`, nem JS direto — `iframe.src`
-vinha redigido como `[BLOCKED: ...]`; um `<select>` nativo dentro dele nunca abriu uma lista
-visível em screenshot, em nenhuma tentativa de clique/teclado). Perguntado diretamente, o PO
-respondeu "1 e 2": construir o produto de PGBL/VGBL **de verdade** (regras fiscais reais),
-reaproveitando a MESMA estrutura de salário CLT + FGTS automático do simulador de imóveis — o
-destino do aporte deixa de ser "comprar studio" e vira "entrar num fundo de previdência".
+projeto conseguiu ler. Perguntado diretamente, o PO respondeu "1 e 2": construir o produto de
+PGBL/VGBL **de verdade** (regras fiscais reais), reaproveitando a estrutura geral do simulador
+de imóveis (salário, dissídio, horizonte, diário de bordo mês a mês).
+
+**Revisão no mesmo dia (2026-11-11), depois de ver a v1**: o PO tirou tudo que era do simulador
+de imóveis e não tinha nada a ver com previdência — apê, parcela, FGTS, aporte anual — e pediu
+o que falta de um plano corporativo de verdade: aporte em % do salário (não R$), um aporte
+"extra" sem contrapartida, e faixas de contrapartida da empresa por idade, editáveis
+("no caso do Digio, até 40 anos eles pagam 100%, de 41 a 50 pagam 150%, a partir de 51 pagam
+200%"). O motor ficou mais simples (sem FGTS/apê) e ganhou uma dimensão nova (idade).
 
 | Camada | Onde | Papel |
 |---|---|---|
-| Motor | `web/src/pension/calc.ts` | Puro, testado (`calc.test.ts`, 17 testes). FGTS/apê é cópia do motor de imóveis; o novo é o fundo com IR de verdade. |
-| Tipos/API | `web/src/pension/types.ts`, `api.ts` | `PensionParams` (15 campos, incl. `vehicle`/`regime` categóricos); `GET`/`PUT /api/pension/plan`. |
-| Tela | `web/src/pages/PensionPage.tsx` + `pages/pension/` | Mesmo portão de login do planner; `ChoiceField` (PGBL/VGBL, regressiva/progressiva), gráfico bruto×líquido, diário de bordo. |
-| Backend | `api/pension/` | `model.py`, `auth.py`, `store.py`, `routes.py` — cópias quase literais do `planner/` equivalente, coleção `pension_plans`. |
+| Motor | `web/src/pension/calc.ts` | Puro, testado (`calc.test.ts`, 18 testes). Sem FGTS/apê — isso é do simulador de imóveis. |
+| Tipos/API | `web/src/pension/types.ts`, `api.ts` | `PensionParams` (13 campos + `faixasEmpresa[]`); `GET`/`PUT /api/pension/plan`. |
+| Tela | `web/src/pages/PensionPage.tsx` + `pages/pension/` | Mesmo portão de login do planner; `ChoiceField` (PGBL/VGBL, regressiva/progressiva), `CompanyBandsField` (faixas editáveis), gráfico bruto×líquido, diário de bordo. |
+| Backend | `api/pension/` | `model.py` (valida números, enums E a lista de faixas), `auth.py`, `store.py`, `routes.py` — coleção `pension_plans`. |
 
+- **Dois aportes do empregado, só um com contrapartida** — `aporteBasicoPct` (% do salário,
+  RECEBE a contrapartida da empresa) e `aporteExtraPct` (% do salário, "é só o dinheiro da
+  pessoa física mesmo", sem contrapartida nenhuma). Os dois crescem com o salário (dissídio),
+  nunca são valores fixos em R$ — é assim que planos corporativos de verdade descontam em
+  folha. Não existe mais aporte anual: o PO pediu a remoção explicitamente ("quero sem aporte
+  anual").
+- **Contrapartida da empresa por faixa de idade, lista editável** (`FaixaEmpresa`:
+  `idadeMin`/`idadeMax`/`percentual`, `CompanyBandsField.tsx` — inserir, editar e apagar, sem
+  limite de sliders porque o tamanho da lista varia). `percentual` é um multiplicador sobre o
+  aporte BÁSICO do mês (100 = empresa paga o mesmo, 200 = o dobro); a faixa que cobre a idade da
+  pessoa NAQUELE MÊS decide o percentual (`percentualDaFaixa`, primeira faixa cujo
+  `idadeMin <= idade <= idadeMax`). **Sem faixa cadastrada pra aquela idade, a empresa não
+  aporta nada naquele mês — não é erro, é silêncio** (testado). Faixas podem ter buracos ou
+  se sobrepor; o simulador não valida cobertura total, só que cada faixa em si faça sentido
+  (`idadeMax >= idadeMin`, 0–120 anos, até 20 faixas). O padrão de fábrica já vem preenchido com
+  o exemplo real do PO (Digio: 0–40 → 100%, 41–50 → 150%, 51+ → 200%), não um formulário em branco.
+- **Idade sobe em blocos de 12 meses, não fracionada** (`idadeNoMes`,
+  `idadeAtual + Math.floor((mês-1)/12)`): `idadeAtual` é a idade JÁ COMPLETADA hoje, então os
+  12 primeiros meses da simulação ainda contam como essa idade — o aniversário seguinte só
+  chega no mês 13. Consequência direta e testada: o ponto anual do ANO 1 (mês 12) mostra a
+  MESMA idade do ano 0; só o ano 2 mostra +1. É a leitura certa de "até 40 anos": a pessoa
+  continua nessa faixa o ano INTEIRO em que tem 40, não só até o dia do aniversário.
 - **Cada aporte do mês vira uma TRANCHE própria, com o próprio mês de entrada** — é o que a
   tabela regressiva exige: a alíquota de cada real depende de HÁ QUANTO TEMPO ele entrou, não
-  de quando o fundo como um todo começou. Aporte mensal + anual + sobra do FGTS + restituição
-  do PGBL do mesmo mês são somados numa tranche SÓ (mesma idade, mesmo tratamento fiscal) —
-  manter uma por fonte inflaria o array sem mudar o resultado. Como o rendimento líquido mensal
-  é CONSTANTE ao longo da simulação, somar o valor composto de cada tranche dá exatamente o
-  mesmo saldo bruto que compor um saldo único mês a mês (`saldoBruto = Σ valor_k×(1+r)^(mês−mês_k)`
-  é matematicamente idêntico à recorrência `saldo×(1+r)+aporte`) — por isso dá para ter as duas
-  contas (saldo bruto simples e imposto por tranche) sem duas fontes de verdade.
+  de quando o fundo como um todo começou. Aporte básico + extra + contrapartida da empresa +
+  restituição do PGBL do mesmo mês são somados numa tranche SÓ (mesma idade, mesmo tratamento
+  fiscal). Como o rendimento líquido mensal é CONSTANTE ao longo da simulação, somar o valor
+  composto de cada tranche dá exatamente o mesmo saldo bruto que compor um saldo único mês a mês
+  (`saldoBruto = Σ valor_k×(1+r)^(mês−mês_k)` é matematicamente idêntico à recorrência
+  `saldo×(1+r)+aporte`) — por isso dá para ter as duas contas (saldo bruto simples e imposto por
+  tranche) sem duas fontes de verdade. **A contrapartida da empresa entra na mesma tranche e
+  recebe o MESMO tratamento fiscal do resto** — simplificação deliberada: o regime real de planos
+  patrocinados por empresa (EFPC) tem regras próprias para a parte patronal que este simulador
+  não modela, documentado no código, não escondido.
 - **PGBL tributa o resgate CHEIO; VGBL só o GANHO** — a diferença que define o produto. PGBL
   deduziu o aporte na declaração (até 12% da renda bruta anual), então todo o resgate depois é
   renda tributável; VGBL não deduziu nada, então só o que o dinheiro RENDEU é tributado.
@@ -811,29 +840,26 @@ destino do aporte deixa de ser "comprar studio" e vira "entrar num fundo de prev
   base tributável entra pela alíquota marginal que a pessoa informa (`aliquotaIrMarginal`) — a
   regra real retém 15% na fonte e ajusta na declaração anual junto com o RESTO da renda da
   pessoa, que este simulador não conhece; documentado no rodapé da própria tela, não só aqui.
-- **A restituição do PGBL é automática e reinvestida** — mesmo padrão do FGTS no simulador de
-  imóveis ("o que sobra vira aporte"), aplicado à dedução fiscal: fecha o ano civil em dezembro
-  (`aportesPgblDoAno` acumulado desde janeiro), calcula a dedução limitada a 12% da renda bruta
-  anual (`salário do mês × 12`, aproximação — não separa 13º/bônus do resto), multiplica pela
-  alíquota marginal informada, e guarda o valor para cair como tranche nova em MAIO do ano
-  seguinte (`MES_RESTITUICAO_IR`) — mês real em que a maioria recebe a restituição do IR no
-  Brasil. VGBL nunca gera restituição (não há dedução a devolver) — testado explicitamente.
-- **FGTS e apê são cópia functional do motor de imóveis, com uma mudança**: lá, a sobra do saque
-  (depois de abater o apê) comprava studio à vista; aqui não existe "studio", então a sobra
-  INTEIRA vira mais uma tranche no fundo de previdência (`aporteFgtsExtra`) — mais simples que o
-  original, porque não precisa do loop de "comprar quantas unidades couberem".
-- **Campos categóricos (`vehicle`, `regime`) não cabiam no `sanitize` 100% numérico do planner**
-  — `pension/model.py` tem dois dicionários de validação, `_LIMITS` (faixa, como sempre) e
-  `_ENUMS` (conjunto fechado de strings); `sanitize` escolhe qual regra aplicar pela própria
-  chave. `ChoiceField.tsx` é um componente novo (dois botões lado a lado, `.neon-red` no
-  selecionado) — não é um `ParamField` adaptado, porque a escolha não é um valor numa régua.
+- **A restituição do PGBL é automática e reinvestida, mas só conta o dinheiro PRÓPRIO** — fecha
+  o ano civil em dezembro (`aportesPgblDoAno`, soma SÓ `aporteBasico + aporteExtra`, NUNCA a
+  contrapartida da empresa — ela não é dedução do empregado), calcula a dedução limitada a 12%
+  da renda bruta anual (`salário do mês × 12`, aproximação), multiplica pela alíquota marginal
+  informada, e guarda o valor para cair como tranche nova em MAIO do ano seguinte
+  (`MES_RESTITUICAO_IR`). VGBL nunca gera restituição — testado explicitamente.
+- **Campos categóricos (`vehicle`, `regime`) e a lista de faixas não cabiam no `sanitize` 100%
+  numérico do planner** — `pension/model.py` tem três formas de validação: `_LIMITS` (faixa
+  numérica), `_ENUMS` (conjunto fechado de strings) e `_sanitize_faixas` (lista de objetos, cada
+  um validado por `_FAIXA_LIMITS` + a invariante `idadeMax >= idadeMin`). `merged()` usa
+  `copy.deepcopy`, não `dict(DEFAULT_PARAMS)` — uma cópia rasa compartilharia a MESMA lista de
+  faixas entre todo uid que nunca mexeu nela, e mutar o resultado vazaria pro padrão global.
+  `ChoiceField.tsx` (PGBL/VGBL, regressiva/progressiva) e `CompanyBandsField.tsx` (faixas) são
+  componentes novos, não um `ParamField` adaptado — nem escolha fechada nem lista de tamanho
+  variável cabem num slider.
 - **Gráfico mostra DUAS linhas, bruto e líquido** (`PensionChart.tsx`) — a distância entre elas
   É o imposto que o regime escolhido cobraria se resgatasse tudo hoje; um gráfico de uma linha
-  só esconderia exatamente o número que esse simulador existe para mostrar.
-- **Backend é cópia quase literal do `planner/`** (mesmo padrão descrito na armadilha de
-  "`clip`-style de autorização" acima: uid como chave do documento, sem allowlist, `auth.py`
-  duplicado em vez de importado — consistente com a decisão já tomada lá). Única extensão:
-  `model.py` valida enums além de faixas numéricas.
+  só esconderia exatamente o número que esse simulador existe para mostrar. A idade aparece
+  junto do ano na legenda e na tabela "ver ano a ano", porque é ela que explica uma mudança de
+  inclinação quando a pessoa entra numa faixa de contrapartida melhor.
 
 ## Git dentro do Google Drive
 
@@ -918,6 +944,16 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   `source .env` antes de chamar — e como o arquivo usa `KEY=valor` sem `export`, as variáveis não
   atravessavam para o subshell e o passo de env vars era pulado **em silêncio**. Já mordeu uma vez.
 - **`gcloud run deploy --source` reseta as env vars.** Por isso o `deploy.sh` as reaplica num segundo passo (`services update`). Não junte os dois passos.
+- **`api/.gcloudignore` precisa existir, senão o upload do Cloud Run trava** (medido 2026-11-11:
+  `gcloud run deploy --source api` crashou duas vezes seguidas em "Uploading sources" com
+  `OSError: [Errno 89] Operation canceled"). Causa raiz: `gcloud` decide o que subir pelo
+  `.gcloudignore` DENTRO do diretório de `--source` (`api/`), não pelo `.gitignore` da raiz do
+  repo — sem um `.gcloudignore` próprio em `api/`, nada é filtrado e o `.venv` local (189 MB,
+  milhares de arquivos) ia inteiro no tar, sobre o sistema de arquivos do Google Drive (lento por
+  arquivo, mesma raiz do problema do `git fetch` lento — ver "Git dentro do Google Drive"). O
+  `.dockerignore` já existia e já excluía `.venv`/`__pycache__`/`tests/`, mas ele só vale DEPOIS
+  do upload, no `COPY` da imagem — não evita o upload em si. Conserto: `api/.gcloudignore` com o
+  MESMO conteúdo do `.dockerignore` — derruba o upload de 193 MB para ~4 MB.
 - **O README está desatualizado:** documenta `GET /api/repos`, mas a rota real em `api/server.py` é `GET /api/data`. `/api/repos` dá 404 no Flask.
 - **O blog não usa mais `web/public/blog/posts.json`** — os posts vivem no Firestore. O arquivo foi
   removido; `migrate_posts.py` levou os três antigos para lá.
@@ -998,8 +1034,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 524 testes
+cd api && source .venv/bin/activate && pytest      # 949 testes
+cd web && npm test                                  # 558 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

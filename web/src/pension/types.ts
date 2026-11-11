@@ -1,32 +1,39 @@
 /**
- * Parâmetros do simulador "Previdência Privada" — irmão do "Vivendo de Imóveis"
- * (mesmo salário CLT + FGTS amortizando o apê), só que o destino do aporte é um
- * fundo de PGBL/VGBL de verdade, com as regras fiscais do produto (ver calc.ts).
+ * Parâmetros do simulador "Previdência Privada" — plano corporativo de verdade:
+ * o empregado contribui um % do salário (básico, com contrapartida da empresa
+ * por faixa etária, + extra/facultativo, sem contrapartida nenhuma), o dinheiro
+ * cai num fundo de PGBL/VGBL com as regras fiscais do produto (ver calc.ts).
+ * Sem FGTS/apê: isso pertencia ao simulador de imóveis, não faz sentido aqui.
  */
 export type Vehicle = 'PGBL' | 'VGBL'
 export type Regime = 'regressiva' | 'progressiva'
+
+/** Uma faixa de contrapartida da empresa: nesta faixa de idade (inclusive nos dois
+ * extremos), a empresa aporta `percentual`% do que o empregado aportou no básico. */
+export type FaixaEmpresa = {
+  idadeMin: number
+  idadeMax: number
+  /** 100 = empresa paga o mesmo que o empregado; 200 = o dobro. */
+  percentual: number
+}
 
 export type PensionParams = {
   /** PGBL deduz até 12% da renda bruta anual do IR (regime completo); VGBL não deduz nada. */
   vehicle: Vehicle
   /** Regressiva: alíquota cai com o tempo de cada aporte (35% a 10%), definitiva. Progressiva: alíquota marginal informada abaixo, na declaração anual. */
   regime: Regime
-  /** Salário bruto combinado do casal (CLT), R$/mês — FGTS e teto de dedução do PGBL. */
-  salarioBrutoCasal: number
+  /** Idade hoje, em anos — decide em qual faixa de contrapartida a pessoa está a cada mês. */
+  idadeAtual: number
+  /** Salário bruto hoje, R$/mês. */
+  salarioBruto: number
   /** Dissídio anual de salário, % a.a. — cai no mês de `mesDissidio`. */
   dissidio: number
   /** Mês em que o dissídio reajusta o salário (1 = janeiro … 12 = dezembro). */
   mesDissidio: number
-  /** Saldo devedor hoje do apartamento em que você mora, R$. */
-  dividaApe: number
-  /** Parcela mensal de hoje do financiamento do apê, R$. */
-  parcelaApeAtual: number
-  /** Aporte mensal na previdência, R$. */
-  monthlyAmount: number
-  /** Aporte anual extra (ex.: parte do 13º/bônus), R$ — cai de uma vez no mês escolhido. */
-  annualAmount: number
-  /** Mês em que o aporte anual cai (1 = janeiro … 12 = dezembro). */
-  annualMonth: number
+  /** Contribuição básica do empregado, % do salário — recebe contrapartida da empresa pela faixa etária. */
+  aporteBasicoPct: number
+  /** Contribuição extra/facultativa do empregado, % do salário — só do próprio bolso, sem contrapartida. */
+  aporteExtraPct: number
   /** Saldo já acumulado na previdência hoje, R$. */
   initial: number
   /** Rendimento bruto do fundo escolhido, % a.a. */
@@ -37,28 +44,34 @@ export type PensionParams = {
   aliquotaIrMarginal: number
   /** Horizonte da simulação (fase de acumulação), em anos. */
   years: number
+  /** Faixas de contrapartida da empresa por idade — inserir, editar e apagar livremente. */
+  faixasEmpresa: FaixaEmpresa[]
 }
 
 export const DEFAULT_PARAMS: PensionParams = {
   vehicle: 'PGBL',
   regime: 'regressiva',
-  salarioBrutoCasal: 34_000,
+  idadeAtual: 35,
+  salarioBruto: 15_000,
   dissidio: 5,
   mesDissidio: 8,
-  dividaApe: 400_000,
-  parcelaApeAtual: 4_000,
-  monthlyAmount: 2_000,
-  annualAmount: 20_000,
-  annualMonth: 12,
+  aporteBasicoPct: 5,
+  aporteExtraPct: 0,
   initial: 50_000,
   rendimentoAnual: 10,
   taxaAdministracaoAnual: 1,
   aliquotaIrMarginal: 27.5,
   years: 25,
+  faixasEmpresa: [
+    { idadeMin: 0, idadeMax: 40, percentual: 100 },
+    { idadeMin: 41, idadeMax: 50, percentual: 150 },
+    { idadeMin: 51, idadeMax: 120, percentual: 200 },
+  ],
 }
 
 export type PensionYearPoint = {
   ano: number
+  idade: number
   saldoBruto: number
   saldoLiquidoEstimado: number
   /** Alíquota média ponderada do regime regressivo se resgatasse tudo agora, % — só informativo. */
@@ -75,16 +88,14 @@ export type PensionMonthRow = {
   anoDoPlano: number
   /** Mês do ano civil: 1 = janeiro … 12 = dezembro. */
   mesDoAno: number
-  aporteMensal: number
-  aporteAnual: number
+  /** Idade (anos completos) neste mês — decide a faixa de contrapartida da empresa. */
+  idade: number
+  aporteBasico: number
+  aporteExtra: number
+  /** Contrapartida da empresa sobre o aporte básico, pela faixa etária do mês. */
+  aporteEmpresa: number
   /** Restituição de IR do PGBL do ano anterior, reinvestida automaticamente (só PGBL). */
   restituicaoPgbl: number
-  /** Quanto o FGTS abateu do saldo do apê neste mês (0 na maioria — só nos meses de saque). */
-  abatimentoApeFgts: number
-  /** Sobra do FGTS depois de abater o apê — vira aporte extra na previdência neste mês. */
-  aporteFgtsExtra: number
-  /** Saldo do FUNDO do FGTS no fim do mês — rende sozinho, à parte da previdência. */
-  saldoFgts: number
   /** Saldo acumulado na previdência, bruto de IR. */
   saldoBruto: number
   /** Saldo estimado se resgatasse tudo agora, já descontado o IR do regime escolhido. */

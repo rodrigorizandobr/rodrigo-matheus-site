@@ -80,7 +80,7 @@ export function PensionChart({ points }: { points: PensionYearPoint[] }) {
       </svg>
 
       <div className="mt-3 flex items-baseline justify-between text-[12px]">
-        <span className="text-muted">Ano {p.ano} · alíquota estimada {formatPct(p.aliquotaMedia)}</span>
+        <span className="text-muted">Ano {p.ano} · {p.idade} anos · alíquota estimada {formatPct(p.aliquotaMedia)}</span>
         <span className="font-display font-semibold text-heading">{formatBRL(p.saldoLiquidoEstimado)}</span>
       </div>
 
@@ -91,6 +91,7 @@ export function PensionChart({ points }: { points: PensionYearPoint[] }) {
             <thead>
               <tr className="text-left text-muted">
                 <th className="py-1 pr-3">Ano</th>
+                <th className="py-1 pr-3">Idade</th>
                 <th className="py-1 pr-3">Saldo bruto</th>
                 <th className="py-1 pr-3">Saldo líquido</th>
                 <th className="py-1 pr-3">Alíquota estimada</th>
@@ -101,6 +102,7 @@ export function PensionChart({ points }: { points: PensionYearPoint[] }) {
               {points.map((pt) => (
                 <tr key={pt.ano} className="border-t border-line">
                   <td className="py-1 pr-3">{pt.ano}</td>
+                  <td className="py-1 pr-3">{pt.idade}</td>
                   <td className="py-1 pr-3">{formatBRL(pt.saldoBruto)}</td>
                   <td className="py-1 pr-3">{formatBRL(pt.saldoLiquidoEstimado)}</td>
                   <td className="py-1 pr-3">{formatPct(pt.aliquotaMedia)}</td>
