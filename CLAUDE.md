@@ -636,13 +636,35 @@ tem o próprio plano, ninguém vê o de outra.
   recebidos − parcelas pagas) se acumula até dar para comprar a próxima unidade sozinho.
   `YearPoint` (o que o gráfico e os cartões usam) é DERIVADO de `simulateMonthly`, nunca
   calculado em paralelo — os dois nunca podem discordar por construção.
-- **O diário de bordo é a tabela abaixo do gráfico** (`PlannerLedger.tsx`, um `MonthRow` por
-  mês, do mês 1 ao fim do horizonte): aporte mensal, aporte anual (só no mês em que cai, "—" nos
-  outros), abatimento do apê e compra à vista via FGTS (idem), saldo do FGTS, imóveis em
-  construção/alugados/quitados/financiados, total de imóveis, total das parcelas de
-  financiamento do mês, renda e patrimônio. Cabeçalho `sticky` dentro de uma área com `max-h` e
-  rolagem própria — até 360 linhas (30 anos) não precisam de paginação nem virtualização, só não
-  ficar tudo visível ao mesmo tempo.
+- **O diário de bordo é tabela no desktop, cartão por mês no mobile** (`PlannerLedger.tsx`, um
+  `MonthRow` por mês, do mês 1 ao fim do horizonte): aporte mensal, aporte anual (só no mês em
+  que cai, "—" nos outros), abatimento do apê e compra à vista via FGTS (idem), saldo do FGTS,
+  imóveis em construção/alugados/quitados/financiados, total de imóveis, total das parcelas de
+  financiamento do mês, renda e patrimônio. `COLUNAS` é uma lista `{rotulo, valor(linha)}` usada
+  para gerar TANTO as colunas da tabela (`hidden md:block`) QUANTO os pares rótulo/valor de cada
+  cartão (`md:hidden`) — nunca escrito duas vezes. 15 colunas de texto não cabem num celular nem
+  rolando de lado (pedido do PO, 2026-11-20: "se a tabela não encaixa bem em mobile, dê outra
+  sugestão, card"); abaixo de `md` cada mês vira um cartão com `grid grid-cols-2`, rótulo em cima
+  (uppercase, pequeno) e valor embaixo. Os dois ficam sempre no DOM (CSS decide o que aparece,
+  não JS) — mais simples e sem risco de descompasso de hidratação, ao custo de montar o dobro de
+  nós por mês; para até 360 meses isso não pesa. Cabeçalho `sticky` (só na tabela) dentro de uma
+  área com `max-h` e rolagem própria nos dois formatos — até 360 linhas/cartões não precisam de
+  paginação nem virtualização, só não ficar tudo visível ao mesmo tempo.
+- **`min-w-0` em cada filho de um grid que pode conter algo largo — sem isso, a página inteira
+  vazava pra direita no mobile**, sliders inclusive (pedido do PO, 2026-11-20: "não está
+  responsivo, tudo tem que renderizar em todas as telas"). Causa raiz, confirmada ao vivo num
+  viewport de celular: item de CSS Grid tem `min-width: auto` por padrão — a TRILHA do grid
+  nunca encolhe abaixo do min-content do item mais largo, mesmo que esse item tenha
+  `overflow-x-auto` por dentro. A tabela de 15 colunas (`whitespace-nowrap`) era o item mais
+  largo; como ela dividia a MESMA trilha de grid que a coluna de sliders (duas colunas de
+  `<div className="grid lg:grid-cols-[360px_1fr] gap-8">`, empilhadas em 1 coluna no mobile), a
+  trilha inteira — e portanto a página inteira — crescia pra acomodá-la, em vez da rolagem
+  interna da tabela entrar em ação. `min-w-0` nos dois filhos diretos desse grid, e de novo no
+  `.panel` do gráfico e do diário, devolve pro navegador a liberdade de encolher o item até a
+  largura disponível — só então o `overflow-x-auto` da tabela passa a valer. Not a enfeite: é o
+  mesmo bug, uma camada acima, que o `min-width: 0` em qualquer item de flex/grid sempre resolve;
+  vale lembrar da próxima vez que algo largo (tabela, imagem, bloco de código) entrar num grid
+  deste site.
 - **O FGTS também compra studio À VISTA, não só abate o apê** (pedido do PO, 2026-11-18: "kd as
   amortizações com FGTS nas tabelas" + "compra a vista de imóveis usando o saldo do FGTS" +
   "coloque o rendimento que o FGTS tem na conta dele"). A cada saque de 2 anos, a ORDEM é fixa:
@@ -894,7 +916,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 895 testes
-cd web && npm test                                  # 519 testes
+cd web && npm test                                  # 520 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

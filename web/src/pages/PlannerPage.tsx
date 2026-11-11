@@ -110,8 +110,8 @@ export function PlannerPage() {
       {!loaded ? (
         <p className="text-muted text-[13px]">Carregando seu plano…</p>
       ) : (
-        <div className="grid lg:grid-cols-[360px_1fr] gap-8">
-          <div className="grid gap-7 content-start">
+        <div className="grid lg:grid-cols-[360px_1fr] gap-8 min-w-0">
+          <div className="grid gap-7 content-start min-w-0">
             <Group title="Seus aportes">
               <ParamField label="Aporte mensal" kind="brl" min={0} max={30_000} step={100}
                           value={params.monthlyAmount} onChange={set('monthlyAmount')} />
@@ -169,7 +169,7 @@ export function PlannerPage() {
             </Group>
           </div>
 
-          <div className="grid gap-6 content-start">
+          <div className="grid gap-6 content-start min-w-0">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Stat label="Studios c/ chaves" value={String(final.studiosComChaves)} />
               <Stat label="Studios quitados" value={String(final.studiosQuitadosEquiv)} />

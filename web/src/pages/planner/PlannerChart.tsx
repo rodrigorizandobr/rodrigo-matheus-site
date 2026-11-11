@@ -28,7 +28,7 @@ export function PlannerChart({ points }: { points: YearPoint[] }) {
   const p = points[ativo]
 
   return (
-    <div className="panel hud-frame p-4 md:p-6">
+    <div className="panel hud-frame p-4 md:p-6 min-w-0">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"

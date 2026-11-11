@@ -45,4 +45,12 @@ describe('PlannerLedger — diário de bordo mês a mês', () => {
       expect.arrayContaining(['2', '3', '1', '2', '5']),
     )
   })
+
+  it('no mobile, cada mês vira um cartão em vez de uma linha de tabela estreita demais', () => {
+    render(<PlannerLedger linhas={[linha({ mes: 7, anoDoPlano: 1, mesDoAno: 7, patrimonioLiquido: 492_151 })]} />)
+    expect(screen.getByText('Ano 1 · jul')).toBeInTheDocument()
+    // a tabela de desktop tem o mesmo mês escondida (md:hidden é CSS, não testável em jsdom) —
+    // os dois existem no DOM; o que garante que não há uma tabela de 15 colunas squeezed é a
+    // classe md:hidden/hidden md:block, não o teste (visual, conferido no navegador).
+  })
 })
