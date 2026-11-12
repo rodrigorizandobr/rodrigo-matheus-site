@@ -63,6 +63,10 @@ DEFAULT_PARAMS: dict[str, Any] = {
     "cronograma": "contrato",
     "correcaoObraModo": "propria",
     "correcaoObraAno": 6.66,
+    "correcaoPosChavesAno": 4.5,
+    "parcelamento": "automatico",
+    "parcelaMensal1o": 0,
+    "parcelaAnual1o": 0,
     "entradaPct": 10,
     "mensaisPct": 25,
     "reforcoPct": 15,
@@ -136,6 +140,9 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "rendimentoCaixaAno": (0, 30),
     "custoFixoHoldingMes": (0, 100_000),
     "correcaoObraAno": (0, 30),
+    "correcaoPosChavesAno": (0, 30),
+    "parcelaMensal1o": (0, 1_000_000),
+    "parcelaAnual1o": (0, 50_000_000),
     "entradaPct": (0, 100),
     "mensaisPct": (0, 100),
     "reforcoPct": (0, 100),
@@ -170,6 +177,7 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     "impostoModo": ("fixo", "reforma"),
     "cronograma": ("simples", "contrato"),
     "correcaoObraModo": ("incc", "propria"),
+    "parcelamento": ("manual", "automatico"),
 }
 
 

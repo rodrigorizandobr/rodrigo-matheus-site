@@ -34,8 +34,8 @@ export function spreadAlavancagem(p: PlannerParams, ano: number): {
 } {
   const retornoAluguel = (12 * rendaDaUnidade(p.custoStudio, 0, ano, p).liquido / p.custoStudio) * 100
   const valorizacao = p.incc - p.depreciacao
-  const correcao = p.cronograma === 'contrato' && p.correcaoObraModo === 'propria' ? p.correcaoObraAno : p.incc
-  const custoCredito = p.cronograma === 'contrato' ? custoAnualDoCredito(0, correcao) : custoAnualDoCredito(p.jurosFinHolding, 0)
+  // O saldo parcelado depois das chaves corre pelo IPCA e não tem juros: esse é o custo da dívida.
+  const custoCredito = p.cronograma === 'contrato' ? custoAnualDoCredito(0, p.correcaoPosChavesAno) : custoAnualDoCredito(p.jurosFinHolding, 0)
   const retornoImovel = retornoAluguel + valorizacao
   return { retornoAluguel, valorizacao, retornoImovel, custoCredito, spread: retornoImovel - custoCredito }
 }

@@ -22,7 +22,7 @@
  */
 import { dataDoMes, INICIO_PADRAO, type Inicio } from './calendario'
 import { parcelaSac } from './credito'
-import { cronograma, pctAteChaves, prazoPosChaves } from './contrato'
+import { cronograma, pctAteChaves, prazoPosChaves, type ContextoCronograma } from './contrato'
 import { carta, planoDaCota, taxaCons } from './consorcio'
 import { fatorPreco } from './inflacao'
 import { impostoAluguelLonga } from './imposto'
@@ -140,8 +140,8 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
   const valorizacaoLiquidaAnual = p.incc - p.depreciacao
   const inccMensal = Math.pow(1 + p.incc / 100, 1 / 12)
   const inccObraMensal = p.correcaoObraModo === 'incc' ? inccMensal : Math.pow(1 + p.correcaoObraAno / 100, 1 / 12)
-  /** Depois das chaves o saldo do plano investidor corre pelo índice da obra; no modo simples não corre. */
-  const correcaoPos = contrato ? inccObraMensal - 1 : 0
+  /** Depois das chaves o saldo do plano investidor corre pelo IPCA (até as chaves, pelo índice da obra); no modo simples não corre. */
+  const correcaoPos = contrato ? Math.pow(1 + p.correcaoPosChavesAno / 100, 1 / 12) - 1 : 0
   const jurosFin = contrato ? 0 : p.jurosFinHolding / 100
   const prazoFin = prazoPosChaves(p)
   const r1 = Math.round(clamp(p.mesesEntrega1o, 0, 120))
@@ -273,9 +273,18 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
     teveUnidade = true
   }
 
-  // "Já pago no 1º studio": uma unidade já contratada, em construção (ou já entregue).
+  // "Já pago no 1º studio": uma unidade já contratada, em construção (ou já entregue). No contrato, as
+  // parcelas mensais e anuais que a pessoa já paga nele (até as chaves) entram como parcelas de obra.
   if (p.initial > 0) {
-    const saldoFinanciadoInicial = Math.max(0, (p.custoStudio - p.initial) * Math.pow(inccObraMensal, r1))
+    const parcelas1o: Parcela[] = []
+    if (contrato && r1 > 0) {
+      for (let k = 1; k <= r1; k++) {
+        if (p.parcelaMensal1o > 0) parcelas1o.push({ mes: k, pct: (p.parcelaMensal1o / p.custoStudio) * 100 })
+        if (p.parcelaAnual1o > 0 && k <= r1 && mesDoAnoDe(k) === p.annualMonth) parcelas1o.push({ mes: k, pct: (p.parcelaAnual1o / p.custoStudio) * 100 })
+      }
+    }
+    const aindaAPagar1o = parcelas1o.reduce((a, par) => a + (par.pct / 100) * p.custoStudio * Math.pow(inccObraMensal, par.mes), 0)
+    const saldoFinanciadoInicial = Math.max(0, (p.custoStudio - p.initial) * Math.pow(inccObraMensal, r1) - aindaAPagar1o)
     unidades.push({
       mesPronto: r1,
       mesAlugavel: r1 === 0 ? 0 : r1 + mesesAlug,
@@ -285,8 +294,8 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
       mesesRestantesFin: prazoFin,
       restante: 0,
       fracaoDocs: 0,
-      parcelas: [],
-      precoContrato: 0,
+      parcelas: parcelas1o,
+      precoContrato: parcelas1o.length > 0 ? p.custoStudio : 0,
       mesCompra: 0,
       docsAPagar: 0,
       montada: r1 === 0,
@@ -307,6 +316,10 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
   let mesesRestantesApe = Math.round(p.prazoApeMeses)
 
   const custoFixoDeHoje = (mes: number) => p.custoFixoHoldingMes * fatorPreco(mes, p.ipca)
+
+  /** O fluxo do dia da compra, para o cronograma automático dividir mensais e reforços. */
+  const contextoDoCronograma = (mes: number): ContextoCronograma =>
+    ({ mes, inicio, aporteMensal: aporteMensal + extraDoApe, aporteAnual, mesTransicao })
 
   /**
    * O que entra e sai do caixa mês a mês daqui pra frente (índice 0 = hoje), só com o que já é
@@ -436,7 +449,7 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
     let saldo = P * (1 - pctChaves) * Math.pow(inccObraMensal, r)
     let resta = prazoFin
     if (contrato) {
-      for (const par of cronograma(r, p)) {
+      for (const par of cronograma(r, p, contextoDoCronograma(mes))) {
         const v = (par.pct / 100) * P * Math.pow(inccObraMensal, par.k)
         efP[par.k] -= v
         if (par.k >= 1) efS[par.k] += v
@@ -489,7 +502,7 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
       mesesRestantesFin: prazoFin,
       restante: contrato ? 0 : (pctChaves + docs) * P,
       fracaoDocs: contrato ? 0 : docs / (pctChaves + docs),
-      parcelas: contrato ? cronograma(r, p).map((par) => ({ mes: mes + par.k, pct: par.pct })) : [],
+      parcelas: contrato ? cronograma(r, p, contextoDoCronograma(mes)).map((par) => ({ mes: mes + par.k, pct: par.pct })) : [],
       precoContrato: P,
       mesCompra: mes,
       docsAPagar: contrato ? docs * P : 0,
@@ -759,7 +772,7 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
     // Destino da sobra: onde ela rende mais — adiantar a obra, quitar financiamento ou ficar no caixa.
     let livre = folgaLivre(mes)
     const taxaObra = (Math.pow(inccObraMensal, 12) - 1) * 100
-    const taxaFin = contrato ? taxaObra : (Math.pow(1 + jurosFin, 12) - 1) * 100
+    const taxaFin = contrato ? (Math.pow(1 + correcaoPos, 12) - 1) * 100 : (Math.pow(1 + jurosFin, 12) - 1) * 100
     const destinos: ('obra' | 'financiamento')[] = p.sobraDoCaixa === 'adianta_obra'
       ? ['obra']
       : ([['obra', taxaObra], ['financiamento', taxaFin]] as const)

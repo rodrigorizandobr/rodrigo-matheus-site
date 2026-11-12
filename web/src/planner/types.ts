@@ -15,6 +15,8 @@ export type ImpostoModo = 'fixo' | 'reforma'
 export type SobraDoCaixa = 'adianta_obra' | 'automatico'
 /** Como a construtora cobra: o cronograma do contrato, ou só "X% até as chaves". */
 export type Cronograma = 'simples' | 'contrato'
+/** Como o parcelado até as chaves se divide entre mensais e reforços: pelo fluxo da pessoa, ou nos campos. */
+export type Parcelamento = 'manual' | 'automatico'
 /** Índice que corrige as parcelas da obra: o INCC dos lançamentos ou um valor próprio. */
 export type CorrecaoObraModo = 'incc' | 'propria'
 
@@ -108,8 +110,16 @@ export type PlannerParams = {
   // ---- pacote 9: contrato do plano investidor, reserva ----
   cronograma: Cronograma
   correcaoObraModo: CorrecaoObraModo
-  /** Correção das parcelas da obra e do saldo depois das chaves, % a.a. (padrão: média do INCC de 2 anos). */
+  /** Correção das parcelas da obra, % a.a. (padrão: média do INCC de 2 anos). */
   correcaoObraAno: number
+  /** Correção do saldo parcelado DEPOIS das chaves, % a.a. (IPCA). */
+  correcaoPosChavesAno: number
+  /** Automático: o sistema divide o parcelado entre mensais e reforços (no mês do bônus) pelo seu fluxo. */
+  parcelamento: Parcelamento
+  /** Parcela mensal fixa que você já paga no studio atual, até as chaves, R$. */
+  parcelaMensal1o: number
+  /** Parcela anual (reforço) que você já paga no studio atual, até as chaves, R$. */
+  parcelaAnual1o: number
   /** % do preço de contrato pago no ato. */
   entradaPct: number
   /** % diluído em parcelas mensais até as chaves. */
@@ -198,6 +208,10 @@ export const DEFAULT_PARAMS: PlannerParams = {
   cronograma: 'contrato',
   correcaoObraModo: 'propria',
   correcaoObraAno: 6.66,
+  correcaoPosChavesAno: 4.5,
+  parcelamento: 'automatico',
+  parcelaMensal1o: 0,
+  parcelaAnual1o: 0,
   entradaPct: 10,
   mensaisPct: 25,
   reforcoPct: 15,

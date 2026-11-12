@@ -609,9 +609,17 @@ tem o próprio plano, ninguém vê o de outra.
 >   (reforma tributária), `temporada`, `planta` (ágio, venda nas chaves), `contrato` (cronograma),
 >   `consorcio`, `mercado` (ÚNICO lugar de número de mercado), `indicadores`, `avisos`, `estrategias`.
 > - **Contrato do plano investidor** (`cronograma: 'contrato'`): entrada, mensais, reforços, chaves e o resto
->   parcelado depois, **sem juros** (o campo `jurosFinHolding` é ignorado no contrato). Parcelas corrigidas
->   por `correcaoObraAno` (padrão 6,66% = média composta do INCC-M de 24 meses) ou pelo `incc`. Documentação
+>   parcelado depois, **sem juros** (o campo `jurosFinHolding` é ignorado no contrato). **Até as chaves** as
+>   parcelas e o saldo correm por `correcaoObraAno` (padrão 6,66% = média composta do INCC-M de 24 meses) ou
+>   pelo `incc`; **depois das chaves** o saldo corre pelo IPCA (`correcaoPosChavesAno`, padrão 4,5%). Documentação
 >   (ITBI, cartório) sai nas chaves. O modo `'simples'` (X% até as chaves) só existe para os testes.
+> - **Parcelamento automático** (`parcelamento`, padrão): o total parcelado até as chaves (`mensaisPct +
+>   reforcoPct`) é dividido pelo fluxo no dia da compra — reforços no mês do bônus (`annualMonth`) com a fatia
+>   que o bônus paga, mensais com o resto (`contrato.ts`, `ContextoCronograma`). A tela, no automático, mostra
+>   um slider só ("Parcelado até as chaves") e grava `mensaisPct = total`, `reforcoPct = 0`. `manual` usa os
+>   campos (só mensais = parcelas fixas iguais). **Studio atual**: `parcelaMensal1o` e `parcelaAnual1o` são o
+>   que a pessoa já paga nele até as chaves; viram parcelas de obra e abatem o saldo pós-chaves. A parcela do
+>   financiamento é cobrada já no mês das chaves (herança do motor antigo).
 > - **Planejador**: `projetar(mes)` devolve pontual/recorrente/meta/saídas/caminho; `folgaLivre` = mínimo do
 >   caminho menos a **reserva** (`reservaMeses` × obrigações médias). A contemplação do consórcio e a venda são
 >   TESTADAS "como se já tivessem acontecido" e desfeitas se não couberem — a projeção já conta o aluguel

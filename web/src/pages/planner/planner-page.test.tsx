@@ -132,6 +132,24 @@ describe('a tela nova', () => {
     expect(Number((screen.getByLabelText('Aluguel bruto mensal') as HTMLInputElement).value)).toBe(0.8)
   })
 
+  it('o parcelamento pode ser automático ou manual, e a correção depois das chaves é o IPCA', async () => {
+    await logar()
+    expect(screen.getByLabelText('Parcelado até as chaves (mensais + reforços)')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Parcelas mensais até as chaves')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Manual' }))
+    expect(screen.getByLabelText('Parcelas mensais até as chaves')).toBeInTheDocument()
+    expect(screen.getByLabelText('Reforços periódicos')).toBeInTheDocument()
+    expect(Number((screen.getByLabelText('Correção depois das chaves (IPCA)') as HTMLInputElement).value)).toBe(4.5)
+  })
+
+  it('a reserva mínima é um slider de 0 a 12 meses e as parcelas do studio atual têm campo', async () => {
+    await logar()
+    const reserva = screen.getByLabelText('Reserva mínima no caixa') as HTMLInputElement
+    expect([reserva.min, reserva.max]).toEqual(['0', '12'])
+    expect(screen.getByLabelText('Parcela mensal fixa do studio atual')).toBeInTheDocument()
+    expect(screen.getByLabelText('Parcela anual do studio atual')).toBeInTheDocument()
+  })
+
   it('o botão da média do INCC grava a média dos últimos 2 anos', async () => {
     api.getPlan.mockResolvedValue({ params: { ...PLANO, correcaoObraAno: 3 }, updatedAt: null })
     await logar()
@@ -145,7 +163,7 @@ describe('a tela nova', () => {
     // entrada 40 + mensais 25 + reforços 15 + chaves 20 = 100: não sobra espaço para os outros subirem
     fireEvent.change(screen.getByLabelText('Entrada (no ato)'), { target: { value: '40' } })
     expect(screen.getByText(/Até as chaves: 100% · Depois das chaves: 0%/)).toBeInTheDocument()
-    expect((screen.getByLabelText('Parcelas mensais até as chaves') as HTMLInputElement).max).toBe('25')
+    expect((screen.getByLabelText('Parcelado até as chaves (mensais + reforços)') as HTMLInputElement).max).toBe('40')
   })
 
   it('a chave de moeda começa em reais de hoje, muda o patrimônio e é lembrada', async () => {

@@ -38,11 +38,11 @@ export function PlannerAvisos({ avisos }: { avisos: Aviso[] }) {
 }
 
 const NOVIDADES = {
-  id: '2026-11-realismo',
+  id: '2026-11-realismo-2',
   itens: [
     'Os resultados agora aparecem em reais de hoje (dá para ver o valor nominal na chave acima dos cartões).',
     'Depois da transição você passa a retirar a sua meta de renda; antes, todo aluguel era reinvestido. Dá para voltar em Viver de renda.',
-    'O plano investidor da construtora tem cronograma próprio (entrada, mensais, reforços, chaves e o resto sem juros), corrigido pela média do INCC de 2 anos.',
+    'O plano investidor da construtora tem cronograma próprio (entrada, mensais, reforços, chaves e o resto sem juros): corrigido pelo INCC até as chaves e pelo IPCA depois, com o sistema dividindo mensais e reforços pelo seu fluxo.',
     'O apê amortiza todo mês, o caixa parado rende, e cada studio tem custo de montagem e um tempo até alugar; a holding tem custo fixo mensal.',
     'O imposto do aluguel segue o calendário da reforma tributária, e o gráfico compara com os mesmos aportes na renda fixa.',
     'Novos: reserva mínima de caixa, teste de estresse, temporada (Airbnb), consórcio, ágio do pronto, venda nas chaves e comparação de estratégias.',
@@ -96,13 +96,13 @@ export function ValeFinanciar({ p, linhas }: { p: PlannerParams; linhas: MonthRo
         <p className="text-[12px] text-muted leading-relaxed">
           <strong className="text-heading">Sim.</strong> O studio rende <strong className="text-heading">{n1.format(s.retornoImovel)}% a.a.</strong>{' '}
           ({n1.format(s.retornoAluguel)}% de aluguel líquido + {n1.format(s.valorizacao)}% de valorização) e a dívida custa só{' '}
-          <strong className="text-heading">{n1.format(s.custoCredito)}% a.a.</strong> (a correção do índice, sem juros): cada R$ 100 parcelados somam cerca de R$ {n1.format(s.spread)} por ano.
+          <strong className="text-heading">{n1.format(s.custoCredito)}% a.a.</strong> (a correção do IPCA depois das chaves, sem juros): cada R$ 100 parcelados somam cerca de R$ {n1.format(s.spread)} por ano.
         </p>
       ) : (
         <p className="text-[12px] text-muted leading-relaxed">
           <strong className="text-heading">Hoje não.</strong> O studio rende <strong className="text-heading">{n1.format(s.retornoImovel)}% a.a.</strong>{' '}
           ({n1.format(s.retornoAluguel)}% de aluguel líquido + {n1.format(s.valorizacao)}% de valorização) e a dívida custa{' '}
-          <strong className="text-heading">{n1.format(s.custoCredito)}% a.a.</strong> de correção. Cada R$ 100 parcelados tiram cerca de R$ {n1.format(-s.spread)} por ano do seu patrimônio.
+          <strong className="text-heading">{n1.format(s.custoCredito)}% a.a.</strong> de correção do IPCA. Cada R$ 100 parcelados tiram cerca de R$ {n1.format(-s.spread)} por ano do seu patrimônio.
         </p>
       )}
       <p className="text-[12px] text-muted">{fecho}</p>

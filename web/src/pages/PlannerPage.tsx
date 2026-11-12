@@ -181,6 +181,12 @@ export function PlannerPage() {
               <ParamField label="Meses até a entrega do 1º studio" kind="meses" min={0} max={60} step={1}
                           value={params.mesesEntrega1o} onChange={set('mesesEntrega1o')}
                           hint="Quanto falta para pegar as chaves do studio que você já está pagando. Zero = já entregue." />
+              <ParamField label="Parcela mensal fixa do studio atual" kind="brl" min={0} max={30_000} step={100}
+                          value={params.parcelaMensal1o} onChange={set('parcelaMensal1o')}
+                          hint="O que você já paga todo mês nele até as chaves. Sai do caixa (o aporte mensal precisa cobrir) e reduz o saldo que será parcelado depois da entrega. Zero = o simulador só considera o que falta pagar depois das chaves." />
+              <ParamField label="Parcela anual do studio atual" kind="brl" min={0} max={300_000} step={1_000}
+                          value={params.parcelaAnual1o} onChange={set('parcelaAnual1o')}
+                          hint="O reforço anual que você já paga nele até as chaves, no mesmo mês do aporte anual (o do bônus)." />
             </Group>
 
             <Group title="Viver de renda" inicial="aberto">
@@ -230,19 +236,34 @@ export function PlannerPage() {
               )}
               <ParamField label="Entrada (no ato)" kind="pct" min={0} max={maxDe('entradaPct', 50)} step={1}
                           value={params.entradaPct} onChange={set('entradaPct')} />
-              <ParamField label="Parcelas mensais até as chaves" kind="pct" min={0} max={maxDe('mensaisPct', 80)} step={1}
-                          value={params.mensaisPct} onChange={set('mensaisPct')} />
-              <ParamField label="Reforços periódicos" kind="pct" min={0} max={maxDe('reforcoPct', 40)} step={1}
-                          value={params.reforcoPct} onChange={set('reforcoPct')} />
-              <ParamField label="Um reforço a cada" kind="meses" min={3} max={24} step={1}
-                          value={params.reforcoCadaMeses} onChange={set('reforcoCadaMeses')} />
+              <ChoiceField label="Como dividir o parcelado" value={params.parcelamento} onChange={set('parcelamento')}
+                           options={[{ value: 'automatico', label: 'Automático' }, { value: 'manual', label: 'Manual' }]}
+                           hint="Automático: o sistema divide o parcelado até as chaves entre parcelas mensais e reforços anuais pelo seu fluxo — os reforços caem no mês do seu bônus e levam a fatia que ele paga, as mensais levam o resto. Manual: você escolhe as fatias abaixo (só mensais = parcelas fixas iguais)." />
+              {params.parcelamento === 'automatico' ? (
+                <ParamField label="Parcelado até as chaves (mensais + reforços)" kind="pct" min={0} max={Math.min(80, Math.max(params.mensaisPct + params.reforcoPct, 100 - params.entradaPct - params.chavesPct))} step={1}
+                            value={params.mensaisPct + params.reforcoPct}
+                            onChange={(v) => { setAnterior(null); setParams((q) => ({ ...q, mensaisPct: v, reforcoPct: 0 })) }} />
+              ) : (
+                <>
+                  <ParamField label="Parcelas mensais até as chaves" kind="pct" min={0} max={maxDe('mensaisPct', 80)} step={1}
+                              value={params.mensaisPct} onChange={set('mensaisPct')} />
+                  <ParamField label="Reforços periódicos" kind="pct" min={0} max={maxDe('reforcoPct', 40)} step={1}
+                              value={params.reforcoPct} onChange={set('reforcoPct')} />
+                  <ParamField label="Um reforço a cada" kind="meses" min={3} max={24} step={1}
+                              value={params.reforcoCadaMeses} onChange={set('reforcoCadaMeses')} />
+                </>
+              )}
               <ParamField label="Na entrega das chaves" kind="pct" min={0} max={maxDe('chavesPct', 60)} step={1}
                           value={params.chavesPct} onChange={set('chavesPct')} />
               <ParamField label="Meses para parcelar o resto depois das chaves" kind="meses" min={1} max={96} step={1}
                           value={params.posChavesMeses} onChange={set('posChavesMeses')} />
+              <ParamField label="Correção depois das chaves (IPCA)" kind="pct" min={0} max={15} step={0.25}
+                          value={params.correcaoPosChavesAno} onChange={set('correcaoPosChavesAno')}
+                          hint="Depois da entrega o saldo parcelado corre pelo IPCA, sem juros. Até as chaves vale a correção da obra (INCC)."
+                          referencia={MERCADO.ipca.texto} />
               <p className="text-[11px] text-muted">
                 Até as chaves: {pctAteChaves(params)}% · Depois das chaves: {posChavesPct(params)}% em {params.posChavesMeses} meses, sem juros.
-                Reproduza o cronograma do seu contrato; as parcelas são corrigidas pelo índice acima. O plano real pode ter datas e valores próprios
+                Reproduza o cronograma do seu contrato; até as chaves as parcelas são corrigidas pelo índice da obra e depois pelo IPCA. O plano real pode ter datas e valores próprios
                 por parcela — aqui eles são espalhados em partes iguais.
               </p>
             </Group>
@@ -253,7 +274,7 @@ export function PlannerPage() {
                            hint="Automático: a sobra vai para onde rende mais — adiantar a obra (corrigida pelo índice), quitar o saldo depois das chaves ou ficar aplicada no caixa." />
               <ParamField label="Reserva mínima no caixa" kind="meses" min={0} max={12} step={1}
                           value={params.reservaMeses} onChange={set('reservaMeses')}
-                          hint="Quantos meses das suas obrigações (parcelas de obra, financiamento, apê, custos fixos) o caixa mantém guardados antes de comprar o próximo studio. Com a dívida da construtora sem juros, o que quebra um plano é o caixa, não o custo. Zero = gasta tudo que a projeção permite." />
+                          hint="Você escolhe, de 0 a 12 meses (a sugestão é 3). Quantos meses das suas obrigações (parcelas de obra, financiamento, apê, custos fixos) o caixa mantém guardados antes de comprar o próximo studio. Com a dívida da construtora sem juros, o que quebra um plano é o caixa, não o custo. Zero = gasta tudo que a projeção permite." />
               <ParamField label="Rendimento do caixa" kind="pct" min={0} max={15} step={0.25}
                           value={params.rendimentoCaixaAno} onChange={set('rendimentoCaixaAno')}
                           hint="Quanto rende, líquido de imposto, o dinheiro que fica parado esperando a próxima compra."
@@ -448,8 +469,8 @@ export function PlannerPage() {
             <p className="text-[11px] text-muted leading-relaxed">
               Como o sistema compra: todo mês ele soma o saldo acumulado com as entradas e saídas previstas (aportes, aluguéis,
               parcelas da construtora, custos) e compra o studio com menos obra pela frente que essa conta paga até as chaves — sem deixar o
-              caixa ficar abaixo da sua reserva. No plano investidor a construtora cobra entrada, parcelas e reforços corrigidos pelo índice que
-              você escolher, e o resto depois das chaves, sem juros. O que sobra é adiantado na obra, ou fica aplicado no caixa quando isso
+              caixa ficar abaixo da sua reserva (você escolhe de 0 a 12 meses). No plano investidor a construtora cobra entrada, parcelas e reforços corrigidos pelo índice que
+              você escolher, e o resto depois das chaves corrigido pelo IPCA, sem juros. O que sobra é adiantado na obra, ou fica aplicado no caixa quando isso
               rende mais. No modo "vivo da renda", depois da transição a sua meta sai dos aluguéis antes de qualquer compra. Simulação
               educativa, não é recomendação de investimento.
             </p>

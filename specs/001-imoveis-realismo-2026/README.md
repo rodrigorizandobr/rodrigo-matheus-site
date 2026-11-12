@@ -320,3 +320,6 @@ Quem preferir o fluxo do Spec Kit pode usar o arquivo do pacote como entrada de 
   `correcaoFinAno` e `comprometimentoMaxPct` não existem; a montagem também é paga nas chaves no modo simples;
   a contemplação do consórcio e a venda são testadas "como se já tivessem acontecido" e desfeitas se não couberem;
   o teste de caracterização foi regerado uma vez porque o motor antigo tinha um bug de ponto flutuante (ver CLAUDE.md).
+- **Segunda revisão do PO (2026-11-12, noite):** correção por INCC até as chaves e IPCA depois (`correcaoPosChavesAno`);
+  reserva escolhível de 0 a 12 meses; parcelamento AUTOMÁTICO (mensais × reforços no mês do bônus, pelo fluxo) ou
+  manual; parcelas fixa e anual do studio atual (`parcelaMensal1o`, `parcelaAnual1o`).

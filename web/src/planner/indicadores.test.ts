@@ -40,14 +40,13 @@ describe('indicadores de dívida', () => {
     expect(cobertura(l({ rendaMensalLiquida: 6_000 }))).toBeNull()
   })
   it('spread: retorno do studio menos o custo da dívida (a correção do índice, sem juros)', () => {
-    const p: PlannerParams = { ...DEFAULT_PARAMS, cronograma: 'contrato', correcaoObraModo: 'propria', correcaoObraAno: 6.66, incc: 6.5, depreciacao: 2 }
+    const p: PlannerParams = { ...DEFAULT_PARAMS, cronograma: 'contrato', correcaoPosChavesAno: 4.5, incc: 6.5, depreciacao: 2 }
     const s = spreadAlavancagem(p, 2026)
-    expect(s.custoCredito).toBeCloseTo(6.66, 6)
+    expect(s.custoCredito).toBeCloseTo(4.5, 6) // depois das chaves o saldo corre pelo IPCA, sem juros
     expect(s.valorizacao).toBeCloseTo(4.5, 6)
     expect(s.retornoImovel).toBeCloseTo(s.retornoAluguel + 4.5, 6)
-    expect(s.spread).toBeCloseTo(s.retornoImovel - 6.66, 6)
-    expect(spreadAlavancagem({ ...p, correcaoObraModo: 'incc' }, 2026).custoCredito).toBeCloseTo(6.5, 6)
-    expect(spreadAlavancagem({ ...p, correcaoObraAno: 25 }, 2026).spread).toBeLessThan(0)
+    expect(s.spread).toBeCloseTo(s.retornoImovel - 4.5, 6)
+    expect(spreadAlavancagem({ ...p, correcaoPosChavesAno: 25 }, 2026).spread).toBeLessThan(0)
   })
 })
 

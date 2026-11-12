@@ -103,6 +103,7 @@ class TestCamposNovos:
             "impostoModo": ("fixo", "reforma"),
             "cronograma": ("simples", "contrato"),
             "correcaoObraModo": ("incc", "propria"),
+            "parcelamento": ("manual", "automatico"),
         }
         for campo, validos in casos.items():
             for v in validos:
@@ -112,7 +113,7 @@ class TestCamposNovos:
 
     @pytest.mark.parametrize("campo,dentro,fora", [
         ("ipca", 4.5, 31), ("metaRendaHoje", 15_000, -1), ("prazoApeMeses", 300, 481), ("mesesEntrega1o", 36, 121),
-        ("mesesAteAlugar", 2, 13), ("rendimentoCaixaAno", 8, 31), ("correcaoObraAno", 6.66, 31), ("entradaPct", 10, 101),
+        ("mesesAteAlugar", 2, 13), ("rendimentoCaixaAno", 8, 31), ("correcaoObraAno", 6.66, 31), ("correcaoPosChavesAno", 4.5, 31), ("parcelaMensal1o", 3_000, -1), ("parcelaAnual1o", 40_000, -5), ("entradaPct", 10, 101),
         ("reforcoCadaMeses", 12, 0), ("posChavesMeses", 36, 0), ("reservaMeses", 3, 25), ("pctTemporada", 50, 101),
         ("ocupacaoPct", 42, 101), ("taxaPlataformaPct", 16, 51), ("consorcioCotas", 2, 21), ("consorcioPrazoMeses", 200, 11),
         ("consorcioLancePct", 25, 101), ("agioProntoPct", 20, 101), ("pctVendaNasChaves", 50, 101),

@@ -440,3 +440,54 @@ describe('desempenho', () => {
     expect(dataDoMes(1, { ano: 2026, mes: 11 }).ano).toBe(2026)
   })
 })
+
+describe('IPCA depois das chaves, studio atual e parcelamento automático', () => {
+  const umaComSaldo = (over: Partial<PlannerParams> = {}) => base({
+    cronograma: 'contrato', correcaoObraModo: 'propria', correcaoObraAno: 0, correcaoPosChavesAno: 0, initial: 100_000,
+    mesesEntrega1o: 6, posChavesMeses: 12, monthlyAmount: 0, annualAmount: 0, dissidio: 0, dividaApe: 0,
+    salarioBrutoCasal: 0, years: 2, ...over,
+  })
+  it('depois das chaves o saldo corre pelo IPCA; antes, pelo índice da obra', () => {
+    const sem = soma(simulateMonthly(umaComSaldo()), 'totalParcelasFinanciamento')
+    const ipca = soma(simulateMonthly(umaComSaldo({ correcaoPosChavesAno: 12 })), 'totalParcelasFinanciamento')
+    expect(Math.abs(sem - 160_000)).toBeLessThanOrEqual(12)
+    expect(ipca).toBeGreaterThan(sem * 1.04)
+    // a correção da obra só pesa até as chaves: com 20% a.a. por 6 meses o saldo nasce ~9,5% maior e depois não corre
+    const obra = soma(simulateMonthly(umaComSaldo({ correcaoObraAno: 20 })), 'totalParcelasFinanciamento')
+    expect(Math.abs(obra - 160_000 * Math.pow(1.2, 0.5))).toBeLessThanOrEqual(25)
+  })
+  it('as parcelas fixa e anual do studio atual saem do caixa e reduzem o saldo depois das chaves', () => {
+    const l = simulateMonthly(umaComSaldo({
+      mesesEntrega1o: 12, parcelaMensal1o: 1_000, parcelaAnual1o: 20_000, monthlyAmount: 1_000, annualAmount: 20_000, annualMonth: 12, years: 3,
+    }))
+    expect(l.slice(0, 11).every((x) => x.comprasImoveis === 1_000)).toBe(true)
+    expect(l[11].comprasImoveis).toBe(21_000)
+    expect(Math.abs(soma(l, 'totalParcelasFinanciamento') - (160_000 - 12_000 - 20_000))).toBeLessThanOrEqual(12)
+    expect(minSaldo(l.slice(0, 11))).toBeGreaterThanOrEqual(0) // até as chaves o aporte cobre as parcelas
+  })
+  it('sem parcelas informadas o studio atual se comporta como antes', () => {
+    const a = simulateMonthly(umaComSaldo({ mesesEntrega1o: 12 }))
+    expect(soma(a, 'comprasImoveis')).toBe(0)
+  })
+  it('automático: os reforços aparecem nos meses do bônus, as mensais ficam planas', () => {
+    const l = simulateMonthly(soAporte({
+      cronograma: 'contrato', parcelamento: 'automatico', correcaoObraModo: 'propria', correcaoObraAno: 0, entradaPct: 10,
+      mensaisPct: 40, reforcoPct: 0, chavesPct: 20, monthlyAmount: 5_000, annualAmount: 96_000, annualMonth: 12,
+      sobraDoCaixa: 'automatico', rendimentoCaixaAno: 20, years: 8,
+    }), { ano: 2026, mes: 1 })
+    const m0 = l.findIndex((x) => x.totalImoveis > 0)
+    const chaves = l.findIndex((x, i) => i > m0 && x.imoveisAlugados > 0)
+    expect(chaves).toBeGreaterThan(m0 + 12)
+    const entre = l.slice(m0 + 1, chaves)
+    const dezembros = entre.filter((x) => x.mesDoAno === 12)
+    const outros = entre.filter((x) => x.mesDoAno !== 12)
+    expect(dezembros.length).toBeGreaterThan(0)
+    const mensal = outros[0].comprasImoveis
+    expect(outros.every((x) => Math.abs(x.comprasImoveis - mensal) <= mensal * 0.02 + 5)).toBe(true)
+    expect(dezembros.every((x) => x.comprasImoveis > mensal * 1.5)).toBe(true)
+    expect(minSaldo(l)).toBeGreaterThanOrEqual(0)
+  })
+  it('a reserva aceita qualquer valor de 0 a 12 meses', () => {
+    for (const r of [0, 1, 6, 12]) expect(minSaldo(simulateMonthly({ ...DEFAULT_PARAMS, reservaMeses: r, years: 8 }))).toBeGreaterThanOrEqual(0)
+  })
+})

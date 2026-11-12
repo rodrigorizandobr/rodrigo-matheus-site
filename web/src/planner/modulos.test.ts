@@ -197,6 +197,40 @@ describe('contrato do plano investidor', () => {
   })
 })
 
+describe('parcelamento automático (mensais × reforços pelo fluxo)', () => {
+  const auto = P({ cronograma: 'contrato', parcelamento: 'automatico', entradaPct: 10, mensaisPct: 40, reforcoPct: 0, chavesPct: 20, annualMonth: 12, posChavesMeses: 36 })
+  const ctx = { mes: 1, inicio: { ano: 2026, mes: 11 }, aporteMensal: 5_000, aporteAnual: 96_000, mesTransicao: 120 }
+  it('os reforços caem no mês do bônus e levam a fatia que o bônus paga', () => {
+    const par = cronograma(36, auto, ctx)
+    const reforcos = par.filter((x) => x.tipo === 'reforco')
+    expect(reforcos.map((x) => x.k)).toEqual([1, 13, 25]) // dezembro de 2026, 2027 e 2028
+    // capacidade: 3 bônus de 96.000 contra 36 aportes de 5.000 → 288/468 do parcelado
+    const total = reforcos.reduce((a, x) => a + x.pct, 0)
+    expect(total).toBeCloseTo(40 * (288_000 / 468_000), 6)
+    expect(par.filter((x) => x.tipo === 'mensal').reduce((a, x) => a + x.pct, 0)).toBeCloseTo(40 - total, 6)
+  })
+  it('soma sempre o que vai até as chaves', () => {
+    for (let r = 0; r <= 60; r++) {
+      expect(cronograma(r, auto, ctx).reduce((a, x) => a + x.pct, 0), `r=${r}`).toBeCloseTo(70, 9)
+    }
+  })
+  it('sem bônus no caminho, ou sem fluxo, tudo vira mensal', () => {
+    expect(cronograma(1, auto, ctx).some((x) => x.tipo === 'reforco')).toBe(false)
+    const semFluxo = cronograma(36, auto, { ...ctx, aporteMensal: 0, aporteAnual: 0 })
+    expect(semFluxo.some((x) => x.tipo === 'reforco')).toBe(false)
+  })
+  it('só mensal quando o bônus é zero; só o bônus paga quando o aporte mensal é zero', () => {
+    expect(cronograma(36, auto, { ...ctx, aporteAnual: 0 }).some((x) => x.tipo === 'reforco' && x.pct > 0)).toBe(false)
+    const soBonus = cronograma(36, auto, { ...ctx, aporteMensal: 0 })
+    expect(soBonus.filter((x) => x.tipo === 'reforco').reduce((a, x) => a + x.pct, 0)).toBeCloseTo(40, 6)
+  })
+  it('sem contexto (ou no modo manual) vale a divisão dos campos', () => {
+    expect(cronograma(36, auto).some((x) => x.tipo === 'reforco')).toBe(false)
+    const manual = P({ cronograma: 'contrato', parcelamento: 'manual', entradaPct: 10, mensaisPct: 25, reforcoPct: 15, reforcoCadaMeses: 12, chavesPct: 20 })
+    expect(cronograma(36, manual, ctx).filter((x) => x.tipo === 'reforco').map((x) => x.k)).toEqual([12, 24])
+  })
+})
+
 describe('consórcio', () => {
   const p = P({ custoStudio: 260_000, descontoAVista: 5, agioProntoPct: 0, incc: 6, consorcioPrazoMeses: 200, consorcioTaxaTotalPct: 20 })
   it('carta e parcela', () => {

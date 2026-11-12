@@ -34,9 +34,9 @@ describe('avisos', () => {
     expect(ids()).not.toContain('saldo-negativo')
   })
   it('spread-negativo: aparece quando a correção passa do retorno e há parcelas depois das chaves', () => {
-    expect(ids({ correcaoObraAno: 20 })).toContain('spread-negativo')
-    expect(ids({ correcaoObraAno: 6.66 })).not.toContain('spread-negativo')
-    expect(ids({ correcaoObraAno: 20, entradaPct: 20, mensaisPct: 40, reforcoPct: 20, chavesPct: 20 })).not.toContain('spread-negativo')
+    expect(ids({ correcaoPosChavesAno: 20 })).toContain('spread-negativo')
+    expect(ids({ correcaoPosChavesAno: 4.5 })).not.toContain('spread-negativo')
+    expect(ids({ correcaoPosChavesAno: 20, entradaPct: 20, mensaisPct: 40, reforcoPct: 20, chavesPct: 20 })).not.toContain('spread-negativo')
   })
   it('temporada, consórcio e ágio só avisam quando estão ligados', () => {
     expect(ids({ pctTemporada: 0 })).not.toContain('temporada-regras')
@@ -62,7 +62,7 @@ describe('avisos', () => {
     expect(folgado.map((x) => x.id)).not.toContain('cobertura-baixa')
   })
   it('os de atenção vêm antes dos de "saiba"', () => {
-    const lista = avisos(simulateMonthly({ ...DEFAULT_PARAMS, pctTemporada: 10, correcaoObraAno: 20 }, inicio), { ...DEFAULT_PARAMS, pctTemporada: 10, correcaoObraAno: 20 })
+    const lista = avisos(simulateMonthly({ ...DEFAULT_PARAMS, pctTemporada: 10, correcaoPosChavesAno: 20 }, inicio), { ...DEFAULT_PARAMS, pctTemporada: 10, correcaoPosChavesAno: 20 })
     const niveis = lista.map((a) => a.nivel)
     expect(niveis.indexOf('saiba')).toBeGreaterThan(niveis.lastIndexOf('atencao'))
   })
