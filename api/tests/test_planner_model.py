@@ -93,3 +93,80 @@ class TestMerged:
         resultado = model.merged({"pctPagoChaves": 999, "monthlyAmount": 20_000})
         assert resultado["pctPagoChaves"] == model.DEFAULT_PARAMS["pctPagoChaves"]
         assert resultado["monthlyAmount"] == 20_000
+
+
+class TestCamposNovos:
+    def test_enums_novos_aceitam_so_o_conjunto_fechado(self):
+        casos = {
+            "aposTransicao": ("reinveste", "vive_da_renda"),
+            "sobraDoCaixa": ("adianta_obra", "automatico"),
+            "impostoModo": ("fixo", "reforma"),
+            "cronograma": ("simples", "contrato"),
+            "correcaoObraModo": ("incc", "propria"),
+        }
+        for campo, validos in casos.items():
+            for v in validos:
+                assert model.sanitize({campo: v}) == {campo: v}
+            with pytest.raises(ValueError, match=campo):
+                model.sanitize({campo: "outro"})
+
+    @pytest.mark.parametrize("campo,dentro,fora", [
+        ("ipca", 4.5, 31), ("metaRendaHoje", 15_000, -1), ("prazoApeMeses", 300, 481), ("mesesEntrega1o", 36, 121),
+        ("mesesAteAlugar", 2, 13), ("rendimentoCaixaAno", 8, 31), ("correcaoObraAno", 6.66, 31), ("entradaPct", 10, 101),
+        ("reforcoCadaMeses", 12, 0), ("posChavesMeses", 36, 0), ("reservaMeses", 3, 25), ("pctTemporada", 50, 101),
+        ("ocupacaoPct", 42, 101), ("taxaPlataformaPct", 16, 51), ("consorcioCotas", 2, 21), ("consorcioPrazoMeses", 200, 11),
+        ("consorcioLancePct", 25, 101), ("agioProntoPct", 20, 101), ("pctVendaNasChaves", 50, 101),
+    ])
+    def test_faixa_dos_campos_novos(self, campo, dentro, fora):
+        assert model.sanitize({campo: dentro}) == {campo: dentro}
+        with pytest.raises(ValueError, match=campo):
+            model.sanitize({campo: fora})
+
+    def test_padroes_novos_estao_em_merged(self):
+        r = model.merged(None)
+        assert r["cronograma"] == "contrato" and r["aposTransicao"] == "vive_da_renda" and r["reservaMeses"] == 3
+        assert r["correcaoObraAno"] == 6.66 and r["jurosFinHolding"] == 0
+
+    def test_plano_salvo_antes_ganha_os_padroes_dos_campos_novos(self):
+        r = model.merged({"monthlyAmount": 20_000, "rate": 0.8})
+        assert r["rate"] == 0.8  # o que a pessoa gravou não muda
+        assert r["entradaPct"] == 10 and r["custoMontagem"] == 12_000
+
+
+class TestContrato:
+    def test_soma_ate_100_passa(self):
+        model.check_contract({**model.DEFAULT_PARAMS, "entradaPct": 25, "mensaisPct": 25, "reforcoPct": 25, "chavesPct": 25})
+
+    def test_soma_acima_de_100_levanta(self):
+        with pytest.raises(ValueError, match="somar no máximo 100"):
+            model.check_contract({**model.DEFAULT_PARAMS, "entradaPct": 50, "mensaisPct": 50, "reforcoPct": 10, "chavesPct": 0})
+
+    def test_leitura_com_contrato_estourado_volta_ao_padrao_so_nas_quatro_fatias(self):
+        r = model.merged({"entradaPct": 90, "mensaisPct": 80, "monthlyAmount": 20_000})
+        for k in model.CONTRATO_ATE_AS_CHAVES:
+            assert r[k] == model.DEFAULT_PARAMS[k]
+        assert r["monthlyAmount"] == 20_000
+
+
+class TestParidadeComOFront:
+    """Os padrões vivem em dois lugares (types.ts e aqui). Se divergirem, o servidor devolve um número e a tela mostra outro."""
+
+    def test_default_params_iguais_aos_do_typescript(self):
+        import pathlib
+        import re
+        ts = pathlib.Path(__file__).resolve().parents[2] / "web" / "src" / "planner" / "types.ts"
+        if not ts.exists():
+            pytest.skip("types.ts não está no checkout")
+        src = ts.read_text(encoding="utf-8")
+        corpo = src[src.index("export const DEFAULT_PARAMS"):]
+        corpo = corpo[:corpo.index("\n}\n")]
+        achados = {}
+        for chave, valor in re.findall(r"^\s{2}(\w+):\s*([^,\n]+),", corpo, flags=re.M):
+            valor = valor.strip()
+            if valor.startswith("'"):
+                achados[chave] = valor.strip("'")
+            else:
+                achados[chave] = float(valor.replace("_", ""))
+        assert set(achados) == set(model.DEFAULT_PARAMS), set(achados) ^ set(model.DEFAULT_PARAMS)
+        for chave, valor in achados.items():
+            assert model.DEFAULT_PARAMS[chave] == valor, chave

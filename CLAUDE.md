@@ -596,11 +596,36 @@ em agosto, holding financiando o saldo remanescente nas chaves, ano de transiç�
 passiva. Diferente do `/admin`: **qualquer conta Google loga, sem allowlist** — cada pessoa
 tem o próprio plano, ninguém vê o de outra.
 
-> **Próxima rodada já especificada, ainda não implementada (2026-11-12):**
-> `specs/001-imoveis-realismo-2026/` — realismo de 2026 (aluguel e juros de mercado, reais de hoje,
-> retirada depois da transição, apê em SAC, imposto da reforma), linhas de crédito e alavancagem,
-> temporada (Airbnb), comparação de estratégias, consórcio e venda nas chaves. Nove pacotes, em ordem;
-> comece pelo `README.md` de lá. O pedido do PO foi só a especificação: a execução é outra conversa.
+> **Rodada de 2026-11-12 (implementada e no ar):** especificação em `specs/001-imoveis-realismo-2026/`
+> (leia o `README.md` de lá). O produto passou a ser **só o plano investidor da construtora** (sem juros; a
+> dívida corre pelo índice da obra) e focado no **centro de São Paulo**. O que entrou, e as armadilhas:
+>
+> - **Teste de caracterização** (`caracterizacao.test.ts`): congela o motor antigo em 3 cenários com todo
+>   parâmetro novo no valor NEUTRO (`neutro.ts`). Os números foram regerados UMA vez: o motor antigo tinha
+>   um bug de ponto flutuante (resíduo de centavos no saldo gerava uma 49ª parcela fantasma e distorcia o
+>   planejador). Padrão antigo R$ 4.685.700 → R$ 4.693.638 com o resíduo zerado. Ao mexer no motor, ele tem
+>   que continuar verde sem editar os números. Os testes de mecânica usam `base()` (padrões antigos + neutro).
+> - **Módulos puros** em `web/src/planner/`: `calendario`, `inflacao`, `credito` (`parcelaSac`), `imposto`
+>   (reforma tributária), `temporada`, `planta` (ágio, venda nas chaves), `contrato` (cronograma),
+>   `consorcio`, `mercado` (ÚNICO lugar de número de mercado), `indicadores`, `avisos`, `estrategias`.
+> - **Contrato do plano investidor** (`cronograma: 'contrato'`): entrada, mensais, reforços, chaves e o resto
+>   parcelado depois, **sem juros** (o campo `jurosFinHolding` é ignorado no contrato). Parcelas corrigidas
+>   por `correcaoObraAno` (padrão 6,66% = média composta do INCC-M de 24 meses) ou pelo `incc`. Documentação
+>   (ITBI, cartório) sai nas chaves. O modo `'simples'` (X% até as chaves) só existe para os testes.
+> - **Planejador**: `projetar(mes)` devolve pontual/recorrente/meta/saídas/caminho; `folgaLivre` = mínimo do
+>   caminho menos a **reserva** (`reservaMeses` × obrigações médias). A contemplação do consórcio e a venda são
+>   TESTADAS "como se já tivessem acontecido" e desfeitas se não couberem — a projeção já conta o aluguel
+>   futuro desse studio, então medir antes dava folga pela metade.
+> - **Vivo da renda** (padrão): depois da transição não há mais FGTS novo, a parcela do apê sai do caixa e a
+>   família retira `min(meta, renda disponível)`; a retirada nunca consome o caixa acumulado.
+> - **Padrões parecem pessimistas de propósito** (aluguel 0,65% a.m. no centro, montagem, tempo até alugar,
+>   custo fixo, reserva): o cenário padrão de 15 anos dá ~6 studios e renda bem abaixo da meta de R$ 15 mil.
+> - **Os padrões moram em DOIS lugares** (`types.ts` e `api/planner/model.py`); `TestParidadeComOFront` lê o
+>   TypeScript e quebra se divergirem. Campo novo: nos dois, no mesmo commit, backend ANTES do front no deploy.
+> - **Tela**: grupos recolhíveis (`Group.tsx`, lembram a escolha), chave "R$ de hoje | nominais", painéis de
+>   avisos, vale parcelar, estresse, tradicional × temporada, comparador (só roda no clique) e aviso de novidades
+>   (`NOVIDADES.id` no `PlannerPaineis.tsx`: troque o id quando mudar número para ele reaparecer).
+> - Fora de escopo por decisão do PO: banco, construtora com juros, home equity, pessoa física.
 
 | Camada | Onde | Papel |
 |---|---|---|
@@ -1171,8 +1196,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 957 testes
-cd web && npm test                                  # 585 testes
+cd api && source .venv/bin/activate && pytest      # ~960 testes
+cd web && npm test                                  # 723 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { simulate, simulateMonthly } from './calc'
 import { DEFAULT_PARAMS, type PlannerParams } from './types'
+import { NEUTRO } from './neutro'
 
 // Custos novos zerados: os testes de mecânica (obra, financiamento, FGTS) medem a mecânica,
 // não a soma de taxas. Cada custo tem o próprio bloco de testes mais abaixo.
@@ -8,7 +9,9 @@ const SEM_CUSTOS: Partial<PlannerParams> = {
   vacanciaMesesAno: 0, iptuPctAno: 0, condominioPctAno: 0, taxaAdmPct: 0, manutencaoPctAno: 0,
   itbiPct: 0, escrituraPct: 0, registroPct: 0, descontoAVista: 0,
 }
-const base = (over: Partial<PlannerParams> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...SEM_CUSTOS, ...over })
+// Os padrões antigos dos campos que o pacote 3 atualizou: os testes de mecânica não dependem do mercado de 2026.
+const LEGADO: Partial<PlannerParams> = { rate: 0.8, incc: 6, depreciacao: 1.5, jurosFinHolding: 0.8, pctPagoChaves: 70 }
+const base = (over: Partial<PlannerParams> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...LEGADO, ...SEM_CUSTOS, ...NEUTRO, ...over })
 
 describe('simulate — motor puro do simulador de studios', () => {
   it('devolve um ponto por ano, do ano 0 ao horizonte', () => {
@@ -137,7 +140,7 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
   })
 
   it('o tempo de obra é configurável', () => {
-    const linhas = simulateMonthly(soUmaUnidade({ prazoObraMeses: 24 }))
+    const linhas = simulateMonthly(soUmaUnidade({ prazoObraMeses: 24, mesesEntrega1o: 24 }))
     expect(linhas.find((l) => l.mes === 23)!.imoveisEmConstrucao).toBe(1)
     expect(linhas.find((l) => l.mes === 24)!.imoveisAlugados).toBe(1)
   })
@@ -196,7 +199,7 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
     it('com o apê quitado o FGTS não espera o saque de 2 anos: compra assim que FGTS + caixa livre fecham a conta', () => {
       const linhas = simulateMonthly(comFgtsFolgado())
       const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
-      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + DEFAULT_PARAMS.incc / 100, compra.mes / 12)
+      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + (LEGADO.incc as number) / 100, compra.mes / 12)
       // FGTS primeiro; o caixa só completa o que faltar
       expect(compra.compraAVistaFgts + compra.comprasImoveis).toBeCloseTo(precoDoMes, -1)
       expect(compra.saldoFgts).toBe(0)
@@ -206,7 +209,7 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
     it('paga o preço de mercado do mês com o desconto à vista', () => {
       const linhas = simulateMonthly(comFgtsFolgado({ descontoAVista: 10 }))
       const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
-      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + DEFAULT_PARAMS.incc / 100, compra.mes / 12)
+      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + (LEGADO.incc as number) / 100, compra.mes / 12)
       expect(compra.compraAVistaFgts + compra.comprasImoveis).toBeCloseTo(precoDoMes * 0.9, -1)
     })
 
@@ -381,9 +384,11 @@ describe('planejador de compras — saldo acumulado + entradas e saídas previst
     const linhas = simulateMonthly({ ...DEFAULT_PARAMS, years: 15 })
     let anterior = 0
     for (const l of linhas) {
-      const movimento = l.aporteMensal + l.aporteAnual + l.aluguelRecebido + l.valorVendas
+      const movimento = l.aporteMensal + l.aporteAnual + l.aluguelRecebido + l.valorVendas + l.rendimentoCaixa
         - l.custosImovel - l.totalParcelasFinanciamento - l.comprasImoveis - l.documentacao
-      expect(Math.abs(l.saldo - anterior - movimento)).toBeLessThanOrEqual(5) // arredondamento por linha
+        - l.montagem - l.custoFixoHolding - l.retirada - l.parcelaApePaga - l.amortizacaoExtra
+        - l.parcelasConsorcio - l.lanceConsorcio
+      expect(Math.abs(l.saldo - anterior - movimento)).toBeLessThanOrEqual(10) // arredondamento por linha
       anterior = l.saldo
     }
   })

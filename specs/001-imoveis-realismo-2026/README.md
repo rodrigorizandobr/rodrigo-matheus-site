@@ -308,3 +308,15 @@ Um pacote por conversa. Texto pronto para colar (troque N e o nome do arquivo):
 
 Quem preferir o fluxo do Spec Kit pode usar o arquivo do pacote como entrada de `/speckit-plan` e
 `/speckit-tasks`; não é obrigatório — cada pacote já traz os itens na ordem de execução.
+
+## 11. Revisão do PO e execução (2026-11-12)
+
+- **Só plano investidor.** Saíram as linhas "construtora com juros" e "banco" e o limite de parcelas sobre a renda:
+  a dívida é sem juros e corre pelo índice da obra (padrão: média do INCC de 24 meses). Campos `jurosFinHolding`,
+  `pctPagoChaves` e o modo `'simples'` ficam só como legado/testes.
+- **Foco no centro de São Paulo.** Aluguel padrão 0,65% a.m. (≈ R$ 65–67/m² num studio de ~26 m² por ~R$ 270 mil),
+  temporada com os números do Centro (ocupação 42%, diária R$ 256).
+- **Executado por inteiro** (pacotes 0 a 9) numa rodada só. Desvios da especificação: `prazoFinMeses`,
+  `correcaoFinAno` e `comprometimentoMaxPct` não existem; a montagem também é paga nas chaves no modo simples;
+  a contemplação do consórcio e a venda são testadas "como se já tivessem acontecido" e desfeitas se não couberem;
+  o teste de caracterização foi regerado uma vez porque o motor antigo tinha um bug de ponto flutuante (ver CLAUDE.md).

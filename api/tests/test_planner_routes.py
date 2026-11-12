@@ -63,3 +63,17 @@ class TestSalvarPlano:
     def test_salvar_grava_o_email_de_quem_salvou(self, client, db, logado):
         client.put("/api/planner/plan", headers=AUTH, json={"years": 12})
         assert db.cols["planner_plans"].data["uid-1"]["email"] == "alguem@gmail.com"
+
+
+class TestContratoNaRota:
+    def test_contrato_acima_de_100_devolve_400_e_nao_salva(self, client, db, logado):
+        resposta = client.put("/api/planner/plan", headers=AUTH, json={"entradaPct": 50, "mensaisPct": 50, "reforcoPct": 20})
+        assert resposta.status_code == 400
+        assert "100" in resposta.get_json()["error"]
+        assert store.get_plan("uid-1")["params"]["entradaPct"] == model.DEFAULT_PARAMS["entradaPct"]
+
+    def test_campos_novos_sao_gravados_e_devolvidos(self, client, db, logado):
+        resposta = client.put("/api/planner/plan", headers=AUTH, json={"pctTemporada": 40, "aposTransicao": "reinveste", "reservaMeses": 5})
+        assert resposta.status_code == 200
+        p = client.get("/api/planner/plan", headers=AUTH).get_json()["params"]
+        assert (p["pctTemporada"], p["aposTransicao"], p["reservaMeses"]) == (40, "reinveste", 5)

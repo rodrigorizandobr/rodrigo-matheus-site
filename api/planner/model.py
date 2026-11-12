@@ -6,7 +6,8 @@ tradução no meio. O cálculo em si mora no front (`calc.ts`); aqui só se vali
 o que entra, para o Firestore nunca guardar um número fora de faixa.
 
 Dois formatos de campo: numérico com faixa (`_LIMITS`) e categórico de conjunto
-fechado (`_ENUMS` — quem paga IPTU e condomínio)."""
+fechado (`_ENUMS` — quem paga IPTU e condomínio, modo de imposto, cronograma…).
+Uma regra entre campos: as quatro fatias do contrato até as chaves somam no máximo 100%."""
 from __future__ import annotations
 
 from typing import Any
@@ -28,13 +29,13 @@ DEFAULT_PARAMS: dict[str, Any] = {
     "impostoVendaPct": 6.73,
     "anoTransicao": 10,
     "pctPagoChaves": 70,
-    "jurosFinHolding": 0.8,
+    "jurosFinHolding": 0,
     "impostoHolding": 11.5,
-    "rate": 0.8,
+    "rate": 0.65,
     "dissidio": 5,
     "mesDissidio": 8,
-    "incc": 6,
-    "depreciacao": 1.5,
+    "incc": 6.5,
+    "depreciacao": 2,
     "dividaApe": 400_000,
     "salarioBrutoCasal": 34_000,
     "parcelaApeAtual": 4_000,
@@ -44,7 +45,54 @@ DEFAULT_PARAMS: dict[str, Any] = {
     "initial": 75_000,
     "custoStudio": 260_000,
     "years": 15,
+    # pacote 1: calendário, inflação, viver de renda
+    "ipca": 4.5,
+    "metaRendaHoje": 15_000,
+    "aposTransicao": "vive_da_renda",
+    # pacote 2: precisão do motor
+    "prazoApeMeses": 300,
+    "mesesEntrega1o": 36,
+    "custoMontagem": 12_000,
+    "mesesAteAlugar": 2,
+    "rendimentoCaixaAno": 8,
+    "sobraDoCaixa": "automatico",
+    "custoFixoHoldingMes": 800,
+    # pacote 3
+    "impostoModo": "reforma",
+    # pacote 9: contrato do plano investidor, reserva
+    "cronograma": "contrato",
+    "correcaoObraModo": "propria",
+    "correcaoObraAno": 6.66,
+    "entradaPct": 10,
+    "mensaisPct": 25,
+    "reforcoPct": 15,
+    "reforcoCadaMeses": 12,
+    "chavesPct": 20,
+    "posChavesMeses": 36,
+    "reservaMeses": 3,
+    # pacote 5: temporada (Airbnb)
+    "pctTemporada": 0,
+    "diariaHoje": 256,
+    "ocupacaoPct": 42,
+    "taxaPlataformaPct": 16,
+    "taxaGestaoPct": 20,
+    "custoFixoTemporadaMes": 450,
+    "manutencaoTemporadaPctAno": 1.5,
+    "impostoTemporadaPct": 11.5,
+    "custoMontagemTemporada": 35_000,
+    # pacote 7: consórcio
+    "consorcioCotas": 0,
+    "consorcioPrazoMeses": 200,
+    "consorcioTaxaTotalPct": 20,
+    "consorcioIntervaloMeses": 24,
+    "consorcioLancePct": 25,
+    # pacote 8: planta, ágio, venda nas chaves
+    "agioProntoPct": 0,
+    "pctVendaNasChaves": 0,
 }
+
+#: as quatro fatias do contrato que vão até as chaves: a soma nunca passa de 100%.
+CONTRATO_ATE_AS_CHAVES = ("entradaPct", "mensaisPct", "reforcoPct", "chavesPct")
 
 #: (mínimo, máximo) de cada campo — generoso o bastante para qualquer plano real,
 #: apertado o bastante para barrar erro de digitação (ex.: "anoTransicao": 2026).
@@ -79,12 +127,49 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "initial": (0, 50_000_000),
     "custoStudio": (1, 50_000_000),
     "years": (1, 60),
+    "ipca": (0, 30),
+    "metaRendaHoje": (0, 10_000_000),
+    "prazoApeMeses": (0, 480),
+    "mesesEntrega1o": (0, 120),
+    "custoMontagem": (0, 1_000_000),
+    "mesesAteAlugar": (0, 12),
+    "rendimentoCaixaAno": (0, 30),
+    "custoFixoHoldingMes": (0, 100_000),
+    "correcaoObraAno": (0, 30),
+    "entradaPct": (0, 100),
+    "mensaisPct": (0, 100),
+    "reforcoPct": (0, 100),
+    "reforcoCadaMeses": (1, 60),
+    "chavesPct": (0, 100),
+    "posChavesMeses": (1, 120),
+    "reservaMeses": (0, 24),
+    "pctTemporada": (0, 100),
+    "diariaHoje": (0, 10_000),
+    "ocupacaoPct": (0, 100),
+    "taxaPlataformaPct": (0, 50),
+    "taxaGestaoPct": (0, 60),
+    "custoFixoTemporadaMes": (0, 50_000),
+    "manutencaoTemporadaPctAno": (0, 20),
+    "impostoTemporadaPct": (0, 40),
+    "custoMontagemTemporada": (0, 1_000_000),
+    "consorcioCotas": (0, 20),
+    "consorcioPrazoMeses": (12, 300),
+    "consorcioTaxaTotalPct": (0, 60),
+    "consorcioIntervaloMeses": (1, 300),
+    "consorcioLancePct": (0, 100),
+    "agioProntoPct": (0, 100),
+    "pctVendaNasChaves": (0, 100),
 }
 
 #: campos categóricos — não têm faixa, têm um conjunto fechado de valores.
 _ENUMS: dict[str, tuple[str, ...]] = {
     "iptuPagador": ("inquilino", "proprietario"),
     "condominioPagador": ("inquilino", "proprietario"),
+    "aposTransicao": ("reinveste", "vive_da_renda"),
+    "sobraDoCaixa": ("adianta_obra", "automatico"),
+    "impostoModo": ("fixo", "reforma"),
+    "cronograma": ("simples", "contrato"),
+    "correcaoObraModo": ("incc", "propria"),
 }
 
 
@@ -110,6 +195,13 @@ def sanitize(patch: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def check_contract(params: dict[str, Any]) -> None:
+    """Levanta `ValueError` se as fatias do contrato até as chaves passam de 100%."""
+    total = sum(params.get(k, DEFAULT_PARAMS[k]) for k in CONTRATO_ATE_AS_CHAVES)
+    if total > 100:
+        raise ValueError(f"entradaPct + mensaisPct + reforcoPct + chavesPct deve somar no máximo 100 (soma {total})")
+
+
 def merged(saved: dict[str, Any] | None) -> dict[str, Any]:
     """Os parâmetros salvos sobre os padrões — um plano novo começa do exemplo do
     simulador, nunca de um formulário em branco. Plano salvo antes de um campo
@@ -125,4 +217,10 @@ def merged(saved: dict[str, Any] | None) -> dict[str, Any]:
             clean.update(sanitize({key: value}))
         except ValueError:
             continue
+    try:
+        check_contract(clean)
+    except ValueError:
+        # um contrato salvo que estoura 100% não pode travar a leitura: as quatro fatias voltam ao padrão
+        for k in CONTRATO_ATE_AS_CHAVES:
+            clean[k] = DEFAULT_PARAMS[k]
     return clean

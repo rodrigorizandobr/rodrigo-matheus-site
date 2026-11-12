@@ -4,11 +4,15 @@ import { PlannerLedger } from './PlannerLedger'
 import type { MonthRow } from '../../planner/types'
 
 const linha = (over: Partial<MonthRow> = {}): MonthRow => ({
-  mes: 1, anoDoPlano: 1, mesDoAno: 1, aporteMensal: 2_000, aporteAnual: 0,
+  mes: 1, anoDoPlano: 1, ano: 2026, mesDoAno: 1, aporteMensal: 2_000, aporteAnual: 0,
   abatimentoApeFgts: 0, compraAVistaFgts: 0, saldoFgts: 0,
   imoveisEmConstrucao: 0, imoveisAlugados: 0, imoveisQuitados: 0, imoveisFinanciados: 0,
   totalImoveis: 0, totalParcelasFinanciamento: 0, aluguelRecebido: 0, comprasImoveis: 0, documentacao: 0,
   saldo: 0, custosImovel: 0, rendaMensalLiquida: 0, vendas: 0, valorVendas: 0, patrimonioLiquido: 75_000,
+  metaDoMes: 0, rendaDisponivel: 0, retirada: 0, parcelaApePaga: 0, saldoApe: 0, parcelaApe: 0, montagem: 0,
+  rendimentoCaixa: 0, custoFixoHolding: 0, amortizacaoExtra: 0, dividaFinanciamento: 0, aPagarObra: 0,
+  valorImoveis: 0, parcelasObra: 0, obrigacoesMes: 0, parcelasConsorcio: 0, lanceConsorcio: 0, contemplacoes: 0,
+  contemplacoesAtrasadas: 0, dividaConsorcio: 0,
   ...over,
 })
 
@@ -64,6 +68,27 @@ describe('PlannerLedger — tabela de desktop', () => {
   it('mostra a venda no mês em que ela acontece', () => {
     render(<PlannerLedger linhas={[linha({ vendas: 1, valorVendas: 345_678 })]} />)
     expect(celulas(tabelaDesktop())[2].textContent).toMatch(/\+ R\$\s?345\.678 venda de studio/)
+  })
+
+  it('traz as linhas novas: rendimento, montagem, custo fixo, retirada, apê, consórcio e amortização', () => {
+    render(<PlannerLedger linhas={[linha({
+      rendimentoCaixa: 900, montagem: 12_000, custoFixoHolding: 800, retirada: 15_000, parcelaApePaga: 4_000,
+      parcelasConsorcio: 1_482, lanceConsorcio: 65_000, amortizacaoExtra: 7_000,
+    })]} />)
+    const m = celulas(tabelaDesktop())[2].textContent!.replace(/\u00a0/g, ' ')
+    for (const t of [
+      '+ R$ 900 rendimento do caixa', '− R$ 12.000 montagem (acabamento e mobília)', '− R$ 800 custo fixo da holding',
+      '− R$ 15.000 retirada para viver', '− R$ 4.000 parcela do apê', '− R$ 1.482 parcelas do consórcio',
+      '− R$ 65.000 lance do consórcio', '− R$ 7.000 amortização antecipada',
+    ]) expect(m).toContain(t)
+  })
+
+  it('a coluna Ano mostra o ano civil e FGTS e apê traz o saldo do apê', () => {
+    render(<PlannerLedger linhas={[linha({ ano: 2031, saldoApe: 123_456 })]} />)
+    expect(celulas(tabelaDesktop())[0].textContent).toBe('2031')
+    const cabecalhos = within(tabelaDesktop()).getAllByRole('columnheader').map((c) => c.textContent)
+    expect(cabecalhos).toContain('FGTS e apê')
+    expect(celulas(tabelaDesktop())[3].textContent).toMatch(/123\.456 saldo do apê/)
   })
 
   it('mostra a contagem de imóveis por status', () => {

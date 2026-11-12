@@ -45,6 +45,7 @@ def save_plan(uid: str, patch: dict[str, Any], email: str = "") -> dict[str, Any
     mudado desde a última gravação."""
     atual = get_plan(uid)["params"]
     novo = {**atual, **model.sanitize(patch)}
+    model.check_contract(novo)
     now = _now()
     doc: dict[str, Any] = {"params": novo, "updatedAt": now}
     if email:

@@ -1,8 +1,8 @@
 import { useId } from 'react'
 import { formatBRL, formatPct } from '../../planner/format'
 
-/** `mes` é um mês do calendário (janeiro…); `meses` é uma DURAÇÃO (36 meses, 1,5 mês). */
-type Kind = 'brl' | 'pct' | 'anos' | 'mes' | 'meses'
+/** `mes` é um mês do calendário (janeiro…); `meses` é uma DURAÇÃO (36 meses, 1,5 mês); `num` é um número puro. */
+type Kind = 'brl' | 'pct' | 'anos' | 'mes' | 'meses' | 'num'
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
@@ -14,11 +14,12 @@ const format = (kind: Kind, value: number): string => {
   if (kind === 'pct') return formatPct(value)
   if (kind === 'mes') return MESES[value - 1] ?? String(value)
   if (kind === 'meses') return `${numero.format(value)} ${value === 1 ? 'mês' : 'meses'}`
+  if (kind === 'num') return numero.format(value)
   return `${value} ${value === 1 ? 'ano' : 'anos'}`
 }
 
-/** Um slider do formulário: rótulo, valor formatado e uma dica opcional abaixo. */
-export function ParamField({ label, value, onChange, min, max, step, kind, hint }: {
+/** Um slider do formulário: rótulo, valor formatado, uma dica e uma referência de mercado opcionais abaixo. */
+export function ParamField({ label, value, onChange, min, max, step, kind, hint, referencia }: {
   label: string
   value: number
   onChange: (value: number) => void
@@ -27,6 +28,7 @@ export function ParamField({ label, value, onChange, min, max, step, kind, hint 
   step: number
   kind: Kind
   hint?: string
+  referencia?: string
 }) {
   const id = useId()
   return (
@@ -41,6 +43,7 @@ export function ParamField({ label, value, onChange, min, max, step, kind, hint 
         className="w-full"
       />
       {hint && <p className="text-[11px] text-muted">{hint}</p>}
+      {referencia && <p className="text-[11px] text-muted">Referência: {referencia}</p>}
     </div>
   )
 }
