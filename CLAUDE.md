@@ -877,6 +877,19 @@ o que falta de um plano corporativo de verdade: aporte em % do salário (não R$
   o simulador real exige login do Google, então a conferência usou uma bancada temporária
   (`dev-pension-check.html` + `dev/pension-check.tsx`, apagada depois, no mesmo espírito do
   `dev-admin.html` do painel).
+- **`ChoiceField` não mostrava NADA selecionado** (pedido do PO, 2026-11-11: "fica tudo em
+  branco"). Causa: `tokens.css` tem DUAS regras `.chip` — a base (linha ~176) e uma redefinição
+  pra paleta clara (linha ~353, glass: fundo translúcido, borda quase branca). `.neon-red` (o
+  "ligado" do site, usado para marcar o botão escolhido) fica ENTRE as duas, linha ~300. Mesma
+  especificidade (uma classe cada); quem vem DEPOIS no arquivo vence — e a redefinição glass
+  (~353) vem depois de `.neon-red`, então ela reescrevia `border-color`/`box-shadow` de volta pro
+  neutro em QUALQUER chip selecionado, sem exceção nenhuma no seletor. O mesmo problema já tinha
+  acontecido com `.cta`/`.cta-primary`, e a correção que já existe pra ele
+  (`.cta:not(.cta-primary)`, logo na linha seguinte) é a receita: virou
+  `.chip:not(.neon-red) { ... }`. **Lição de depuração**: `className` no DOM mostrava a classe
+  certa (`neon-red` presente, `aria-pressed="true"`) — o bug não era em React, era CSS puro; só
+  apareceu comparando o `getComputedStyle` dos dois botões lado a lado (idênticos, apesar da
+  classe diferente) numa bancada visual de verdade, não só lendo o componente.
 
 ## Git dentro do Google Drive
 
