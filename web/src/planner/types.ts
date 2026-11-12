@@ -1,11 +1,40 @@
 /**
- * Os 18 parâmetros do simulador "Vivendo de Imóveis" — uma estratégia só (comprar
+ * Os parâmetros do simulador "Vivendo de Imóveis" — uma estratégia só (comprar
  * direto na holding, financiando o saldo remanescente nas chaves), reconstruída a
  * partir de uma conversa longa no Gemini (ver PR). O motor em `calc.ts` é
  * implementação própria, testada: o código do canvas do Gemini não dava para
  * extrair por inteiro (editor virtualizado, só renderiza a parte visível).
  */
+/** Quem paga IPTU/condomínio com o imóvel alugado. Vago, quem paga é SEMPRE o dono. */
+export type Pagador = 'inquilino' | 'proprietario'
+
 export type PlannerParams = {
+  /** Tempo de obra de um studio comprado na planta, em meses — pagar à vista não acelera a obra. */
+  prazoObraMeses: number
+  /** Meses por ano sem inquilino (média de mercado). */
+  vacanciaMesesAno: number
+  /** IPTU, % a.a. sobre o valor atual do imóvel. */
+  iptuPctAno: number
+  iptuPagador: Pagador
+  /** Condomínio, % a.a. sobre o valor atual do imóvel. */
+  condominioPctAno: number
+  condominioPagador: Pagador
+  /** Taxa da imobiliária que administra o aluguel, % do aluguel recebido. */
+  taxaAdmPct: number
+  /** Reforma/manutenção, % a.a. do valor do imóvel — sai do caixa, não só da valorização. */
+  manutencaoPctAno: number
+  /** Documentação de compra, % do preço pago: ITBI, escritura e registro. */
+  itbiPct: number
+  escrituraPct: number
+  registroPct: number
+  /** Desconto ao comprar imóvel PRONTO à vista (FGTS ou dinheiro de venda), %. */
+  descontoAVista: number
+  /** Valor máximo de imóvel em que o FGTS pode ser usado (teto do SFH); 0 = não usa FGTS pra comprar. */
+  fgtsTetoImovel: number
+  /** Corretagem paga na venda, % do valor de venda. */
+  corretagemVendaPct: number
+  /** Imposto na venda, % do valor de venda (holding no lucro presumido ≈ 6,73%). */
+  impostoVendaPct: number
   /** Ano em que para de aportar do bolso — a carteira passa a crescer só com os próprios aluguéis. */
   anoTransicao: number
   /** % pago até pegar as chaves (0–100); o resto é financiado direto na construtora. */
@@ -45,6 +74,21 @@ export type PlannerParams = {
 }
 
 export const DEFAULT_PARAMS: PlannerParams = {
+  prazoObraMeses: 36,
+  vacanciaMesesAno: 1,
+  iptuPctAno: 0.6,
+  iptuPagador: 'inquilino',
+  condominioPctAno: 2,
+  condominioPagador: 'inquilino',
+  taxaAdmPct: 8,
+  manutencaoPctAno: 0.5,
+  itbiPct: 3,
+  escrituraPct: 0.5,
+  registroPct: 0.5,
+  descontoAVista: 5,
+  fgtsTetoImovel: 2_250_000,
+  corretagemVendaPct: 6,
+  impostoVendaPct: 6.73,
   anoTransicao: 10,
   pctPagoChaves: 70,
   jurosFinHolding: 0.8,
@@ -90,7 +134,7 @@ export type MonthRow = {
   aporteAnual: number
   /** Quanto o FGTS abateu do saldo do apê neste mês (0 na maioria — só nos meses de saque). */
   abatimentoApeFgts: number
-  /** Quanto da sobra do FGTS (depois de abater o apê) comprou um studio à vista neste mês. */
+  /** Quanto da sobra do FGTS (depois de abater o apê) comprou studio PRONTO à vista neste mês. */
   compraAVistaFgts: number
   /** Saldo do FUNDO do FGTS no fim do mês — rende sozinho, à parte do patrimônio em studios. */
   saldoFgts: number
@@ -100,6 +144,12 @@ export type MonthRow = {
   imoveisFinanciados: number
   totalImoveis: number
   totalParcelasFinanciamento: number
+  /** O que sai do aluguel antes de virar renda: imposto, imobiliária, IPTU/condomínio do dono, manutenção. */
+  custosImovel: number
   rendaMensalLiquida: number
+  /** Studios vendidos neste mês (a venda só acontece quando o sistema calcula que compensa). */
+  vendas: number
+  /** Quanto as vendas do mês renderam, já sem corretagem e imposto. */
+  valorVendas: number
   patrimonioLiquido: number
 }

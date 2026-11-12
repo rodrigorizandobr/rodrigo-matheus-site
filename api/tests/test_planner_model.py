@@ -49,6 +49,31 @@ class TestSanitize:
         assert model.sanitize({}) == {}
         assert model.sanitize(None) == {}
 
+    def test_campos_novos_de_custo_passam_dentro_da_faixa(self):
+        patch = {"prazoObraMeses": 36, "vacanciaMesesAno": 1.5, "itbiPct": 3, "fgtsTetoImovel": 0, "impostoVendaPct": 6.73}
+        assert model.sanitize(patch) == patch
+
+    def test_vacancia_nao_passa_de_12_meses_por_ano(self):
+        with pytest.raises(ValueError, match="vacanciaMesesAno"):
+            model.sanitize({"vacanciaMesesAno": 13})
+
+
+class TestQuemPaga:
+    @pytest.mark.parametrize("campo", ["iptuPagador", "condominioPagador"])
+    def test_aceita_inquilino_e_proprietario(self, campo):
+        assert model.sanitize({campo: "inquilino"}) == {campo: "inquilino"}
+        assert model.sanitize({campo: "proprietario"}) == {campo: "proprietario"}
+
+    @pytest.mark.parametrize("campo", ["iptuPagador", "condominioPagador"])
+    def test_fora_do_conjunto_levanta_ValueError(self, campo):
+        with pytest.raises(ValueError, match=campo):
+            model.sanitize({campo: "vizinho"})
+
+    def test_iptu_e_condominio_sao_independentes(self):
+        resultado = model.merged({"iptuPagador": "proprietario"})
+        assert resultado["iptuPagador"] == "proprietario"
+        assert resultado["condominioPagador"] == "inquilino"
+
 
 class TestMerged:
     def test_sem_nada_salvo_devolve_os_padroes_do_simulador(self):
@@ -58,6 +83,11 @@ class TestMerged:
         resultado = model.merged({"monthlyAmount": 20_000})
         assert resultado["monthlyAmount"] == 20_000
         assert resultado["years"] == model.DEFAULT_PARAMS["years"]
+
+    def test_plano_salvo_antes_dos_campos_novos_ganha_os_padroes_deles(self):
+        resultado = model.merged({"monthlyAmount": 20_000})
+        assert resultado["prazoObraMeses"] == 36
+        assert resultado["vacanciaMesesAno"] == 1
 
     def test_lixo_salvo_nao_derruba_a_leitura__so_ignora_o_campo_ruim(self):
         resultado = model.merged({"pctPagoChaves": 999, "monthlyAmount": 20_000})

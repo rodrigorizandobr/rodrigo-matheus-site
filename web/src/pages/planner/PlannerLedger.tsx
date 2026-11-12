@@ -12,14 +12,16 @@ const COLUNAS: { rotulo: string; valor: (l: MonthRow) => string }[] = [
   { rotulo: 'Aporte mensal', valor: (l) => formatBRL(l.aporteMensal) },
   { rotulo: 'Aporte anual', valor: (l) => (l.aporteAnual > 0 ? formatBRL(l.aporteAnual) : '—') },
   { rotulo: 'Abatimento apê (FGTS)', valor: (l) => (l.abatimentoApeFgts > 0 ? formatBRL(l.abatimentoApeFgts) : '—') },
-  { rotulo: 'Compra à vista (FGTS)', valor: (l) => (l.compraAVistaFgts > 0 ? formatBRL(l.compraAVistaFgts) : '—') },
+  { rotulo: 'Compra pronto (FGTS)', valor: (l) => (l.compraAVistaFgts > 0 ? formatBRL(l.compraAVistaFgts) : '—') },
   { rotulo: 'Saldo do FGTS', valor: (l) => formatBRL(l.saldoFgts) },
   { rotulo: 'Em construção', valor: (l) => String(l.imoveisEmConstrucao) },
   { rotulo: 'Alugados', valor: (l) => String(l.imoveisAlugados) },
   { rotulo: 'Quitados', valor: (l) => String(l.imoveisQuitados) },
   { rotulo: 'Financiados', valor: (l) => String(l.imoveisFinanciados) },
   { rotulo: 'Total de imóveis', valor: (l) => String(l.totalImoveis) },
+  { rotulo: 'Vendas', valor: (l) => (l.vendas > 0 ? `${l.vendas} · ${formatBRL(l.valorVendas)}` : '—') },
   { rotulo: 'Parcelas dos imóveis', valor: (l) => formatBRL(l.totalParcelasFinanciamento) },
+  { rotulo: 'Custos do imóvel', valor: (l) => formatBRL(l.custosImovel) },
   { rotulo: 'Renda do mês', valor: (l) => formatBRL(l.rendaMensalLiquida) },
 ]
 
@@ -45,7 +47,7 @@ const GRUPOS_MOBILE: { cabecalho: string; linhas: { rotulo: string; valor: (l: M
       { rotulo: 'mensal', valor: (l) => curto(l.aporteMensal) },
       { rotulo: 'anual', valor: (l) => (l.aporteAnual > 0 ? curto(l.aporteAnual) : '—') },
       { rotulo: 'abate apê', valor: (l) => (l.abatimentoApeFgts > 0 ? curto(l.abatimentoApeFgts) : '—') },
-      { rotulo: 'à vista', valor: (l) => (l.compraAVistaFgts > 0 ? curto(l.compraAVistaFgts) : '—') },
+      { rotulo: 'pronto FGTS', valor: (l) => (l.compraAVistaFgts > 0 ? curto(l.compraAVistaFgts) : '—') },
       { rotulo: 'saldo FGTS', valor: (l) => curto(l.saldoFgts) },
     ],
   },
@@ -57,13 +59,16 @@ const GRUPOS_MOBILE: { cabecalho: string; linhas: { rotulo: string; valor: (l: M
       { rotulo: 'quitados', valor: (l) => String(l.imoveisQuitados) },
       { rotulo: 'financiados', valor: (l) => String(l.imoveisFinanciados) },
       { rotulo: 'total', valor: (l) => String(l.totalImoveis) },
+      { rotulo: 'vendidos', valor: (l) => (l.vendas > 0 ? String(l.vendas) : '—') },
     ],
   },
   {
     cabecalho: 'Financeiro (R$)',
     linhas: [
       { rotulo: 'parcelas', valor: (l) => curto(l.totalParcelasFinanciamento) },
+      { rotulo: 'custos', valor: (l) => curto(l.custosImovel) },
       { rotulo: 'renda', valor: (l) => curto(l.rendaMensalLiquida) },
+      { rotulo: 'venda', valor: (l) => (l.vendas > 0 ? curto(l.valorVendas) : '—') },
     ],
   },
 ]

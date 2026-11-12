@@ -5,6 +5,13 @@ import { simulate, simulateMonthly } from '../planner/calc'
 import { DEFAULT_PARAMS, type PlannerParams } from '../planner/types'
 import { formatBRL, formatBRLCompact } from '../planner/format'
 import { ParamField } from './planner/ParamField'
+import { ChoiceField } from './pension/ChoiceField'
+import type { Pagador } from '../planner/types'
+
+const QUEM_PAGA: { value: Pagador; label: string }[] = [
+  { value: 'inquilino', label: 'Inquilino' },
+  { value: 'proprietario', label: 'Proprietário' },
+]
 import { PlannerChart } from './planner/PlannerChart'
 import { PlannerLedger } from './planner/PlannerLedger'
 
@@ -64,7 +71,7 @@ export function PlannerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, loaded])
 
-  const set = useCallback(<K extends keyof PlannerParams>(key: K) => (value: number) =>
+  const set = useCallback(<K extends keyof PlannerParams>(key: K) => (value: PlannerParams[K]) =>
     setParams((p) => ({ ...p, [key]: value })), [])
 
   const pontos = useMemo(() => simulate(params), [params])
@@ -130,6 +137,9 @@ export function PlannerPage() {
             <Group title="O studio">
               <ParamField label="Custo de 1 studio hoje" kind="brl" min={100_000} max={1_000_000} step={5_000}
                           value={params.custoStudio} onChange={set('custoStudio')} />
+              <ParamField label="Tempo de obra" kind="meses" min={12} max={60} step={1}
+                          value={params.prazoObraMeses} onChange={set('prazoObraMeses')}
+                          hint="Studio na planta só aluga quando a obra termina — pagar à vista não acelera a obra." />
               <ParamField label="% pago até pegar as chaves" kind="pct" min={10} max={100} step={5}
                           value={params.pctPagoChaves} onChange={set('pctPagoChaves')}
                           hint="O resto é financiado direto na construtora." />
@@ -139,6 +149,48 @@ export function PlannerPage() {
                           value={params.impostoHolding} onChange={set('impostoHolding')} />
               <ParamField label="Aluguel bruto mensal" kind="pct" min={0} max={2} step={0.05}
                           value={params.rate} onChange={set('rate')} />
+            </Group>
+
+            <Group title="Custos do aluguel">
+              <ParamField label="Vacância" kind="meses" min={0} max={6} step={0.5}
+                          value={params.vacanciaMesesAno} onChange={set('vacanciaMesesAno')}
+                          hint="Meses por ano sem inquilino. Padrão de mercado: 1 mês por ano." />
+              <ParamField label="IPTU" kind="pct" min={0} max={3} step={0.1}
+                          value={params.iptuPctAno} onChange={set('iptuPctAno')}
+                          hint="% ao ano sobre o valor atual do imóvel." />
+              <ChoiceField label="Quem paga o IPTU" value={params.iptuPagador} onChange={set('iptuPagador')} options={QUEM_PAGA} />
+              <ParamField label="Condomínio" kind="pct" min={0} max={6} step={0.1}
+                          value={params.condominioPctAno} onChange={set('condominioPctAno')}
+                          hint="% ao ano sobre o valor atual do imóvel." />
+              <ChoiceField label="Quem paga o condomínio" value={params.condominioPagador} onChange={set('condominioPagador')} options={QUEM_PAGA}
+                           hint="Mesmo pago pelo inquilino, nos meses vagos IPTU e condomínio saem do seu bolso." />
+              <ParamField label="Taxa da imobiliária" kind="pct" min={0} max={20} step={0.5}
+                          value={params.taxaAdmPct} onChange={set('taxaAdmPct')}
+                          hint="% do aluguel recebido. Zere se você mesmo administra." />
+              <ParamField label="Manutenção e reformas" kind="pct" min={0} max={3} step={0.1}
+                          value={params.manutencaoPctAno} onChange={set('manutencaoPctAno')}
+                          hint="% ao ano do valor do imóvel, pago pelo dono." />
+            </Group>
+
+            <Group title="Documentação de compra">
+              <ParamField label="ITBI" kind="pct" min={0} max={5} step={0.1}
+                          value={params.itbiPct} onChange={set('itbiPct')} />
+              <ParamField label="Escritura" kind="pct" min={0} max={3} step={0.1}
+                          value={params.escrituraPct} onChange={set('escrituraPct')} />
+              <ParamField label="Registro" kind="pct" min={0} max={3} step={0.1}
+                          value={params.registroPct} onChange={set('registroPct')}
+                          hint="Tudo em % do preço pago, em toda compra — na planta ou pronta." />
+              <ParamField label="Desconto à vista (imóvel pronto)" kind="pct" min={0} max={30} step={1}
+                          value={params.descontoAVista} onChange={set('descontoAVista')}
+                          hint="O poder do dinheiro à vista: vale para compras com FGTS e com o dinheiro de uma venda." />
+            </Group>
+
+            <Group title="Venda">
+              <ParamField label="Corretagem na venda" kind="pct" min={0} max={10} step={0.5}
+                          value={params.corretagemVendaPct} onChange={set('corretagemVendaPct')} />
+              <ParamField label="Imposto na venda" kind="pct" min={0} max={20} step={0.1}
+                          value={params.impostoVendaPct} onChange={set('impostoVendaPct')}
+                          hint="% do valor de venda (holding no lucro presumido ≈ 6,73%). Todo dezembro o sistema compara manter cada studio quitado contra vender e comprar na planta ou pronto com desconto — só vende quando compensa." />
             </Group>
 
             <Group title="Mercado">
@@ -161,6 +213,9 @@ export function PlannerPage() {
               <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
                           value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
                           hint="Só serve para calcular o FGTS: a cada 2 anos ele abate o saldo do apê sozinho, e a queda na parcela vira aporte mensal extra nos studios." />
+              <ParamField label="Teto do imóvel para usar FGTS" kind="brl" min={0} max={3_000_000} step={50_000}
+                          value={params.fgtsTetoImovel} onChange={set('fgtsTetoImovel')}
+                          hint="Com o apê quitado, a sobra do FGTS compra studio PRONTO à vista, se o preço couber neste teto. Zero desliga. Atenção: a regra do FGTS exige imóvel para moradia — confira se o seu caso se encaixa." />
             </Group>
 
             <Group title="Horizonte">

@@ -622,8 +622,8 @@ tem o próprio plano, ninguém vê o de outra.
   anterior tratava tudo como UM patrimônio crescendo numa taxa alavancada média — impossível de
   decompor em "quantos imóveis estão em cada estado". Agora `simulateMonthly` (`calc.ts`) mantém
   uma LISTA de unidades, cada uma com o próprio ciclo: comprada (paga `pctPagoChaves`% na hora,
-  trava o preço do lançamento daquele mês) → em construção (`PRAZO_OBRA_MESES`, fixo em 30 — não
-  é slider, é quanto uma obra leva, não escolha de quem simula) → pronta na entrega (o valor
+  trava o preço do lançamento daquele mês) → em construção (`prazoObraMeses`, padrão 36 — era a
+  constante fixa de 30 até 2026-11-11, quando o PO pediu "tempo de obra" configurável) → pronta na entrega (o valor
   SALTA para o preço já corrigido pelo INCC da obra inteira — é a "valorização capturada na
   entrega" que a conversa original descrevia, reconhecida de uma vez, não dia a dia) → financiada
   (o saldo não pago amortiza em SAC ao longo de `PRAZO_FIN_HOLDING_MESES`, fixo em 48, a
@@ -684,10 +684,15 @@ tem o próprio plano, ninguém vê o de outra.
   amortizações com FGTS nas tabelas" + "compra a vista de imóveis usando o saldo do FGTS" +
   "coloque o rendimento que o FGTS tem na conta dele"). A cada saque de 2 anos, a ORDEM é fixa:
   primeiro abate o saldo do apê (se ainda houver); o que sobrar — porque o apê já foi quitado, ou
-  porque o saque foi maior que o que faltava — compra studio inteiro ao preço do lançamento
-  daquele mês, em loop (pode comprar mais de um de uma vez, se tiver sobrado o suficiente).
-  **Essa unidade nasce SEM saldo financiado** (paga 100% à vista, nunca passa por "financiada")
-  — ainda atravessa a obra normal (`PRAZO_OBRA_MESES`), só pula a parte do banco. `saldoFgts`,
+  porque o saque foi maior que o que faltava — compra studio inteiro, em loop (pode comprar mais
+  de um de uma vez, se tiver sobrado o suficiente). **Desde 2026-11-11 é studio PRONTO, nunca na
+  planta** (PO: "compra à vista com FGTS tem que ser imóvel pronto... nem dá pra usar o FGTS em
+  imóvel em obra"): nasce alugado e quitado no mesmo mês, ao preço de mercado do mês com
+  `descontoAVista` ("o poder do dinheiro à vista"). Até essa data a unidade atravessava a obra
+  inteira. A documentação (ITBI/cartório) sai do CAIXA, não do FGTS — e o imóvel tem que caber em
+  `fgtsTetoImovel` (teto do SFH; 0 desliga). Como o saldo do FGTS fica fora do patrimônio (abaixo),
+  o ganho do desconto aparece como FGTS SOBRANDO, não como patrimônio — um teste que esperava
+  patrimônio maior estava errado e foi corrigido. `saldoFgts`,
   `abatimentoApeFgts` e `compraAVistaFgts` ficam no `MonthRow`, não só escondidos dentro do
   aporte mensal — o pedido era visibilidade, não só o mecanismo funcionar por baixo. O saldo do
   FGTS **fica de fora do `patrimonioLiquido`** de propósito: é dinheiro do casal, mas de acesso
@@ -766,6 +771,42 @@ tem o próprio plano, ninguém vê o de outra.
   aberto, sem JS para abrir/fechar. No menu mobile (sem hover) os itens de `UTILS` entram
   direto na folha, sob um rótulo "Utilitários", em vez de replicar o hover que não existe em
   touch.
+- **Custos reais do aluguel — `contaDoAluguel` (`calc.ts`)** (pedido do PO, 2026-11-11, depois de
+  uma revisão do modelo: "gostei de todas as sugestões"). Antes só o imposto da holding saía do
+  aluguel. Hoje, por unidade pronta e por mês: **vacância** em meses por ano (`vacanciaMesesAno`,
+  padrão de mercado 1 — esperança contínua, não sorteio de meses); **IPTU e condomínio SEPARADOS**,
+  cada um em % a.a. do valor ATUAL do imóvel ("porcentagem automática", pedido do PO) e cada um com
+  o próprio `Pagador` (`'inquilino' | 'proprietario'`, `ChoiceField`) — mesmo do inquilino, **nos
+  meses vagos quem paga é o dono**, na fração `vacancia/12`; **taxa da imobiliária** (% do aluguel
+  RECEBIDO, não do bruto); **manutenção/reforma** (% a.a. do valor, sai do caixa — antes só existia
+  como "depreciação" na valorização). `custosImovel` vai pro diário de bordo. Os padrões (IPTU
+  0,6%, condomínio 2%, imobiliária 8%, manutenção 0,5%) são estimativa de mercado, não dado
+  oficial. Medido no cenário padrão de 15 anos: patrimônio ~R$ 5,1 mi → ~R$ 4,0 mi e renda
+  mensal ~R$ 32 mil → ~R$ 18 mil — é o realismo que faltava, não bug.
+- **Documentação de compra em % (`itbiPct`, `escrituraPct`, `registroPct`)** em TODA compra: na
+  planta, somada à entrada (o caixa precisa cobrir entrada + documentação); pronta, sobre o preço
+  pago. Simplificação: na vida real o ITBI da planta é pago na escritura, nas chaves — aqui sai na
+  compra, para o caixa nunca ficar devendo documentação.
+- **Venda automática — só quando o sistema calcula que compensa** (`avaliaVenda`). Todo dezembro,
+  cada unidade PRONTA e QUITADA é avaliada num horizonte de UM tempo de obra (o "3 anos de aluguel"
+  contra "um studio que fica pronto em 3 anos" do PO): MANTER (valor no fim + aluguel líquido do
+  período) contra vender (menos `corretagemVendaPct` e `impostoVendaPct`, padrão 6,73% = holding no
+  lucro presumido) e pôr o líquido NA PLANTA (equity `pctChaves` do valor de entrega) ou num PRONTO
+  à vista com desconto (o "vender caro e comprar mais barato" — o modelo só tem um tipo de studio,
+  então "mais barato" é o desconto à vista). Só vende se a melhor alternativa ganhar com folga de
+  5% (`FOLGA_VENDA`) — senão a carteira giraria por centavos numa conta que é estimativa. A
+  comparação usa fração de unidade; a execução compra só unidades inteiras e o resto vai pro
+  caixa. **Com os padrões NUNCA vende** (testado): aluguel + valorização do usado vencem com folga
+  o atrito de ~13% da venda + documentação. Os testes forçam a venda com aluguel zero e INCC alto
+  (planta) e com desconto à vista de 30% (pronto).
+- **`calc.test.ts` tem um `base()` com os custos novos ZERADOS** (`SEM_CUSTOS`): os testes de
+  mecânica (obra, financiamento, FGTS, conservação de patrimônio) medem a mecânica, não a soma de
+  taxas; cada custo tem o próprio bloco. Os testes que querem o mundo real usam `DEFAULT_PARAMS`
+  direto ("plausível com TODOS os custos padrão ligados").
+- **`planner-page.test.tsx` é lento** (~40 s para 6 testes no jsdom: a página monta ~180 linhas ×
+  2 tabelas a cada render) — já era ~33 s antes dos custos novos. Sob CPU disputada (ex.: um Vite
+  subindo ao lado) estoura o `testTimeout` de 20 s. Rode a suíte com a máquina livre antes de
+  concluir que quebrou.
 
 ## Simulador "Previdência Privada" (/previdencia-privada)
 
@@ -1064,8 +1105,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # 949 testes
-cd web && npm test                                  # 558 testes
+cd api && source .venv/bin/activate && pytest      # 957 testes
+cd web && npm test                                  # 578 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

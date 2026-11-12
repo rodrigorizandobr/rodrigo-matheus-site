@@ -7,7 +7,8 @@ const linha = (over: Partial<MonthRow> = {}): MonthRow => ({
   mes: 1, anoDoPlano: 1, mesDoAno: 1, aporteMensal: 2_000, aporteAnual: 0,
   abatimentoApeFgts: 0, compraAVistaFgts: 0, saldoFgts: 0,
   imoveisEmConstrucao: 0, imoveisAlugados: 0, imoveisQuitados: 0, imoveisFinanciados: 0,
-  totalImoveis: 0, totalParcelasFinanciamento: 0, rendaMensalLiquida: 0, patrimonioLiquido: 75_000,
+  totalImoveis: 0, totalParcelasFinanciamento: 0, custosImovel: 0, rendaMensalLiquida: 0,
+  vendas: 0, valorVendas: 0, patrimonioLiquido: 75_000,
   ...over,
 })
 
@@ -38,6 +39,19 @@ describe('PlannerLedger — tabela de desktop (uma coluna por tipo de dado)', ()
     const row = within(tabelaDesktop()).getAllByRole('row')[1]
     expect(within(row).getByText(/R\$\s?50\.000/)).toBeInTheDocument()
     expect(within(row).getByText(/R\$\s?12\.345/)).toBeInTheDocument()
+  })
+
+  it('mostra a venda (quantos e quanto entrou) só no mês em que ela acontece', () => {
+    render(<PlannerLedger linhas={[linha({ mes: 1 }), linha({ mes: 2, mesDoAno: 2, vendas: 1, valorVendas: 345_678 })]} />)
+    const linhasTabela = within(tabelaDesktop()).getAllByRole('row')
+    expect(within(linhasTabela[2]).getByText(/1 · R\$\s?345\.678/)).toBeInTheDocument()
+    expect(within(linhasTabela[1]).queryByText(/345\.678/)).toBeNull()
+  })
+
+  it('mostra os custos do imóvel do mês', () => {
+    render(<PlannerLedger linhas={[linha({ custosImovel: 4_321 })]} />)
+    const row = within(tabelaDesktop()).getAllByRole('row')[1]
+    expect(within(row).getByText(/R\$\s?4\.321/)).toBeInTheDocument()
   })
 
   it('mostra a contagem de imóveis por status', () => {

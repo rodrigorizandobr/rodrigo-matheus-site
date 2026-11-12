@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { simulate, simulateMonthly } from './calc'
 import { DEFAULT_PARAMS, type PlannerParams } from './types'
 
-const base = (over: Partial<PlannerParams> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...over })
+// Custos novos zerados: os testes de mecânica (obra, financiamento, FGTS) medem a mecânica,
+// não a soma de taxas. Cada custo tem o próprio bloco de testes mais abaixo.
+const SEM_CUSTOS: Partial<PlannerParams> = {
+  vacanciaMesesAno: 0, iptuPctAno: 0, condominioPctAno: 0, taxaAdmPct: 0, manutencaoPctAno: 0,
+  itbiPct: 0, escrituraPct: 0, registroPct: 0, descontoAVista: 0,
+}
+const base = (over: Partial<PlannerParams> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...SEM_CUSTOS, ...over })
 
 describe('simulate — motor puro do simulador de studios', () => {
   it('devolve um ponto por ano, do ano 0 ao horizonte', () => {
@@ -79,7 +85,7 @@ describe('simulate — motor puro do simulador de studios', () => {
     expect(com.patrimonioLiquido).toBeGreaterThan(sem.patrimonioLiquido)
   })
 
-  it('sem saldo devedor no apê, mais salário ainda ajuda: sobra de FGTS compra studio à vista', () => {
+  it('sem saldo devedor no apê, mais salário ainda ajuda: sobra de FGTS compra studio pronto à vista', () => {
     const baixo = simulate(base({ dividaApe: 0, salarioBrutoCasal: 1_000 })).at(-1)!
     const alto = simulate(base({ dividaApe: 0, salarioBrutoCasal: 200_000 })).at(-1)!
     expect(alto.patrimonioLiquido).toBeGreaterThan(baixo.patrimonioLiquido)
@@ -92,10 +98,7 @@ describe('simulate — motor puro do simulador de studios', () => {
       years: 4, dividaApe: 1, parcelaApeAtual: 1_000, salarioBrutoCasal: 34_000,
       monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0,
     }))
-    // saldo de R$1 é quitado de sobra no 1º saque de FGTS (mês 24, ano 2): a parcela de
-    // R$1.000 cai a ~R$0, e esse R$1.000 vira aporte mensal a partir do próprio mês 24.
     expect(r.find((p) => p.ano === 2)!.patrimonioLiquido).toBeCloseTo(1_000, -1)
-    // do ano 2 ao ano 4: mais 24 meses de R$1.000/mês de aporte extra, sem mais nada mudando
     expect(r.find((p) => p.ano === 4)!.patrimonioLiquido).toBeCloseTo(1_000 + 24 * 1_000, -1)
   })
 
@@ -110,41 +113,42 @@ describe('simulate — motor puro do simulador de studios', () => {
     expect(r.every((p) => p.studiosQuitadosEquiv <= p.studiosComChaves)).toBe(true)
   })
 
-  it('plausível contra a referência do Gemini (cenário base): mesma ordem de grandeza', () => {
-    const r = simulate(base({ years: 15 })).at(-1)!
-    // Gemini relatou R$9,22M / 20 com chaves / 14 quitados no cenário equivalente (aportando
-    // até o fim). Este motor é discreto (constrói, só depois aluga e financia de verdade) e
-    // chega a uma ordem de grandeza menor, mais conservadora — não travamos no número exato.
-    expect(r.patrimonioLiquido).toBeGreaterThan(2_000_000)
+  it('plausível com TODOS os custos padrão ligados: ordem de grandeza de milhões em 15 anos', () => {
+    const r = simulate({ ...DEFAULT_PARAMS, years: 15 }).at(-1)!
+    expect(r.patrimonioLiquido).toBeGreaterThan(1_000_000)
     expect(r.patrimonioLiquido).toBeLessThan(10_000_000)
-    expect(r.studiosComChaves).toBeGreaterThanOrEqual(5)
+    expect(r.studiosComChaves).toBeGreaterThanOrEqual(3)
   })
 })
 
 describe('simulateMonthly — o diário de bordo mês a mês', () => {
   const soUmaUnidade = (over: Partial<PlannerParams> = {}) => base({
-    monthlyAmount: 0, annualAmount: 0, dissidio: 0, dividaApe: 0, years: 8, ...over,
+    monthlyAmount: 0, annualAmount: 0, dissidio: 0, dividaApe: 0, salarioBrutoCasal: 0, years: 8, ...over,
   })
 
-  it('a unidade fica "em construção" até o mês da obra, e "alugada" a partir dele', () => {
+  it('tempo de obra padrão é 36 meses: em construção até o mês 35, alugada a partir do 36', () => {
     const linhas = simulateMonthly(soUmaUnidade())
-    const antes = linhas.find((l) => l.mes === 29)!
-    const depois = linhas.find((l) => l.mes === 30)!
+    const antes = linhas.find((l) => l.mes === 35)!
+    const depois = linhas.find((l) => l.mes === 36)!
     expect(antes.imoveisEmConstrucao).toBe(1)
     expect(antes.imoveisAlugados).toBe(0)
     expect(depois.imoveisEmConstrucao).toBe(0)
     expect(depois.imoveisAlugados).toBe(1)
   })
 
+  it('o tempo de obra é configurável', () => {
+    const linhas = simulateMonthly(soUmaUnidade({ prazoObraMeses: 24 }))
+    expect(linhas.find((l) => l.mes === 23)!.imoveisEmConstrucao).toBe(1)
+    expect(linhas.find((l) => l.mes === 24)!.imoveisAlugados).toBe(1)
+  })
+
   it('uma unidade alugada com saldo financiado cobra parcela; sem saldo, não cobra mais nada', () => {
     const linhas = simulateMonthly(soUmaUnidade())
-    const financiada = linhas.find((l) => l.mes === 31)!
+    const financiada = linhas.find((l) => l.mes === 37)!
     expect(financiada.imoveisFinanciados).toBe(1)
     expect(financiada.imoveisQuitados).toBe(0)
     expect(financiada.totalParcelasFinanciamento).toBeGreaterThan(0)
 
-    // no mês em que o saldo chega a zero a última parcela ainda é cobrada; só no mês
-    // SEGUINTE é que não sobra mais nada para pagar.
     const primeiraQuitada = linhas.findIndex((l) => l.imoveisQuitados === 1)
     const depoisDeQuitar = linhas[primeiraQuitada + 1]
     expect(depoisDeQuitar.imoveisFinanciados).toBe(0)
@@ -152,7 +156,7 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
   })
 
   it('totalImoveis é sempre em construção + alugados, nunca mais nem menos', () => {
-    const linhas = simulateMonthly(base({ years: 15 }))
+    const linhas = simulateMonthly({ ...DEFAULT_PARAMS, years: 15 })
     expect(linhas.every((l) => l.totalImoveis === l.imoveisEmConstrucao + l.imoveisAlugados)).toBe(true)
   })
 
@@ -166,10 +170,10 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
     expect(linhas.map((l) => l.mes)).toEqual(Array.from({ length: 36 }, (_, i) => i + 1))
   })
 
-  describe('FGTS: abate o apê primeiro, e só depois compra studio à vista com a sobra', () => {
-    const comFgtsFolgado = () => base({
+  describe('FGTS: abate o apê primeiro, e só depois compra studio PRONTO à vista com a sobra', () => {
+    const comFgtsFolgado = (over: Partial<PlannerParams> = {}) => base({
       dividaApe: 50_000, parcelaApeAtual: 1_000, salarioBrutoCasal: 60_000,
-      monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0, years: 10,
+      monthlyAmount: 0, annualAmount: 0, dissidio: 0, initial: 0, years: 10, ...over,
     })
 
     it('o 1º saque quita o apê pequeno e NÃO sobra pra comprar nada ainda', () => {
@@ -180,22 +184,49 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
       expect(primeiroSaque.compraAVistaFgts).toBe(0)
     })
 
-    it('um saque seguinte, com o apê já quitado, compra um studio à vista pelo preço do lançamento daquele mês', () => {
+    it('compra com FGTS é de imóvel PRONTO: no mesmo mês já está alugado e quitado, nunca em obra', () => {
       const linhas = simulateMonthly(comFgtsFolgado())
       const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
-      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + DEFAULT_PARAMS.incc / 100, compra.mes / 12)
-      expect(compra.abatimentoApeFgts).toBe(0) // o apê já tinha sido quitado antes
-      expect(compra.compraAVistaFgts).toBeCloseTo(precoDoMes, -1)
-      expect(compra.imoveisEmConstrucao).toBeGreaterThanOrEqual(1)
+      expect(compra.imoveisEmConstrucao).toBe(0)
+      expect(compra.imoveisAlugados).toBeGreaterThanOrEqual(1)
+      expect(compra.imoveisQuitados).toBeGreaterThanOrEqual(1)
+      expect(compra.imoveisFinanciados).toBe(0)
+      expect(compra.rendaMensalLiquida).toBeGreaterThan(0)
     })
 
-    it('studio comprado à vista nunca passa por "financiado" — nasce em construção e vira quitado direto', () => {
-      const linhas = simulateMonthly(comFgtsFolgado())
+    it('paga o preço de mercado do mês com o desconto à vista', () => {
+      const linhas = simulateMonthly(comFgtsFolgado({ descontoAVista: 10 }))
       const compra = linhas.find((l) => l.compraAVistaFgts > 0)!
-      const pronta = linhas.find((l) => l.mes === compra.mes + 30)! // PRAZO_OBRA_MESES
-      expect(pronta.imoveisFinanciados).toBe(0)
-      expect(pronta.imoveisQuitados).toBeGreaterThanOrEqual(1)
-      expect(pronta.totalParcelasFinanciamento).toBe(0)
+      const precoDoMes = DEFAULT_PARAMS.custoStudio * Math.pow(1 + DEFAULT_PARAMS.incc / 100, compra.mes / 12)
+      expect(compra.compraAVistaFgts).toBeCloseTo(precoDoMes * 0.9, -1)
+    })
+
+    it('o desconto à vista deixa FGTS sobrando pelo mesmo imóvel (o saldo do FGTS fica fora do patrimônio)', () => {
+      const sem = simulateMonthly(comFgtsFolgado({ descontoAVista: 0 }))
+      const com = simulateMonthly(comFgtsFolgado({ descontoAVista: 10 }))
+      const mes = sem.find((l) => l.compraAVistaFgts > 0)!.mes
+      expect(com[mes - 1].imoveisAlugados).toBe(sem[mes - 1].imoveisAlugados)
+      expect(com[mes - 1].saldoFgts).toBeGreaterThan(sem[mes - 1].saldoFgts)
+    })
+
+    it('a documentação (ITBI, escritura, registro) não sai do FGTS — sai do caixa e reduz o patrimônio', () => {
+      const sem = simulateMonthly(comFgtsFolgado())
+      const com = simulateMonthly(comFgtsFolgado({ itbiPct: 3, escrituraPct: 0.5, registroPct: 0.5 }))
+      const mes = sem.find((l) => l.compraAVistaFgts > 0)!.mes
+      expect(com[mes - 1].compraAVistaFgts).toBe(sem[mes - 1].compraAVistaFgts)
+      expect(com[mes - 1].saldoFgts).toBe(sem[mes - 1].saldoFgts)
+      expect(com[mes - 1].patrimonioLiquido).toBeCloseTo(sem[mes - 1].patrimonioLiquido - sem[mes - 1].compraAVistaFgts * 0.04, -1)
+    })
+
+    it('imóvel acima do teto do FGTS não pode ser comprado com FGTS — o saldo só acumula', () => {
+      const linhas = simulateMonthly(comFgtsFolgado({ fgtsTetoImovel: 100_000 }))
+      expect(linhas.every((l) => l.compraAVistaFgts === 0)).toBe(true)
+      expect(linhas.at(-1)!.saldoFgts).toBeGreaterThan(300_000)
+    })
+
+    it('teto zero desliga a compra com FGTS', () => {
+      const linhas = simulateMonthly(comFgtsFolgado({ fgtsTetoImovel: 0 }))
+      expect(linhas.every((l) => l.compraAVistaFgts === 0)).toBe(true)
     })
   })
 
@@ -207,5 +238,107 @@ describe('simulateMonthly — o diário de bordo mês a mês', () => {
     for (let i = 1; i < linhas.length; i++) {
       expect(linhas[i].saldoFgts).toBeGreaterThan(linhas[i - 1].saldoFgts)
     }
+  })
+})
+
+describe('custos do aluguel', () => {
+  // Uma unidade só, já quitada (initial = custo, pagando 100% nas chaves), pronta no mês 36:
+  // tudo que muda a renda do mês 40 é custo do aluguel, nada de parcela.
+  const unidadeQuitada = (over: Partial<PlannerParams> = {}) => base({
+    initial: 260_000, custoStudio: 260_000, pctPagoChaves: 100,
+    monthlyAmount: 0, annualAmount: 0, dissidio: 0, dividaApe: 0, salarioBrutoCasal: 0,
+    impostoHolding: 0, years: 4, ...over,
+  })
+  const rendaNoMes40 = (over: Partial<PlannerParams> = {}) => simulateMonthly(unidadeQuitada(over))[39].rendaMensalLiquida
+  const custosNoMes40 = (over: Partial<PlannerParams> = {}) => simulateMonthly(unidadeQuitada(over))[39].custosImovel
+
+  it('vacância em meses por ano: 3 meses vagos = 3/12 a menos de aluguel recebido', () => {
+    expect(rendaNoMes40({ vacanciaMesesAno: 3 })).toBeCloseTo(rendaNoMes40({ vacanciaMesesAno: 0 }) * 0.75, -1)
+  })
+
+  it('IPTU e condomínio pagos pelo inquilino, sem vacância, não custam nada ao dono', () => {
+    const limpo = rendaNoMes40()
+    expect(rendaNoMes40({ iptuPctAno: 1, iptuPagador: 'inquilino', condominioPctAno: 3, condominioPagador: 'inquilino' })).toBe(limpo)
+  })
+
+  it('IPTU pago pelo dono sai do aluguel todo mês, como % do valor do imóvel', () => {
+    const limpo = rendaNoMes40()
+    const comIptu = rendaNoMes40({ iptuPctAno: 1.2, iptuPagador: 'proprietario' })
+    expect(limpo - comIptu).toBeGreaterThan(0)
+    expect(custosNoMes40({ iptuPctAno: 1.2, iptuPagador: 'proprietario' })).toBeCloseTo(limpo - comIptu, -1)
+  })
+
+  it('IPTU e condomínio são independentes: cada um tem o próprio "quem paga"', () => {
+    const soCondo = rendaNoMes40({ condominioPctAno: 2, condominioPagador: 'proprietario', iptuPctAno: 1, iptuPagador: 'inquilino' })
+    const soIptu = rendaNoMes40({ condominioPctAno: 2, condominioPagador: 'inquilino', iptuPctAno: 1, iptuPagador: 'proprietario' })
+    expect(soCondo).toBeLessThan(soIptu) // 2% de condomínio pesa mais que 1% de IPTU
+  })
+
+  it('com o imóvel vago, IPTU e condomínio do inquilino caem no colo do dono na proporção dos meses vagos', () => {
+    const semCondo = rendaNoMes40({ vacanciaMesesAno: 6 })
+    const comCondoDoInquilino = rendaNoMes40({ vacanciaMesesAno: 6, condominioPctAno: 2, condominioPagador: 'inquilino' })
+    const comCondoDoDono = rendaNoMes40({ vacanciaMesesAno: 6, condominioPctAno: 2, condominioPagador: 'proprietario' })
+    const custoInquilino = semCondo - comCondoDoInquilino
+    const custoDono = semCondo - comCondoDoDono
+    expect(custoInquilino).toBeCloseTo(custoDono / 2, 0)
+  })
+
+  it('taxa da imobiliária é % do aluguel RECEBIDO', () => {
+    expect(rendaNoMes40({ taxaAdmPct: 10 })).toBeCloseTo(rendaNoMes40() * 0.9, -1)
+  })
+
+  it('manutenção sai do caixa todo mês, mesmo com o imóvel alugado', () => {
+    expect(rendaNoMes40({ manutencaoPctAno: 1 })).toBeLessThan(rendaNoMes40())
+  })
+
+  it('documentação na compra na planta exige mais caixa: com ITBI/cartório, a 1ª compra demora mais', () => {
+    const p = { initial: 0, monthlyAmount: 5_000, annualAmount: 0, dissidio: 0, dividaApe: 0, salarioBrutoCasal: 0, years: 5 }
+    const sem = simulateMonthly(base(p)).find((l) => l.totalImoveis > 0)!.mes
+    const com = simulateMonthly(base({ ...p, itbiPct: 3, escrituraPct: 1, registroPct: 1 })).find((l) => l.totalImoveis > 0)!.mes
+    expect(com).toBeGreaterThan(sem)
+  })
+})
+
+describe('venda — só quando o sistema calcula que compensa', () => {
+  it('no cenário padrão, alugar vence: nenhuma venda em 15 anos', () => {
+    const linhas = simulateMonthly({ ...DEFAULT_PARAMS, years: 15 })
+    expect(linhas.every((l) => l.vendas === 0)).toBe(true)
+  })
+
+  // Unidade quitada, pronta no mês 36 (dezembro do ano 3, quando a venda é avaliada).
+  const quitada = (over: Partial<PlannerParams> = {}) => base({
+    initial: 260_000, custoStudio: 260_000, pctPagoChaves: 50, jurosFinHolding: 0,
+    monthlyAmount: 0, annualAmount: 0, dissidio: 0, dividaApe: 0, salarioBrutoCasal: 0,
+    corretagemVendaPct: 0, impostoVendaPct: 0, years: 6, ...over,
+  })
+
+  it('vende e compra na planta quando a obra valoriza muito mais que o usado e o aluguel é fraco', () => {
+    const p = quitada({ rate: 0, incc: 15, depreciacao: 10 })
+    const linhas = simulateMonthly(p)
+    const venda = linhas.find((l) => l.vendas > 0)!
+    expect(venda).toBeDefined()
+    expect(venda.valorVendas).toBeGreaterThan(0)
+    expect(venda.imoveisEmConstrucao).toBeGreaterThanOrEqual(1) // o dinheiro já voltou pra uma planta
+    // vender só quando compensa: termina com mais patrimônio que quem foi impedido de vender
+    const travado = simulateMonthly({ ...p, impostoVendaPct: 50 }).at(-1)!
+    expect(linhas.at(-1)!.patrimonioLiquido).toBeGreaterThan(travado.patrimonioLiquido)
+  })
+
+  it('vende e compra outro PRONTO quando o desconto à vista compensa o atrito da venda', () => {
+    const linhas = simulateMonthly(quitada({ rate: 1, incc: 0, depreciacao: 0, descontoAVista: 30, years: 4 }))
+    const venda = linhas.find((l) => l.vendas > 0)!
+    expect(venda).toBeDefined()
+    expect(venda.imoveisAlugados).toBeGreaterThanOrEqual(1) // comprou pronto: continua alugando
+    expect(venda.imoveisEmConstrucao).toBe(0)
+  })
+
+  it('corretagem e imposto da venda comem o ganho: com atrito alto, o mesmo cenário não vende', () => {
+    const linhas = simulateMonthly(quitada({ rate: 0, incc: 15, depreciacao: 10, corretagemVendaPct: 10, impostoVendaPct: 30 }))
+    expect(linhas.every((l) => l.vendas === 0)).toBe(true)
+  })
+
+  it('totalImoveis continua batendo com construção + alugados depois de vender', () => {
+    const linhas = simulateMonthly(quitada({ rate: 0, incc: 15, depreciacao: 10 }))
+    expect(linhas.every((l) => l.totalImoveis === l.imoveisEmConstrucao + l.imoveisAlugados)).toBe(true)
   })
 })

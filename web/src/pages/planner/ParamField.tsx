@@ -1,15 +1,19 @@
 import { useId } from 'react'
 import { formatBRL, formatPct } from '../../planner/format'
 
-type Kind = 'brl' | 'pct' | 'anos' | 'mes'
+/** `mes` é um mês do calendário (janeiro…); `meses` é uma DURAÇÃO (36 meses, 1,5 mês). */
+type Kind = 'brl' | 'pct' | 'anos' | 'mes' | 'meses'
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 
 const format = (kind: Kind, value: number): string => {
   if (kind === 'brl') return formatBRL(value)
   if (kind === 'pct') return formatPct(value)
   if (kind === 'mes') return MESES[value - 1] ?? String(value)
+  if (kind === 'meses') return `${numero.format(value)} ${value === 1 ? 'mês' : 'meses'}`
   return `${value} ${value === 1 ? 'ano' : 'anos'}`
 }
 
