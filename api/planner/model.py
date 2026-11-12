@@ -77,6 +77,7 @@ DEFAULT_PARAMS: dict[str, Any] = {
     # pacote 5: temporada (Airbnb)
     "pctTemporada": 0,
     "diariaHoje": 256,
+    "diariaPct": 0.1,
     "ocupacaoPct": 42,
     "taxaPlataformaPct": 16,
     "taxaGestaoPct": 20,
@@ -89,12 +90,12 @@ DEFAULT_PARAMS: dict[str, Any] = {
     "consorcioPrazoMeses": 200,
     "consorcioTaxaTotalPct": 20,
     "consorcioIntervaloMeses": 24,
-    "consorcioLancePct": 25,
+    "consorcioLancePct": 40,
     # pacote 8: planta, ágio, venda nas chaves
     "agioProntoPct": 0,
     "pctVendaNasChaves": 0,
     # pacote 10: leilão, recursos de hoje
-    "leilaoDescontoPct": 30,
+    "leilaoDescontoPct": 38,
     "leilaoComissaoPct": 5,
     "leilaoJuridicoPct": 3,
     "leilaoReformaPct": 10,
@@ -159,6 +160,7 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "reservaMeses": (0, 24),
     "pctTemporada": (0, 100),
     "diariaHoje": (0, 10_000),
+    "diariaPct": (0, 2),
     "ocupacaoPct": (0, 100),
     "taxaPlataformaPct": (0, 50),
     "taxaGestaoPct": (0, 60),

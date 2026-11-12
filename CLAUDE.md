@@ -635,6 +635,15 @@ tem o próprio plano, ninguém vê o de outra.
 >   (`NOVIDADES.id` no `PlannerPaineis.tsx`: troque o id quando mudar número para ele reaparecer).
 > - Fora de escopo por decisão do PO: banco, construtora com juros, home equity, pessoa física.
 
+> **Rodada de 2026-11-15 — o sistema decide (no ar):** a tela pede só salário bruto, aportes (mensal em R$, anual em salários),
+> anos acumulando, apê (FGTS) e, em grupo fechado, o studio que já se paga; o resto é "premissas de mercado" fechadas.
+> `regras.ts` também decide: temporada tudo-ou-nada (a que render mais líquido por studio), consórcio (cotas por `caminhos`, lance
+> mínimo 40%), diária em % do valor do imóvel (`diariaPct`, convertida em `diariaHoje`), sem meta de renda (`metaRendaHoje = 0`).
+> A recomendação é o MAIOR PATRIMÔNIO no fim do prazo (renda desempata). Resultado numa tela só, sem alternar: `PlannerPainel`
+> (resposta + 4 cartões: imóveis, aluguel, gastos, renda, patrimônio, com o nominal em cinza), 2 gráficos (renda e patrimônio),
+> `PlannerAnoAno`, diário com abas, e "Análises extras" fechada. Padrões: leilão 38%, lance 40%. Saíram aviso de novidades,
+> chave hoje/nominal e `PlannerRecomendacao`.
+>
 > **Rodada de 2026-11-14 — tela simples (no ar):** `planner/regras.ts#aplicarRegras` resolve o que NÃO é escolha do usuário
 > antes de o motor rodar (a tela, o `caminhos()` e o comparador usam o resultado): aporte anual = `annualSalarios` × salário
 > bruto do casal (o campo em R$ `annualAmount` fica no plano salvo mas é ignorado); `anoTransicao = years` (acumula bens pelo

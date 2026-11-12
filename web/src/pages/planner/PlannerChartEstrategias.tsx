@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
+import { emReaisDeHoje } from '../../planner/inflacao'
 import type { EstrategiaRodada, Evento, IdEstrategia, TipoEvento } from '../../planner/caminhos'
 import { rotuloMesAno } from '../../planner/calendario'
 import { formatBRL, formatBRLCompact } from '../../planner/format'
 
 const W = 680
 const H = 300
-const PAD = { top: 18, right: 16, bottom: 30, left: 58 }
+const PAD = { top: 18, right: 16, bottom: 30, left: 78 }
 
-type Metrica = 'renda' | 'patrimonio'
+export type Metrica = 'renda' | 'patrimonio'
 
 /** Uma cor e um traço por estratégia: a identidade nunca depende só da cor. */
 export const ESTILO: Record<IdEstrategia, { cor: string; dash?: string; largura: number }> = {
@@ -38,39 +39,29 @@ function Marcador({ x, y, tipo, cor, titulo }: { x: number; y: number; tipo: Tip
 }
 
 /**
- * As quatro estratégias no mesmo gráfico (um eixo só): renda disponível ou patrimônio ao longo dos meses, com os
- * acontecimentos da estratégia escolhida marcados sobre a linha dela. Legenda sempre visível (clicar escolhe a
- * estratégia das abas e dos cartões), cristal de foco ao passar o mouse e tabela ano a ano.
+ * As quatro estratégias no mesmo gráfico (um eixo só, em reais de hoje): renda por mês ou patrimônio ao longo dos
+ * meses, com os acontecimentos da estratégia escolhida marcados sobre a linha dela. Legenda sempre visível e cristal
+ * de foco ao passar o mouse. Um gráfico por métrica — sem botão para alternar.
  */
-export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar, conv, benchmark, nomeBenchmark, metaDoMes, moeda }: {
+export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar, metrica, ipca }: {
   estrategias: EstrategiaRodada[]
   selecionada: IdEstrategia
   onSelecionar: (id: IdEstrategia) => void
-  /** Reais do mês `mes` já na moeda escolhida. */
-  conv: (valor: number, mes: number) => number
-  /** Mesmos aportes na renda fixa, um valor por mês, já convertido. */
-  benchmark: number[]
-  nomeBenchmark: string
-  metaDoMes: (mes: number) => number
-  moeda: 'hoje' | 'nominal'
+  metrica: Metrica
+  ipca: number
 }) {
-  const [metrica, setMetrica] = useState<Metrica>('renda')
   const [hover, setHover] = useState<number | null>(null)
-  const [verEventos, setVerEventos] = useState(true)
 
   const meses = estrategias[0].linhas.length
   const series = useMemo(() => estrategias.map((e) => ({
     e,
-    valores: e.linhas.map((l) => conv(metrica === 'renda' ? l.rendaDisponivel : l.patrimonioLiquido, l.mes)),
-  })), [estrategias, metrica, conv])
-  const meta = useMemo(() => Array.from({ length: meses }, (_, i) => metaDoMes(i + 1)), [meses, metaDoMes])
+    valores: e.linhas.map((l) => emReaisDeHoje(metrica === 'renda' ? l.rendaDisponivel : l.patrimonioLiquido, l.mes, ipca)),
+  })), [estrategias, metrica, ipca])
 
   const { minY, maxY } = useMemo(() => {
     const todos = series.flatMap((s) => s.valores)
-    if (metrica === 'renda') todos.push(...meta)
-    else todos.push(...benchmark)
     return { minY: Math.min(0, ...todos), maxY: Math.max(1, ...todos) }
-  }, [series, meta, benchmark, metrica])
+  }, [series])
 
   const xOf = (mes: number) => PAD.left + (mes / meses) * (W - PAD.left - PAD.right)
   const yOf = (v: number) => H - PAD.bottom - ((v - minY) / (maxY - minY)) * (H - PAD.top - PAD.bottom)
@@ -83,25 +74,12 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
   const eventosSel: Evento[] = sel.e.eventos
   const eventosNoMes = eventosSel.filter((ev) => ev.mes === ativo + 1)
   const rotuloMetrica = metrica === 'renda' ? 'Renda disponível por mês' : 'Patrimônio líquido'
-  const moedaTxt = moeda === 'hoje' ? 'em reais de hoje' : 'em valores nominais'
+  const moedaTxt = 'em reais de hoje'
   const l0 = estrategias[0].linhas[ativo]
 
   return (
     <div className="panel hud-frame p-4 md:p-6 min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div role="group" aria-label="O que o gráfico mostra" className="flex gap-2">
-          {([['renda', 'Renda por mês'], ['patrimonio', 'Patrimônio']] as const).map(([id, rot]) => (
-            <button key={id} type="button" aria-pressed={metrica === id} onClick={() => setMetrica(id)}
-                    className={`chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider ${metrica === id ? 'neon-red' : ''}`}>
-              {rot}
-            </button>
-          ))}
-        </div>
-        <label className="inline-flex items-center gap-2 text-[11px] text-muted cursor-pointer">
-          <input type="checkbox" checked={verEventos} onChange={(e) => setVerEventos(e.target.checked)} />
-          marcar acontecimentos
-        </label>
-      </div>
+      <div className="hud-label mb-2">{metrica === 'renda' ? 'Renda por mês' : 'Patrimônio'} <span className="normal-case tracking-normal text-muted">· R$ de hoje</span></div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] mb-2">
         {estrategias.map((e) => {
@@ -117,10 +95,6 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
             </button>
           )
         })}
-        <span className="inline-flex items-center gap-2 text-muted">
-          <svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--heading)" strokeWidth="1.5" strokeDasharray="1 3" opacity="0.7" /></svg>
-          {metrica === 'renda' ? 'Sua meta' : nomeBenchmark}
-        </span>
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} role="img" className="w-full h-auto select-none"
@@ -143,10 +117,6 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
         ))}
         <text x={W - PAD.right} y={H - 2} textAnchor="end" className="fill-muted" fontSize="9">anos</text>
 
-        {metrica === 'renda'
-          ? <path d={linha(meta)} fill="none" stroke="var(--heading)" strokeWidth="1.5" strokeDasharray="1 3" opacity="0.7" vectorEffect="non-scaling-stroke" />
-          : <path d={linha(benchmark)} fill="none" stroke="var(--heading)" strokeWidth="1.5" strokeDasharray="1 3" opacity="0.7" vectorEffect="non-scaling-stroke" />}
-
         {series.filter((s) => s.e.id !== selecionada).map(({ e, valores }) => (
           <path key={e.id} d={linha(valores)} fill="none" stroke={ESTILO[e.id].cor} strokeWidth={ESTILO[e.id].largura} strokeDasharray={ESTILO[e.id].dash}
                 strokeLinejoin="round" opacity="0.55" vectorEffect="non-scaling-stroke" />
@@ -154,7 +124,7 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
         <path d={linha(sel.valores)} fill="none" stroke={ESTILO[selecionada].cor} strokeWidth={ESTILO[selecionada].largura + 0.6} strokeDasharray={ESTILO[selecionada].dash}
               strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
 
-        {verEventos && eventosSel.map((ev, i) => (
+        {eventosSel.map((ev, i) => (
           <Marcador key={`${ev.mes}-${ev.tipo}-${i}`} x={xOf(ev.mes)} y={yOf(sel.valores[ev.mes - 1])} tipo={ev.tipo}
                     cor={ESTILO[selecionada].cor} titulo={`${rotuloMesAno(ev.ano, ev.mesDoAno)}: ${ev.texto}`} />
         ))}
@@ -169,7 +139,7 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
         <span className="inline-flex items-center gap-1"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="currentColor" /></svg>compra, leilão, consórcio</span>
         <span className="inline-flex items-center gap-1"><svg width="12" height="12" aria-hidden="true"><polygon points="6,1 11,6 6,11 1,6" fill="currentColor" /></svg>chaves</span>
         <span className="inline-flex items-center gap-1"><svg width="12" height="12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" fill="currentColor" /></svg>venda</span>
-        <span className="inline-flex items-center gap-1"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="2" /></svg>transição e meta</span>
+        <span className="inline-flex items-center gap-1"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="2" /></svg>fim do prazo</span>
       </div>
 
       <div className="mt-3 grid gap-1 text-[12px]" aria-live="polite">
@@ -189,40 +159,6 @@ export function PlannerChartEstrategias({ estrategias, selecionada, onSelecionar
           <p key={i} className="text-heading mt-1"><strong>{ROTULO_EVENTO[ev.tipo]}:</strong> {ev.texto}</p>
         ))}
       </div>
-
-      <details className="mt-4 text-[12px]">
-        <summary className="cursor-pointer text-muted hover:text-heading">Ver tabela ano a ano</summary>
-        <div className="mt-2 overflow-x-auto">
-          <table className="w-full border-collapse whitespace-nowrap">
-            <thead>
-              <tr className="text-left text-muted">
-                <th className="py-1 pr-3">Ano</th>
-                {estrategias.map((e) => <th key={e.id} className="py-1 pr-3">{e.nome}</th>)}
-                <th className="py-1">{metrica === 'renda' ? 'Meta' : nomeBenchmark}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: anos }, (_, i) => i + 1).map((a) => (
-                <tr key={a} className="border-t border-line">
-                  <td className="py-1 pr-3">{a}</td>
-                  {series.map(({ e, valores }) => <td key={e.id} className="py-1 pr-3 tabular-nums">{formatBRL(valores[a * 12 - 1])}</td>)}
-                  <td className="py-1 tabular-nums">{formatBRL(metrica === 'renda' ? meta[a * 12 - 1] : benchmark[a * 12 - 1] ?? 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <details className="mt-3 text-[12px]">
-        <summary className="cursor-pointer text-muted hover:text-heading">Acontecimentos de {sel.e.nome} ({eventosSel.length})</summary>
-        <ul className="mt-2 grid gap-1 text-muted">
-          {eventosSel.map((ev, i) => (
-            <li key={i}><span className="text-heading tabular-nums">{rotuloMesAno(ev.ano, ev.mesDoAno)}</span> · {ev.texto}</li>
-          ))}
-          {eventosSel.length === 0 && <li>Nada aconteceu além do studio que você já tem.</li>}
-        </ul>
-      </details>
     </div>
   )
 }

@@ -14,6 +14,10 @@ export type ResumoEstrategia = {
   patrimonioFinal: number
   /** Renda disponível no último mês, em reais de hoje. */
   rendaFinal: number
+  /** Aluguel recebido por mês no fim, em reais de hoje. */
+  aluguelFinal: number
+  /** O que sai do aluguel por mês no fim (custos dos imóveis, parcelas, impostos, holding), em reais de hoje. */
+  gastosFinal: number
   mesDaMeta: number | null
   picoDivida: number
   menorSaldo: number
@@ -49,7 +53,7 @@ export function eventosDe(linhas: MonthRow[], p: PlannerParams): Evento[] {
       if (l.compraAVistaFgts > 0) add(l, 'fgts', `Compra ${plural(novos, 'studio', 'studios')} pronto com o FGTS`)
       else add(l, 'compra', `Compra ${plural(novos, 'studio', 'studios')} na planta`)
     }
-    if (l.mes === mesTransicao) add(l, 'transicao', p.aposTransicao === 'vive_da_renda' ? 'Para de trabalhar: passa a viver da renda' : 'Para de aportar: os aluguéis seguem reinvestidos')
+    if (l.mes === mesTransicao) add(l, 'transicao', p.aposTransicao === 'vive_da_renda' ? 'Fim do prazo: passa a viver dos aluguéis' : 'Para de aportar: os aluguéis seguem reinvestidos')
     if (meta !== null && l.mes === meta) add(l, 'meta', 'A renda passa a cobrir a sua meta')
     totalAnt = l.totalImoveis
     obraAnt = l.imoveisEmConstrucao
@@ -103,6 +107,8 @@ function resumir(linhas: MonthRow[], p: PlannerParams): ResumoEstrategia {
     studios: f.totalImoveis,
     patrimonioFinal: emReaisDeHoje(f.patrimonioLiquido, linhas.length, p.ipca),
     rendaFinal: emReaisDeHoje(f.rendaDisponivel, linhas.length, p.ipca),
+    aluguelFinal: emReaisDeHoje(f.aluguelRecebido, linhas.length, p.ipca),
+    gastosFinal: emReaisDeHoje(f.aluguelRecebido - f.rendaDisponivel, linhas.length, p.ipca),
     mesDaMeta: mesDaMeta(linhas),
     picoDivida: Math.max(0, ...linhas.map((l) => l.dividaFinanciamento + l.aPagarObra + l.dividaConsorcio)),
     menorSaldo: Math.min(...linhas.map((l) => l.saldo)),
@@ -137,7 +143,7 @@ export type Caminhos = { estrategias: EstrategiaRodada[]; recomendada: IdEstrate
 export function caminhos(p: PlannerParams, inicio: Inicio): Caminhos {
   const base: PlannerParams = { ...p, consorcioCotas: 0, leilaoAtivo: false, compraNaPlanta: true }
   const melhorDe = <T extends { resumo: ResumoEstrategia }>(xs: T[]): T =>
-    [...xs].sort((a, b) => b.resumo.rendaFinal - a.resumo.rendaFinal || b.resumo.patrimonioFinal - a.resumo.patrimonioFinal)[0]
+    [...xs].sort((a, b) => b.resumo.patrimonioFinal - a.resumo.patrimonioFinal || b.resumo.rendaFinal - a.resumo.rendaFinal)[0]
   const rodar = (params: PlannerParams) => { const linhas = simulateMonthly(params, inicio); return { linhas, resumo: resumir(linhas, params) } }
 
   // Consórcio: se a pessoa não escolheu cotas, testa 1 a 3 e fica com a que mais rende — cota demais
@@ -167,22 +173,17 @@ export function caminhos(p: PlannerParams, inicio: Inicio): Caminhos {
   const estrategias: EstrategiaRodada[] = rodadas.map((r) => ({ id: r.id, nome: r.nome, descricao: r.descricao, params: r.params, linhas: r.linhas, resumo: r.resumo, eventos: eventosDe(r.linhas, r.params) }))
   // Quem deixa o caixa negativo em algum mês não fecha com a margem da pessoa: nunca é a recomendada.
   const fecha = (e: EstrategiaRodada) => e.resumo.menorSaldo >= -1
-  const ordem = [...estrategias].sort((a, b) => Number(fecha(b)) - Number(fecha(a)) || b.resumo.rendaFinal - a.resumo.rendaFinal || b.resumo.patrimonioFinal - a.resumo.patrimonioFinal)
+  const ordem = [...estrategias].sort((a, b) => Number(fecha(b)) - Number(fecha(a)) || b.resumo.patrimonioFinal - a.resumo.patrimonioFinal || b.resumo.rendaFinal - a.resumo.rendaFinal)
   const melhor = ordem[0]
   const segunda = ordem[1]
   const motivo: Record<IdEstrategia, string> = {
-    construtora: 'a dívida com a construtora não tem juros e o caixa vira obra adiantada, então cada real compra mais studio',
-    consorcio: 'o consórcio troca juros por uma taxa fixa e cada carta contemplada compra um pronto à vista, com desconto',
-    leilao: `o desconto de ${p.leilaoDescontoPct}% vira patrimônio já no arremate, mesmo depois de comissão, jurídico, reforma e ${p.leilaoMesesAteAlugar} meses sem aluguel`,
-    mix: 'combina o que cada mês permite, esperando o caixa para o leilão quando ele compensa e comprando na planta quando não',
+    construtora: 'a dívida com a construtora não tem juros e o caixa vira obra adiantada',
+    consorcio: 'o consórcio troca juros por uma taxa fixa e cada carta contemplada compra um pronto à vista',
+    leilao: `o desconto de ${p.leilaoDescontoPct}% vira patrimônio já no arremate`,
+    mix: 'ele combina, mês a mês, o que o caixa permite',
   }
-  const folga = melhor.resumo.rendaFinal > 0 ? (melhor.resumo.rendaFinal - segunda.resumo.rendaFinal) / melhor.resumo.rendaFinal : 1
-  const empate = folga < 0.03
-  const aviso = ordem.some((e) => e.id === 'leilao') ? ' Leilão é a estimativa menos precisa: o risco real (imóvel ocupado, dívida escondida) não entra na conta.' : ''
-  const porque = empate
-    ? `Empate técnico: ${melhor.nome} ficou na frente por pouco (${BRL.format(melhor.resumo.rendaFinal)} por mês no fim de ${p.years} anos, em reais de hoje, contra ${BRL.format(segunda.resumo.rendaFinal)} de ${segunda.nome}). `
-      + `Com a sua margem, as quatro chegam perto uma da outra, então vale escolher pelo risco e pelo trabalho que você aceita, não pelo número.${aviso}`
-    : `${melhor.nome} rende mais no fim de ${p.years} anos: ${BRL.format(melhor.resumo.rendaFinal)} por mês em reais de hoje, contra ${BRL.format(segunda.resumo.rendaFinal)} de ${segunda.nome}. `
-      + `Isso acontece porque ${motivo[melhor.id]}.${aviso}`
+  const folga = melhor.resumo.patrimonioFinal > 0 ? (melhor.resumo.patrimonioFinal - segunda.resumo.patrimonioFinal) / melhor.resumo.patrimonioFinal : 1
+  const complemento = folga < 0.03 ? ` Diferença pequena (menos de 3%): ${segunda.nome} também serve.` : ''
+  const porque = `Maior patrimônio em ${p.years} anos: ${BRL.format(melhor.resumo.patrimonioFinal)} (${segunda.nome}: ${BRL.format(segunda.resumo.patrimonioFinal)}), porque ${motivo[melhor.id]}.${complemento}`
   return { estrategias, recomendada: melhor.id, porque }
 }

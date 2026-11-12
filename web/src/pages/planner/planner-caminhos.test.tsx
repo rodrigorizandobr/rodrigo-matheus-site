@@ -4,20 +4,26 @@ import { caminhos } from '../../planner/caminhos'
 import { inicioDeHoje } from '../../planner/calendario'
 import { DEFAULT_PARAMS } from '../../planner/types'
 import { PlannerChartEstrategias } from './PlannerChartEstrategias'
-import { PlannerRecomendacao, PlannerRoteiro } from './PlannerCaminhos'
+import { PlannerRoteiro } from './PlannerCaminhos'
+import { PlannerAnoAno, PlannerPainel } from './PlannerPainel'
 import { PlannerLedgerAbas } from './PlannerLedger'
 
 const p = { ...DEFAULT_PARAMS, years: 6, anoTransicao: 4 }
 const r = caminhos(p, inicioDeHoje())
-const conv = (v: number) => v
 
-describe('recomendação e roteiro', () => {
-  it('lista as quatro estratégias e marca a recomendada', () => {
+describe('painel, ano a ano e roteiro', () => {
+  it('lista as quatro estratégias, marca a melhor e deixa escolher uma', () => {
     const escolher = vi.fn()
-    render(<PlannerRecomendacao estrategias={r.estrategias} recomendada={r.recomendada} porque={r.porque} selecionada="mix" onSelecionar={escolher} anos={6} metaHoje={15_000} />)
-    for (const nome of ['Construtora', 'Consórcio', 'Leilão', 'Mix']) expect(screen.getAllByText(new RegExp(nome)).length).toBeGreaterThan(0)
+    render(<PlannerPainel estrategias={r.estrategias} recomendada={r.recomendada} porque={r.porque} selecionada="mix" onSelecionar={escolher} ipca={4.5} anos={6} />)
+    expect(screen.getByText('Onde colocar o seu dinheiro')).toBeInTheDocument()
+    expect(screen.getAllByText(/★ melhor/)).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: /^Consórcio/ }))
     expect(escolher).toHaveBeenCalledWith('consorcio')
+  })
+  it('o ano a ano tem uma linha por ano e uma coluna por estratégia', () => {
+    render(<PlannerAnoAno estrategias={r.estrategias} recomendada={r.recomendada} ipca={4.5} />)
+    expect(screen.getAllByRole('row')).toHaveLength(6 + 1)
+    expect(screen.getAllByRole('columnheader')).toHaveLength(5)
   })
   it('o roteiro tem uma linha por ano', () => {
     render(<PlannerRoteiro estrategia={r.estrategias[0]} />)
@@ -26,26 +32,19 @@ describe('recomendação e roteiro', () => {
 })
 
 describe('gráfico das quatro estratégias', () => {
-  const monta = () => render(
-    <PlannerChartEstrategias estrategias={r.estrategias} selecionada="leilao" onSelecionar={() => {}} conv={conv}
-                             benchmark={r.estrategias[0].linhas.map(() => 1000)} nomeBenchmark="Total aportado" metaDoMes={() => 15_000} moeda="hoje" />,
+  const monta = (metrica: 'renda' | 'patrimonio') => render(
+    <PlannerChartEstrategias estrategias={r.estrategias} selecionada="leilao" onSelecionar={() => {}} metrica={metrica} ipca={4.5} />,
   )
-  it('tem uma linha de legenda por estratégia e alterna renda e patrimônio', () => {
-    monta()
+  it('um gráfico por métrica, sem botão para alternar', () => {
+    monta('renda')
     expect(screen.getByRole('img', { name: /Renda disponível/i })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^Patrimônio$/ }))
+    expect(screen.queryByRole('button', { name: /^Patrimônio$/ })).not.toBeInTheDocument()
+    monta('patrimonio')
     expect(screen.getByRole('img', { name: /Patrimônio líquido/i })).toBeInTheDocument()
   })
-  it('marca os acontecimentos da estratégia escolhida e dá para desligar', () => {
-    const { container } = monta()
-    const antes = container.querySelectorAll('svg[role="img"] title').length
-    expect(antes).toBeGreaterThan(0)
-    fireEvent.click(screen.getByLabelText(/marcar acontecimentos/i))
-    expect(container.querySelectorAll('svg[role="img"] title').length).toBe(0)
-  })
-  it('lista os acontecimentos em texto', () => {
-    monta()
-    expect(screen.getByText(/Acontecimentos de Leilão/)).toBeInTheDocument()
+  it('marca os acontecimentos da estratégia escolhida', () => {
+    const { container } = monta('patrimonio')
+    expect(container.querySelectorAll('svg[role="img"] title').length).toBeGreaterThan(0)
   })
 })
 

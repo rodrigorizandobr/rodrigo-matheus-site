@@ -27,10 +27,14 @@ describe('as quatro estratégias', () => {
     const rendaDe = (id: string) => r.estrategias.find((e) => e.id === id)!.resumo.rendaFinal
     expect(rendaDe('mix')).toBeGreaterThanOrEqual(Math.min(rendaDe('construtora'), rendaDe('leilao')) - 1)
   })
-  it('a recomendada é a de maior renda final entre as que fecham o caixa, e a explicação cita as outras', () => {
-    const melhor = [...r.estrategias].filter((e) => e.resumo.menorSaldo >= -1).sort((a, b) => b.resumo.rendaFinal - a.resumo.rendaFinal)[0]
-    expect(r.recomendada).toBe(melhor.id)
-    expect(r.porque.length).toBeGreaterThan(40)
+  it('a recomendada é a de maior patrimônio entre as que fecham o caixa, e a explicação cita a segunda', () => {
+    const ordem = [...r.estrategias].filter((e) => e.resumo.menorSaldo >= -1).sort((a, b) => b.resumo.patrimonioFinal - a.resumo.patrimonioFinal)
+    expect(r.recomendada).toBe(ordem[0].id)
+    expect(r.porque).toContain(ordem[1].nome)
+    expect(r.porque.length).toBeLessThan(260)
+  })
+  it('cada resumo traz aluguel, gastos e sobra por mês que fecham a conta', () => {
+    for (const e of r.estrategias) expect(e.resumo.aluguelFinal - e.resumo.gastosFinal).toBeCloseTo(e.resumo.rendaFinal, 0)
   })
 })
 

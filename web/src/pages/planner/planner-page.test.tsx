@@ -57,9 +57,7 @@ describe('depois de logado', () => {
 
   it('carrega o plano e mostra os cartões de resultado', async () => {
     await logar()
-    // "Studios c/ chaves"/"Studios quitados" também são cabeçalho de tabela (gráfico e
-    // diário de bordo) — só "Renda disponível no fim" é exclusiva do cartão de resultado.
-    expect(await screen.findByText('Renda disponível no fim')).toBeInTheDocument()
+        expect(await screen.findByText('Onde colocar o seu dinheiro')).toBeInTheDocument()
     expect(screen.getByText('Diário de bordo')).toBeInTheDocument()
   })
 
@@ -78,7 +76,7 @@ describe('depois de logado', () => {
   it('não salva de novo só por causa da carga inicial do plano', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     await logar()
-    await screen.findByText('Renda disponível no fim')
+    await screen.findByText('Onde colocar o seu dinheiro')
     await vi.advanceTimersByTimeAsync(2000)
     expect(api.savePlan).not.toHaveBeenCalled()
     vi.useRealTimers()
@@ -95,22 +93,27 @@ describe('a tela nova', () => {
   const logar = async () => {
     currentUser = { email: 'eu@example.com' }
     render(<PlannerPage />)
-    await screen.findByText('Renda disponível no fim')
+    await screen.findByText('Onde colocar o seu dinheiro')
   }
   const grupo = (titulo: string) =>
     screen.getAllByText(titulo).find((e) => e.classList.contains('hud-label') && e.closest('summary'))!.closest('details') as HTMLDetailsElement
 
-  it('mostra os seis cartões de resultado', async () => {
+  it('mostra a resposta e as quatro estratégias lado a lado, sem alternar nada', async () => {
     await logar()
-    for (const nome of ['Vive de renda a partir de', 'Renda disponível no fim', 'Patrimônio líquido no fim', 'Dívida e compromissos no fim']) {
-      expect(screen.getByText(nome)).toBeInTheDocument()
+    const painel = screen.getByRole('region', { name: 'Resultado' })
+    for (const nome of ['Construtora', 'Consórcio', 'Leilão', 'Mix']) expect(within(painel).getAllByText(nome).length).toBeGreaterThan(0)
+    for (const rotulo of ['Imóveis no fim', 'Aluguel por mês', 'Gastos por mês', 'Renda por mês', 'Patrimônio']) {
+      expect(within(painel).getAllByText(rotulo)).toHaveLength(4)
     }
+    expect(screen.getAllByText(/nominal/).length).toBeGreaterThanOrEqual(8)
+    expect(screen.getAllByRole('img', { name: /Renda disponível|Patrimônio líquido/ })).toHaveLength(2)
+    for (const fora of ['R$ nominais', 'Valores em', 'Vive de renda a partir de', 'entendi']) expect(screen.queryByText(fora)).not.toBeInTheDocument()
   })
 
   it('os grupos principais começam abertos e os outros fechados', async () => {
     await logar()
-    for (const aberto of ['Seus recursos hoje', 'Seus aportes', 'O studio', 'Plano investidor (contrato)']) expect(grupo(aberto).open, aberto).toBe(true)
-    for (const fechado of ['Venda', 'Consórcio', 'Temporada (Airbnb)', 'Mercado']) expect(grupo(fechado).open, fechado).toBe(false)
+    for (const aberto of ['Seus dados', 'Seu apê (FGTS)']) expect(grupo(aberto).open, aberto).toBe(true)
+    for (const fechado of ['Studio que você já paga', 'O studio', 'Plano investidor (contrato)', 'Venda', 'Consórcio', 'Temporada (Airbnb)', 'Mercado']) expect(grupo(fechado).open, fechado).toBe(false)
   })
 
   it('o campo de um grupo fechado continua no DOM e a escolha de abrir é lembrada', async () => {
@@ -146,12 +149,24 @@ describe('a tela nova', () => {
       expect(screen.queryByText(texto, { exact: false }), texto).not.toBeInTheDocument()
     }
     expect(screen.queryByText('Sua margem livre')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Parcela mensal fixa do studio atual')).toBeInTheDocument()
+    expect(screen.getByLabelText('Parcela mensal')).toBeInTheDocument()
+  })
+
+  it('o sistema decide temporada e consórcio; a diária é % do imóvel, o lance mínimo é 40% e o leilão nasce em 38%', async () => {
+    await logar()
+    expect(screen.queryByLabelText('Parte da carteira em temporada')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Cotas de consórcio')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Meta')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Quanto você quer por mês/)).not.toBeInTheDocument()
+    const diaria = screen.getByLabelText('Diária média') as HTMLInputElement
+    expect([diaria.min, diaria.max]).toEqual(['0.02', '0.3'])
+    expect((screen.getByLabelText('Lance') as HTMLInputElement).min).toBe('40')
+    expect(Number((screen.getByLabelText('Desconto sobre o valor de mercado') as HTMLInputElement).value)).toBe(38)
   })
 
   it('o aporte anual é em salários CLT e o prazo é o tempo acumulando bens', async () => {
     await logar()
-    const anual = screen.getByLabelText('Aporte anual (em salários)') as HTMLInputElement
+    const anual = screen.getByLabelText('Aporte por ano (em salários)') as HTMLInputElement
     expect([anual.min, anual.max, anual.step]).toEqual(['0', '12', '0.5'])
     expect(screen.getByText(/Hoje: .* por ano/)).toBeInTheDocument()
     expect(screen.getByLabelText('Anos acumulando bens')).toBeInTheDocument()
@@ -167,29 +182,9 @@ describe('a tela nova', () => {
     expect((screen.getByLabelText('Parcelado até as chaves (mensais + reforços)') as HTMLInputElement).max).toBe('40')
   })
 
-  it('a chave de moeda começa em reais de hoje, muda o patrimônio e é lembrada', async () => {
-    await logar()
-    const valor = () => screen.getByText('Patrimônio líquido no fim').previousSibling!.textContent
-    const hoje = valor()
-    expect(screen.getByRole('button', { name: 'R$ de hoje' })).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'R$ nominais' }))
-    expect(valor()).not.toBe(hoje)
-    expect(window.localStorage.getItem('planner:moeda')).toBe('nominal')
-  })
-
-  it('o aviso de novidades aparece, some ao clicar em entendi e não volta', async () => {
-    const primeira = render(<PlannerPage />)
-    primeira.unmount()
-    await logar()
-    expect(screen.getByText('O simulador ficou mais realista')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'entendi' }))
-    expect(screen.queryByText('O simulador ficou mais realista')).not.toBeInTheDocument()
-    expect(window.localStorage.getItem('planner:novidades')).toBeTruthy()
-  })
-
   it('os painéis de leitura: vale parcelar, tradicional × temporada e comparar', async () => {
     await logar()
-    await userEvent.click(screen.getAllByRole('button', { name: /^Construtora/ })[0]) // o painel só vale para quem compra na planta
+    await userEvent.click(within(screen.getByRole('region', { name: 'Resultado' })).getByRole('button', { name: /^Construtora/ })) // o painel só vale para quem compra na planta
     expect(screen.getByText('Vale parcelar com a construtora?')).toBeInTheDocument()
     expect(screen.getByText('Tradicional × temporada')).toBeInTheDocument()
     expect(screen.getByText('Comparar estratégias')).toBeInTheDocument()

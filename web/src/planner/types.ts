@@ -137,6 +137,8 @@ export type PlannerParams = {
   // ---- pacote 5: temporada (Airbnb) ----
   pctTemporada: number
   diariaHoje: number
+  /** Diária média como % do valor do imóvel (é o que a tela mostra; regras.ts converte em `diariaHoje`). */
+  diariaPct: number
   ocupacaoPct: number
   taxaPlataformaPct: number
   taxaGestaoPct: number
@@ -246,6 +248,7 @@ export const DEFAULT_PARAMS: PlannerParams = {
 
   pctTemporada: 0,
   diariaHoje: 256,
+  diariaPct: 0.1,
   ocupacaoPct: 42,
   taxaPlataformaPct: 16,
   taxaGestaoPct: 20,
@@ -258,12 +261,12 @@ export const DEFAULT_PARAMS: PlannerParams = {
   consorcioPrazoMeses: 200,
   consorcioTaxaTotalPct: 20,
   consorcioIntervaloMeses: 24,
-  consorcioLancePct: 25,
+  consorcioLancePct: 40,
 
   agioProntoPct: 0,
   pctVendaNasChaves: 0,
 
-  leilaoDescontoPct: 30,
+  leilaoDescontoPct: 38,
   leilaoComissaoPct: 5,
   leilaoJuridicoPct: 3,
   leilaoReformaPct: 10,

@@ -39,6 +39,7 @@ export const NEUTRO: Partial<PlannerParams> = {
 
   pctTemporada: 0,
   diariaHoje: 256,
+  diariaPct: 0.1,
   ocupacaoPct: 42,
   taxaPlataformaPct: 16,
   taxaGestaoPct: 20,
