@@ -799,6 +799,40 @@ tem o próprio plano, ninguém vê o de outra.
   caixa. **Com os padrões NUNCA vende** (testado): aluguel + valorização do usado vencem com folga
   o atrito de ~13% da venda + documentação. Os testes forçam a venda com aluguel zero e INCC alto
   (planta) e com desconto à vista de 30% (pronto).
+- **PLANEJADOR de compras (2026-11-12) — vale MAIS que os itens acima onde divergir.** Pedido do PO:
+  "se tem renda de 20k por mês e em 12 meses dá o valor de um imóvel, compre um que falte apenas 12
+  meses para ficar pronto... pegar o aporte acumulado, aporte do mês, custos mensais, ver o que sobra
+  para calcular o que dá para comprar e como". Antes o caixa esperava juntar a entrada inteira e só
+  então comprava um lançamento (obra inteira pela frente). Hoje, todo mês, `caminhoDoCaixa` projeta
+  o saldo mês a mês por `prazoObra + 48` meses só com o que já é conhecido e do jeito PRUDENTE
+  (aportes de hoje até a transição, sem dissídio futuro; aluguel congelado no valor de hoje; parcelas
+  SAC; o que cada obra ainda deve cobrado inteiro no mês das chaves, já com INCC), e `cabeNaObra`
+  procura o MENOR número de meses de obra (0 = pronto … `prazoObraMeses`, que virou o TETO) em que
+  comprar mais um studio mantém esse caminho >= 0 — incluindo o financiamento dele depois das chaves,
+  que com os padrões custa mais que o aluguel rende. Até as chaves paga `pctPagoChaves`% +
+  documentação (`restante`, corrigido pelo INCC todo mês); o mínimo do caminho (`folga`) é dinheiro
+  que não vai fazer falta e é ADIANTADO na obra que entrega primeiro. Consequências: (1) o saldo
+  nunca fica negativo (testado nos padrões) — antes ficava, em silêncio; (2) o saldo passa muitos
+  meses em R$ 0, porque sobra vira adiantamento de obra — é o esperado, não bug; (3) padrão de 15
+  anos: 6 → 10 studios, patrimônio ~4,0 → ~4,7 mi, renda ~18 → ~24 mil. Custa ~50 ms por simulação
+  (era ~7): `PlannerPage` simula UMA vez e deriva o gráfico com `pontosAnuais(linhas, p)`.
+- **FGTS sem restrição (PO, 2026-11-12: "tem que ser usado sempre, mesmo para um imóvel de outro
+  estado")**: saiu o `fgtsTetoImovel` e o aviso de "só moradia". Com saldo devedor no apê, segue
+  abatendo o apê a cada 2 anos. Com o apê quitado, NÃO espera mais o saque de 2 anos: todo mês, se
+  FGTS + `folga` do caixa pagam um studio pronto com desconto (+ documentação, sempre do caixa),
+  compra — FGTS primeiro, o caixa completa. `compraAVistaFgts` é só a parte do FGTS; o complemento
+  aparece em `comprasImoveis`.
+- **A venda só acontece se o dinheiro consegue virar outro studio** (`simulateMonthly`, bloco de
+  dezembro): vende "de mentira", confere `folga >= custoPronto` (destino pronto) ou `cabeNaObra` de
+  um lançamento (destino planta) e DESFAZ se não couber. Sem renda nenhuma, vender e comprar na
+  planta deixava um financiamento sem ter como pagar — a versão antiga fazia isso com caixa negativo.
+- **Diário de bordo (2026-11-12)**: "as entradas e saídas do mês deixe tudo na mesma coluna, um
+  abaixo do outro, inclusive o aporte anual, mas descreva as coisas" + "falta uma coluna chamada
+  saldo". `MOVIMENTOS` (uma célula, linhas `+`/`−` com nome, zero não aparece) soma exatamente a
+  variação de `saldo` (teste: "o saldo de cada mês fecha com as entradas e saídas"). FGTS tem coluna
+  própria no desktop (não passa pelo caixa). Mobile: Mês | Entradas e saídas | Imóveis | Saldos
+  (caixa, FGTS, patrimônio), com rótulos `breve`. A descrição de `COLUNAS`/`GRUPOS_MOBILE` mais
+  acima é a versão anterior.
 - **`calc.test.ts` tem um `base()` com os custos novos ZERADOS** (`SEM_CUSTOS`): os testes de
   mecânica (obra, financiamento, FGTS, conservação de patrimônio) medem a mecânica, não a soma de
   taxas; cada custo tem o próprio bloco. Os testes que querem o mundo real usam `DEFAULT_PARAMS`

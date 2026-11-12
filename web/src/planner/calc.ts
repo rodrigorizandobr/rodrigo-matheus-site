@@ -1,38 +1,34 @@
 /**
- * Motor puro do simulador "Vivendo de Imóveis" — uma estratégia: comprar direto na
- * holding, financiando o saldo remanescente nas chaves (ver types.ts). Sem rede,
- * sem Firestore; só matemática, testada em calc.test.ts.
+ * Motor puro do simulador "Vivendo de Imóveis" — comprar direto na holding, financiando
+ * o saldo remanescente nas chaves (ver types.ts). Sem rede, sem Firestore; só
+ * matemática, testada em calc.test.ts.
  *
- * Cada studio é uma UNIDADE discreta, com o próprio ciclo de vida. Há DOIS jeitos
- * de uma unidade entrar na carteira:
+ * Cada studio é uma UNIDADE discreta. Três jeitos de entrar na carteira:
  *
- * 1. NA PLANTA (o caixa: aportes + aluguéis − parcelas − custos). Paga
- *    `pctPagoChaves`% do preço do lançamento + a documentação (ITBI, escritura,
- *    registro) na hora, e espera a obra inteira (`prazoObraMeses`) — durante a obra
- *    não aluga e o equity fica PARADO no que foi pago. Na entrega o valor pula para
- *    o preço já corrigido pelo INCC da obra, e o saldo não pago amortiza em SAC em
- *    `PRAZO_FIN_HOLDING_MESES`, a `jurosFinHolding` ao mês.
- * 2. PRONTA, À VISTA (sobra do FGTS, ou dinheiro de uma venda). FGTS não compra
- *    imóvel em obra, e o dinheiro à vista negocia desconto (`descontoAVista`): paga
- *    o preço de mercado do mês com desconto, a unidade nasce alugada e quitada, e a
- *    diferença para o valor de mercado vira patrimônio na hora. A documentação NÃO
- *    pode sair do FGTS — sai do caixa.
+ * 1. NA OBRA, pelo PLANEJADOR (o caixa). Todo mês o motor projeta as entradas e
+ *    saídas já conhecidas (aportes até a transição, aluguéis, parcelas, o que as
+ *    unidades em obra ainda devem) e procura o studio com MENOS meses de obra
+ *    faltando que essa projeção consegue pagar: quem tem o dinheiro na mão compra
+ *    pronto (0 meses); quem junta em 12 meses compra o que entrega em 12. Até as
+ *    chaves paga `pctPagoChaves`% + documentação — o que falta é corrigido pelo
+ *    INCC, e todo dinheiro que a projeção mostra que não vai fazer falta é
+ *    adiantado. O resto vira financiamento em SAC nas chaves
+ *    (`PRAZO_FIN_HOLDING_MESES`, `jurosFinHolding` ao mês). Só se compromete se o
+ *    saldo projetado nunca ficar negativo (ver `caminhoDoCaixa`).
+ * 2. PRONTA com FGTS: sem saldo devedor no apê, assim que FGTS + caixa livre pagam
+ *    um studio pronto (com `descontoAVista`), compra — o FGTS entra primeiro, a
+ *    documentação sai do caixa. Nasce alugada e quitada.
+ * 3. PRONTA com o dinheiro de uma VENDA (ver `avaliaVenda`, todo dezembro).
  *
- * O aluguel de uma unidade pronta passa por `contaDoAluguel`: vacância (meses vagos
- * por ano), imposto da holding, taxa da imobiliária, IPTU e condomínio (de quem o
- * usuário escolher — vago, é sempre do dono) e manutenção.
+ * O aluguel de uma unidade pronta passa por `contaDoAluguel`: vacância, imposto,
+ * imobiliária, IPTU e condomínio (vago, é sempre do dono) e manutenção.
  *
- * Todo dezembro o sistema avalia VENDER cada unidade pronta e quitada (ver
- * `avaliaVenda`): compara ficar com ela por mais um tempo de obra contra vender
- * (pagando corretagem e imposto) e pôr o dinheiro numa planta ou num pronto com
- * desconto. Só vende com folga (`FOLGA_VENDA`) — com os padrões, alugar sempre vence.
- *
- * FGTS do casal: 8% do salário (+ 13º em dezembro), rende a taxa legal; a cada 2
- * anos abate primeiro o saldo do APÊ (a queda da parcela vira aporte mensal extra)
- * e o que sobra compra studio pronto, se o preço couber no teto do FGTS.
+ * FGTS do casal: 8% do salário (+ 13º em dezembro), rende a taxa legal; enquanto o
+ * apê tem saldo devedor, a cada 2 anos abate o apê (a queda da parcela vira aporte
+ * mensal extra).
  *
  * Aporte mensal, anual e a queda de parcela do apê param no ano de transição; os
- * aluguéis continuam sendo reinvestidos.
+ * aluguéis continuam comprando studios sozinhos.
  */
 import type { MonthRow, Pagador, PlannerParams, YearPoint } from './types'
 
@@ -57,12 +53,16 @@ const FOLGA_VENDA = 0.05
 
 type Unidade = {
   mesPronto: number
-  /** Equity fixo enquanto em construção — o que já foi pago, sem valorizar ainda. */
-  pagoInicial: number
-  /** Valor de mercado no mês em que fica pronta (planta: já com o INCC da obra). */
+  /** Equity enquanto em obra — o que já foi pago do imóvel (sem documentação). */
+  pago: number
+  /** Valor de mercado no mês em que fica pronta (obra: já com o INCC até a entrega). */
   valorNaEntrega: number
   saldoFinanciado: number
   amortizacaoMensal: number
+  /** Entrada + documentação ainda devidas até as chaves, corrigidas pelo INCC todo mês. */
+  restante: number
+  /** Fatia de cada pagamento de obra que é documentação, não imóvel. */
+  fracaoDocs: number
 }
 
 function taxaMensal(pctAnual: number): number {
@@ -110,17 +110,35 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
   const docs = fracaoDocumentacao(p)
   const valorizacaoLiquidaAnual = p.incc - p.depreciacao
   const fatorObra = Math.pow(1 + p.incc / 100, prazoObra / 12)
+  const inccMensal = Math.pow(1 + p.incc / 100, 1 / 12)
+  const juros = p.jurosFinHolding / 100
   const fgtsRendimentoMensal = taxaMensal(FGTS_RENDIMENTO_ANUAL)
+  const mesTransicao = p.anoTransicao * 12
+  // A projeção cobre a obra mais longa e o financiamento inteiro de quem for comprado hoje.
+  const horizonte = prazoObra + PRAZO_FIN_HOLDING_MESES
 
   const precoNovoNoMes = (mes: number) => p.custoStudio * Math.pow(1 + p.incc / 100, mes / 12)
 
   let caixa = 0
+  let comprasDoMes = 0
+  let docsDoMes = 0
   const unidades: Unidade[] = []
 
-  const comprarPronta = (mes: number, precoMercado: number) => {
+  const pagarObra = (u: Unidade, valor: number) => {
+    u.restante -= valor
+    u.pago += valor * (1 - u.fracaoDocs)
+    caixa -= valor
+    comprasDoMes += valor * (1 - u.fracaoDocs)
+    docsDoMes += valor * u.fracaoDocs
+  }
+
+  /** Studio pronto, à vista com desconto: `doFgts` abate o preço, o caixa completa e paga a documentação. */
+  const comprarPronta = (mes: number, precoMercado: number, doFgts: number) => {
     const precoPago = precoMercado * (1 - p.descontoAVista / 100)
-    unidades.push({ mesPronto: mes, pagoInicial: precoPago, valorNaEntrega: precoMercado, saldoFinanciado: 0, amortizacaoMensal: 0 })
-    return precoPago
+    caixa -= precoPago - doFgts + precoPago * docs
+    comprasDoMes += precoPago - doFgts
+    docsDoMes += precoPago * docs
+    unidades.push({ mesPronto: mes, pago: precoPago, valorNaEntrega: precoMercado, saldoFinanciado: 0, amortizacaoMensal: 0, restante: 0, fracaoDocs: 0 })
   }
 
   // "Já pago no 1º studio": uma unidade já contratada desde hoje, em construção.
@@ -128,10 +146,12 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
     const saldoFinanciadoInicial = Math.max(0, (p.custoStudio - p.initial) * fatorObra)
     unidades.push({
       mesPronto: prazoObra,
-      pagoInicial: p.initial,
+      pago: p.initial,
       valorNaEntrega: p.custoStudio * fatorObra,
       saldoFinanciado: saldoFinanciadoInicial,
       amortizacaoMensal: saldoFinanciadoInicial / PRAZO_FIN_HOLDING_MESES,
+      restante: 0,
+      fracaoDocs: 0,
     })
   }
 
@@ -143,10 +163,80 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
   let fgtsSaldo = 0
   let extraDoApe = 0
 
+  /**
+   * O saldo do caixa mês a mês daqui pra frente (índice 0 = hoje), só com o que já
+   * é conhecido e do jeito mais prudente: aportes de hoje até a transição (sem
+   * dissídio futuro), aluguel de cada unidade congelado no valor de hoje, parcelas
+   * em SAC, e o que cada unidade em obra ainda deve cobrado INTEIRO no mês das
+   * chaves. Se o mínimo deste caminho é >= 0, o caixa aguenta tudo que já assumiu;
+   * o mínimo é também o dinheiro que pode ser gasto hoje sem fazer falta depois.
+   */
+  const caminhoDoCaixa = (mes: number): Float64Array => {
+    const fluxo = new Float64Array(horizonte + 1)
+    for (let k = 1; k <= horizonte; k++) {
+      const m = mes + k
+      if (m > mesTransicao) break
+      fluxo[k] += aporteMensal + extraDoApe
+      if (mesDoAno(m) === p.annualMonth) fluxo[k] += aporteAnual
+    }
+    for (const u of unidades) {
+      const valor = mes >= u.mesPronto ? valorAtual(u, mes, valorizacaoLiquidaAnual) : u.valorNaEntrega
+      const aluguel = contaDoAluguel(valor, p).liquido
+      let saldo = u.saldoFinanciado
+      for (let k = Math.max(1, u.mesPronto - mes); k <= horizonte; k++) {
+        fluxo[k] += aluguel
+        if (saldo > 0) {
+          fluxo[k] -= u.amortizacaoMensal + saldo * juros
+          saldo = Math.max(0, saldo - u.amortizacaoMensal)
+        }
+      }
+      const k = u.mesPronto - mes
+      if (u.restante > 0 && k > 0 && k <= horizonte) fluxo[k] -= u.restante * Math.pow(inccMensal, k)
+    }
+    let s = caixa
+    for (let k = 0; k <= horizonte; k++) { s += fluxo[k]; fluxo[k] = s }
+    return fluxo
+  }
+  const folga = (mes: number) => caminhoDoCaixa(mes).reduce((a, b) => Math.min(a, b), Infinity)
+
+  /** O caminho continua >= 0 comprando hoje um studio que entrega em `r` meses? */
+  const cabeNaObra = (caminho: Float64Array, r: number, preco: number): boolean => {
+    const valor = preco * Math.pow(inccMensal, r)
+    const aluguel = contaDoAluguel(valor, p).liquido
+    let saldo = valor * (1 - pctChaves)
+    const amortizacao = saldo / PRAZO_FIN_HOLDING_MESES
+    let efeito = 0
+    for (let k = 0; k <= horizonte; k++) {
+      if (k === r) efeito -= (pctChaves + docs) * valor
+      if (k > r) {
+        efeito += aluguel
+        if (saldo > 0) { efeito -= amortizacao + saldo * juros; saldo = Math.max(0, saldo - amortizacao) }
+      }
+      if (caminho[k] + efeito < -0.01) return false
+    }
+    return true
+  }
+
+  const novaNaObra = (mes: number, r: number, preco: number): Unidade => {
+    const valorNaEntrega = preco * Math.pow(inccMensal, r)
+    const saldoFinanciadoInicial = valorNaEntrega * (1 - pctChaves)
+    return {
+      mesPronto: mes + r,
+      pago: 0,
+      valorNaEntrega,
+      saldoFinanciado: saldoFinanciadoInicial,
+      amortizacaoMensal: saldoFinanciadoInicial / PRAZO_FIN_HOLDING_MESES,
+      restante: (pctChaves + docs) * preco,
+      fracaoDocs: docs / (pctChaves + docs),
+    }
+  }
+
   const linhas: MonthRow[] = []
 
   for (let mes = 1; mes <= meses; mes++) {
-    const transicionou = mes > p.anoTransicao * 12
+    comprasDoMes = 0
+    docsDoMes = 0
+    const transicionou = mes > mesTransicao
     if (!transicionou && mesDoAno(mes) === p.mesDissidio) {
       aporteMensal *= 1 + p.dissidio / 100
       aporteAnual *= 1 + p.dissidio / 100
@@ -158,34 +248,19 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
     fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
     if (mesDoAno(mes) === MES_DO_13O) fgtsSaldo += salario * (FGTS_DEPOSITO_PCT / 100)
 
-    // A cada 2 anos, o FGTS abate o saldo do apê primeiro; a parcela cai na mesma
-    // proporção do saldo (prazo mantido), e a queda vira aporte mensal dali em diante.
-    // O que sobrar compra studio PRONTO à vista — FGTS não compra imóvel em obra.
+    // Com saldo devedor no apê, a cada 2 anos o FGTS abate o apê; a parcela cai na
+    // mesma proporção do saldo (prazo mantido), e a queda vira aporte mensal.
     let abatimentoApeDoMes = 0
-    let compraAVistaFgtsDoMes = 0
-    if (mes % MESES_POR_SAQUE_FGTS === 0) {
-      if (saldoApe > 0) {
-        const abatimento = Math.min(fgtsSaldo, saldoApe)
-        if (abatimento > 0) {
-          const saldoNovo = saldoApe - abatimento
-          const parcelaNova = parcelaApe * (saldoNovo / saldoApe)
-          extraDoApe += parcelaApe - parcelaNova
-          parcelaApe = parcelaNova
-          saldoApe = saldoNovo
-          fgtsSaldo -= abatimento
-          abatimentoApeDoMes = abatimento
-        }
-      }
-      const precoMercado = precoNovoNoMes(mes)
-      const cabeNoTeto = p.fgtsTetoImovel > 0 && precoMercado <= p.fgtsTetoImovel
-      const precoComDesconto = precoMercado * (1 - p.descontoAVista / 100)
-      let comprasAVista = 0
-      while (cabeNoTeto && comprasAVista < MAX_COMPRAS_POR_MES && fgtsSaldo >= precoComDesconto) {
-        const pago = comprarPronta(mes, precoMercado)
-        fgtsSaldo -= pago
-        caixa -= pago * docs // ITBI e cartório não saem do FGTS
-        compraAVistaFgtsDoMes += pago
-        comprasAVista++
+    if (saldoApe > 0 && mes % MESES_POR_SAQUE_FGTS === 0) {
+      const abatimento = Math.min(fgtsSaldo, saldoApe)
+      if (abatimento > 0) {
+        const saldoNovo = saldoApe - abatimento
+        const parcelaNova = parcelaApe * (saldoNovo / saldoApe)
+        extraDoApe += parcelaApe - parcelaNova
+        parcelaApe = parcelaNova
+        saldoApe = saldoNovo
+        fgtsSaldo -= abatimento
+        abatimentoApeDoMes = abatimento
       }
     }
 
@@ -195,67 +270,99 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
       aporteDoMes = aporteMensal + extraDoApe
       if (mesDoAno(mes) === p.annualMonth) aporteAnualDoMes = aporteAnual
     }
+    caixa += aporteDoMes + aporteAnualDoMes
 
-    // Aluguel (já líquido de custos) das unidades prontas e parcela das que ainda devem.
-    let rendaDoMes = 0
+    // Obra: o que falta pagar é corrigido pelo INCC; nas chaves, quita o que restar.
+    for (const u of unidades) {
+      if (u.restante <= 0) continue
+      u.restante *= inccMensal
+      if (mes >= u.mesPronto) pagarObra(u, u.restante)
+    }
+
+    // Aluguel das unidades prontas e parcela das que ainda devem.
+    let recebidoDoMes = 0
     let custosDoMes = 0
     let parcelasDoMes = 0
     for (const u of unidades) {
       if (mes < u.mesPronto) continue
       const conta = contaDoAluguel(valorAtual(u, mes, valorizacaoLiquidaAnual), p)
-      rendaDoMes += conta.liquido
+      recebidoDoMes += conta.liquido + conta.custos
       custosDoMes += conta.custos
       if (u.saldoFinanciado > 0) {
-        const juros = u.saldoFinanciado * (p.jurosFinHolding / 100)
-        parcelasDoMes += u.amortizacaoMensal + juros
+        parcelasDoMes += u.amortizacaoMensal + u.saldoFinanciado * juros
         u.saldoFinanciado = Math.max(0, u.saldoFinanciado - u.amortizacaoMensal)
       }
     }
+    caixa += recebidoDoMes - custosDoMes - parcelasDoMes
 
-    caixa += aporteDoMes + aporteAnualDoMes + rendaDoMes - parcelasDoMes
+    const precoDoMes = precoNovoNoMes(mes)
+    const precoPronto = precoDoMes * (1 - p.descontoAVista / 100)
 
     // Venda: uma vez por ano, unidade a unidade — só as prontas e quitadas.
     let vendasDoMes = 0
     let valorVendasDoMes = 0
     if (mesDoAno(mes) === MES_AVALIA_VENDA) {
-      const precoPronto = precoNovoNoMes(mes)
-      const custoPronto = precoPronto * (1 - p.descontoAVista / 100) * (1 + docs)
+      const custoPronto = precoPronto * (1 + docs)
       for (let i = unidades.length - 1; i >= 0; i--) {
         const u = unidades[i]
         if (mes < u.mesPronto || u.saldoFinanciado > 0) continue
-        const decisao = avaliaVenda(valorAtual(u, mes, valorizacaoLiquidaAnual), precoPronto, custoPronto, pctChaves, docs, fatorObra, prazoObra, p)
+        const decisao = avaliaVenda(valorAtual(u, mes, valorizacaoLiquidaAnual), precoDoMes, custoPronto, pctChaves, docs, fatorObra, prazoObra, p)
         if (!decisao) continue
+        // Vende de mentira primeiro: só vale se o dinheiro conseguir virar outro studio
+        // sem estourar o caixa lá na frente — senão a unidade fica onde está.
         unidades.splice(i, 1)
+        caixa += decisao.liquido
+        const reaplica = decisao.destino === 'pronto'
+          ? folga(mes) >= custoPronto
+          : cabeNaObra(caminhoDoCaixa(mes), prazoObra, precoDoMes)
+        if (!reaplica) {
+          caixa -= decisao.liquido
+          unidades.splice(i, 0, u)
+          continue
+        }
         vendasDoMes++
         valorVendasDoMes += decisao.liquido
-        let sobra = decisao.liquido
         if (decisao.destino === 'pronto') {
-          let compras = 0
-          while (sobra >= custoPronto && compras < MAX_COMPRAS_POR_MES) {
-            sobra -= comprarPronta(mes, precoPronto) * (1 + docs)
-            compras++
+          for (let n = 0; n < MAX_COMPRAS_POR_MES && folga(mes) >= custoPronto; n++) comprarPronta(mes, precoDoMes, 0)
+        } else {
+          // lançamentos (obra inteira pela frente): é onde está o ganho que justificou a venda
+          const teto = Math.floor(decisao.liquido / ((pctChaves + docs) * precoDoMes))
+          for (let n = 0; n < teto && cabeNaObra(caminhoDoCaixa(mes), prazoObra, precoDoMes); n++) {
+            unidades.push(novaNaObra(mes, prazoObra, precoDoMes))
           }
         }
-        caixa += sobra // destino "planta": o caixa compra logo abaixo, neste mesmo mês
       }
     }
 
-    // O caixa compra na planta quantas unidades der, ao preço de lançamento deste mês.
-    let comprasNoMes = 0
-    while (comprasNoMes < MAX_COMPRAS_POR_MES) {
-      const precoNovo = precoNovoNoMes(mes)
-      const entrada = precoNovo * pctChaves
-      if (caixa < entrada + precoNovo * docs) break
-      caixa -= entrada + precoNovo * docs
-      const saldoFinanciadoInicial = precoNovo * fatorObra * (1 - pctChaves)
-      unidades.push({
-        mesPronto: mes + prazoObra,
-        pagoInicial: entrada,
-        valorNaEntrega: precoNovo * fatorObra,
-        saldoFinanciado: saldoFinanciadoInicial,
-        amortizacaoMensal: saldoFinanciadoInicial / PRAZO_FIN_HOLDING_MESES,
-      })
-      comprasNoMes++
+    // FGTS: com o apê quitado, compra studio pronto assim que FGTS + caixa livre fecham a conta.
+    let compraAVistaFgtsDoMes = 0
+    for (let n = 0; saldoApe <= 0 && fgtsSaldo > 0 && n < MAX_COMPRAS_POR_MES; n++) {
+      const doFgts = Math.min(fgtsSaldo, precoPronto)
+      if (precoPronto - doFgts + precoPronto * docs > Math.max(0, folga(mes))) break
+      comprarPronta(mes, precoDoMes, doFgts)
+      fgtsSaldo -= doFgts
+      compraAVistaFgtsDoMes += doFgts
+    }
+
+    // Planejador: compra o studio com menos obra pela frente que o caixa projetado paga.
+    for (let n = 0; n < MAX_COMPRAS_POR_MES; n++) {
+      const caminho = caminhoDoCaixa(mes)
+      let r = 0
+      while (r <= prazoObra && !cabeNaObra(caminho, r, precoDoMes)) r++
+      if (r > prazoObra) break
+      const nova = novaNaObra(mes, r, precoDoMes)
+      unidades.push(nova)
+      if (r === 0) pagarObra(nova, nova.restante)
+    }
+
+    // Adianta, na obra que entrega primeiro, todo dinheiro que não vai fazer falta.
+    let livre = folga(mes)
+    for (const u of [...unidades].sort((a, b) => a.mesPronto - b.mesPronto)) {
+      if (livre <= 0.01) break
+      if (u.restante <= 0) continue
+      const valor = Math.min(livre, u.restante)
+      pagarObra(u, valor)
+      livre -= valor
     }
 
     let imoveisEmConstrucao = 0
@@ -266,7 +373,7 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
     for (const u of unidades) {
       if (mes < u.mesPronto) {
         imoveisEmConstrucao++
-        patrimonioLiquido += u.pagoInicial
+        patrimonioLiquido += u.pago
         continue
       }
       imoveisAlugados++
@@ -290,8 +397,12 @@ export function simulateMonthly(p: PlannerParams): MonthRow[] {
       imoveisFinanciados,
       totalImoveis: unidades.length,
       totalParcelasFinanciamento: Math.round(parcelasDoMes),
+      aluguelRecebido: Math.round(recebidoDoMes),
+      comprasImoveis: Math.round(comprasDoMes),
+      documentacao: Math.round(docsDoMes),
+      saldo: Math.round(caixa),
       custosImovel: Math.round(custosDoMes),
-      rendaMensalLiquida: Math.round(rendaDoMes),
+      rendaMensalLiquida: Math.round(recebidoDoMes - custosDoMes),
       vendas: vendasDoMes,
       valorVendas: Math.round(valorVendasDoMes),
       patrimonioLiquido: Math.round(patrimonioLiquido),
@@ -332,7 +443,11 @@ function avaliaVenda(
 }
 
 export function simulate(p: PlannerParams): YearPoint[] {
-  const linhas = simulateMonthly(p)
+  return pontosAnuais(simulateMonthly(p), p)
+}
+
+/** Os pontos do gráfico, derivados de um diário já calculado — a tela não simula duas vezes. */
+export function pontosAnuais(linhas: MonthRow[], p: PlannerParams): YearPoint[] {
   const pontos: YearPoint[] = [{
     ano: 0,
     patrimonioLiquido: Math.round(p.initial),

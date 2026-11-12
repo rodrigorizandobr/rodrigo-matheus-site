@@ -29,8 +29,6 @@ export type PlannerParams = {
   registroPct: number
   /** Desconto ao comprar imóvel PRONTO à vista (FGTS ou dinheiro de venda), %. */
   descontoAVista: number
-  /** Valor máximo de imóvel em que o FGTS pode ser usado (teto do SFH); 0 = não usa FGTS pra comprar. */
-  fgtsTetoImovel: number
   /** Corretagem paga na venda, % do valor de venda. */
   corretagemVendaPct: number
   /** Imposto na venda, % do valor de venda (holding no lucro presumido ≈ 6,73%). */
@@ -86,7 +84,6 @@ export const DEFAULT_PARAMS: PlannerParams = {
   escrituraPct: 0.5,
   registroPct: 0.5,
   descontoAVista: 5,
-  fgtsTetoImovel: 2_250_000,
   corretagemVendaPct: 6,
   impostoVendaPct: 6.73,
   anoTransicao: 10,
@@ -144,6 +141,14 @@ export type MonthRow = {
   imoveisFinanciados: number
   totalImoveis: number
   totalParcelasFinanciamento: number
+  /** Aluguel que entrou no mês, já descontada a vacância e antes dos custos. */
+  aluguelRecebido: number
+  /** Dinheiro do caixa pago por imóveis no mês: entrada, parcelas de obra, compra pronta. */
+  comprasImoveis: number
+  /** ITBI, escritura e registro pagos no mês. */
+  documentacao: number
+  /** Dinheiro em caixa no fim do mês — o que sobrou acumulado, fora dos imóveis e do FGTS. */
+  saldo: number
   /** O que sai do aluguel antes de virar renda: imposto, imobiliária, IPTU/condomínio do dono, manutenção. */
   custosImovel: number
   rendaMensalLiquida: number

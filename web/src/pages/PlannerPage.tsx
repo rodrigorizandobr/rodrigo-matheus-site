@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { plannerApi } from '../planner/api'
-import { simulate, simulateMonthly } from '../planner/calc'
+import { pontosAnuais, simulateMonthly } from '../planner/calc'
 import { DEFAULT_PARAMS, type PlannerParams } from '../planner/types'
 import { formatBRL, formatBRLCompact } from '../planner/format'
 import { ParamField } from './planner/ParamField'
@@ -74,8 +74,8 @@ export function PlannerPage() {
   const set = useCallback(<K extends keyof PlannerParams>(key: K) => (value: PlannerParams[K]) =>
     setParams((p) => ({ ...p, [key]: value })), [])
 
-  const pontos = useMemo(() => simulate(params), [params])
   const linhas = useMemo(() => simulateMonthly(params), [params])
+  const pontos = useMemo(() => pontosAnuais(linhas, params), [linhas, params])
   const final = pontos.at(-1)!
 
   if (session === undefined) {
@@ -139,7 +139,7 @@ export function PlannerPage() {
                           value={params.custoStudio} onChange={set('custoStudio')} />
               <ParamField label="Tempo de obra" kind="meses" min={12} max={60} step={1}
                           value={params.prazoObraMeses} onChange={set('prazoObraMeses')}
-                          hint="Studio na planta só aluga quando a obra termina — pagar à vista não acelera a obra." />
+                          hint="Obra mais longa que o sistema aceita comprar. Ele sempre procura o studio com MENOS meses de obra faltando que o seu caixa consegue pagar até as chaves." />
               <ParamField label="% pago até pegar as chaves" kind="pct" min={10} max={100} step={5}
                           value={params.pctPagoChaves} onChange={set('pctPagoChaves')}
                           hint="O resto é financiado direto na construtora." />
@@ -212,10 +212,7 @@ export function PlannerPage() {
                           value={params.parcelaApeAtual} onChange={set('parcelaApeAtual')} />
               <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
                           value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
-                          hint="Só serve para calcular o FGTS: a cada 2 anos ele abate o saldo do apê sozinho, e a queda na parcela vira aporte mensal extra nos studios." />
-              <ParamField label="Teto do imóvel para usar FGTS" kind="brl" min={0} max={3_000_000} step={50_000}
-                          value={params.fgtsTetoImovel} onChange={set('fgtsTetoImovel')}
-                          hint="Com o apê quitado, a sobra do FGTS compra studio PRONTO à vista, se o preço couber neste teto. Zero desliga. Atenção: a regra do FGTS exige imóvel para moradia — confira se o seu caso se encaixa." />
+                          hint="Só serve para calcular o FGTS. Com saldo devedor no apê, a cada 2 anos ele abate o apê e a queda na parcela vira aporte mensal. Com o apê quitado, compra studio pronto à vista assim que FGTS + caixa livre fecham a conta." />
             </Group>
 
             <Group title="Horizonte">
@@ -233,8 +230,10 @@ export function PlannerPage() {
             <PlannerChart points={pontos} />
             <PlannerLedger linhas={linhas} />
             <p className="text-[11px] text-muted leading-relaxed">
-              Simulação educativa, não é recomendação de investimento. Os números dependem inteiramente dos
-              parâmetros ao lado — ajuste para o seu caso real.
+              Como o sistema compra: todo mês ele soma o saldo acumulado com as entradas e saídas previstas
+              (aportes, aluguéis, parcelas, custos) e compra o studio com menos obra pela frente que essa conta
+              paga até as chaves — sem deixar o saldo ficar negativo lá na frente. O que sobra é adiantado nas
+              obras em andamento. Simulação educativa, não é recomendação de investimento.
             </p>
           </div>
         </div>

@@ -50,7 +50,7 @@ class TestSanitize:
         assert model.sanitize(None) == {}
 
     def test_campos_novos_de_custo_passam_dentro_da_faixa(self):
-        patch = {"prazoObraMeses": 36, "vacanciaMesesAno": 1.5, "itbiPct": 3, "fgtsTetoImovel": 0, "impostoVendaPct": 6.73}
+        patch = {"prazoObraMeses": 36, "vacanciaMesesAno": 1.5, "itbiPct": 3, "descontoAVista": 0, "impostoVendaPct": 6.73}
         assert model.sanitize(patch) == patch
 
     def test_vacancia_nao_passa_de_12_meses_por_ano(self):
