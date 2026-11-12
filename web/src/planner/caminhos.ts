@@ -5,38 +5,6 @@ import { emReaisDeHoje } from './inflacao'
 import { estresse, mesDaMeta } from './indicadores'
 import type { MonthRow, PlannerParams } from './types'
 
-/** O dinheiro que sobra todo mês de verdade, a partir do que a pessoa tem hoje. */
-export type Margem = {
-  /** O salário líquido foi informado? Se não, a margem é o aporte que a pessoa já definiu. */
-  informado: boolean
-  salarioLiquido: number
-  parcelaApe: number
-  despesas: number
-  /** Líquido − apê − despesas (ou o aporte mensal, se não informado). */
-  margemMensal: number
-  /** O bônus anual diluído por mês. */
-  bonusPorMes: number
-  margemTotalMensal: number
-  /** Parte do líquido já comprometida (apê + despesas). 0 se não informado. */
-  comprometidoPct: number
-}
-
-export function margemLivre(p: PlannerParams): Margem {
-  const informado = p.salarioLiquidoCasal > 0
-  const margemMensal = informado ? p.salarioLiquidoCasal - p.parcelaApeAtual - p.despesasMensais : p.monthlyAmount
-  const bonusPorMes = p.annualAmount / 12
-  return {
-    informado,
-    salarioLiquido: p.salarioLiquidoCasal,
-    parcelaApe: p.parcelaApeAtual,
-    despesas: p.despesasMensais,
-    margemMensal,
-    bonusPorMes,
-    margemTotalMensal: margemMensal + bonusPorMes,
-    comprometidoPct: informado ? ((p.parcelaApeAtual + p.despesasMensais) / p.salarioLiquidoCasal) * 100 : 0,
-  }
-}
-
 export type IdEstrategia = 'construtora' | 'consorcio' | 'leilao' | 'mix'
 export type TipoEvento = 'compra' | 'leilao' | 'contemplacao' | 'venda' | 'chaves' | 'fgts' | 'transicao' | 'meta'
 export type Evento = { mes: number; ano: number; mesDoAno: number; tipo: TipoEvento; texto: string }
@@ -142,11 +110,11 @@ function resumir(linhas: MonthRow[], p: PlannerParams): ResumoEstrategia {
   }
 }
 
-/** Quantas cotas cabem em ~70% da margem total (parcela + bônus diluído), entre 1 e 10. */
+/** Quantas cotas cabem em ~70% da margem total (aporte mensal + anual diluído), entre 1 e 10. */
 export function cotasSugeridas(p: PlannerParams): number {
   const parcela = parcelaDaCota(1, p)
   if (parcela <= 0) return 1
-  const orcamento = 0.7 * margemLivre(p).margemTotalMensal
+  const orcamento = 0.7 * (p.monthlyAmount + p.annualAmount / 12)
   return Math.max(1, Math.min(10, Math.floor(orcamento / parcela)))
 }
 

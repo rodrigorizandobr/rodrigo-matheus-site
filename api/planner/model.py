@@ -99,8 +99,7 @@ DEFAULT_PARAMS: dict[str, Any] = {
     "leilaoJuridicoPct": 3,
     "leilaoReformaPct": 10,
     "leilaoMesesAteAlugar": 10,
-    "salarioLiquidoCasal": 0,
-    "despesasMensais": 0,
+    "annualSalarios": 3,
 }
 
 #: as quatro fatias do contrato que vão até as chaves: a soma nunca passa de 100%.
@@ -179,8 +178,7 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "leilaoJuridicoPct": (0, 30),
     "leilaoReformaPct": (0, 50),
     "leilaoMesesAteAlugar": (0, 36),
-    "salarioLiquidoCasal": (0, 500_000),
-    "despesasMensais": (0, 500_000),
+    "annualSalarios": (0, 24),
 }
 
 #: campos categóricos — não têm faixa, têm um conjunto fechado de valores.

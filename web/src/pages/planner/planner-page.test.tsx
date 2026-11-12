@@ -66,7 +66,7 @@ describe('depois de logado', () => {
   it('mexer num slider agenda um autosave, sem salvar antes do tempo', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     await logar()
-    const slider = await screen.findByLabelText(/anos de simulação/i)
+    const slider = await screen.findByLabelText(/anos acumulando bens/i)
     fireEvent.change(slider, { target: { value: '3' } })
 
     expect(api.savePlan).not.toHaveBeenCalled()
@@ -109,7 +109,7 @@ describe('a tela nova', () => {
 
   it('os grupos principais começam abertos e os outros fechados', async () => {
     await logar()
-    for (const aberto of ['Seus recursos hoje', 'Seus aportes', 'Viver de renda', 'O studio', 'Plano investidor (contrato)']) expect(grupo(aberto).open, aberto).toBe(true)
+    for (const aberto of ['Seus recursos hoje', 'Seus aportes', 'O studio', 'Plano investidor (contrato)']) expect(grupo(aberto).open, aberto).toBe(true)
     for (const fechado of ['Venda', 'Consórcio', 'Temporada (Airbnb)', 'Mercado']) expect(grupo(fechado).open, fechado).toBe(false)
   })
 
@@ -136,29 +136,26 @@ describe('a tela nova', () => {
     expect(Number((screen.getByLabelText('Aluguel bruto mensal') as HTMLInputElement).value)).toBe(0.8)
   })
 
-  it('o parcelamento pode ser automático ou manual, e a correção depois das chaves é o IPCA', async () => {
+  it('só o automático: sem escolha de parcelamento, índice, reserva, sobra do caixa nem quem paga IPTU/condomínio', async () => {
     await logar()
     expect(screen.getByLabelText('Parcelado até as chaves (mensais + reforços)')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Parcelas mensais até as chaves')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Manual' }))
-    expect(screen.getByLabelText('Parcelas mensais até as chaves')).toBeInTheDocument()
-    expect(screen.getByLabelText('Reforços periódicos')).toBeInTheDocument()
-    expect(Number((screen.getByLabelText('Correção depois das chaves (IPCA)') as HTMLInputElement).value)).toBe(4.5)
-  })
-
-  it('a reserva mínima é um slider de 0 a 12 meses e as parcelas do studio atual têm campo', async () => {
-    await logar()
-    const reserva = screen.getByLabelText('Reserva mínima no caixa') as HTMLInputElement
-    expect([reserva.min, reserva.max]).toEqual(['0', '12'])
+    for (const rotulo of ['Parcelas mensais até as chaves', 'Reforços periódicos', 'Correção depois das chaves (IPCA)', 'Correção das parcelas da obra', 'Reserva mínima no caixa']) {
+      expect(screen.queryByLabelText(rotulo), rotulo).not.toBeInTheDocument()
+    }
+    for (const texto of ['Manual', 'Índice da obra', 'Quem paga o IPTU', 'Quem paga o condomínio', 'Dinheiro que sobra', 'Viver de renda', 'Salário líquido do casal (CLT)', 'Despesas mensais']) {
+      expect(screen.queryByText(texto, { exact: false }), texto).not.toBeInTheDocument()
+    }
+    expect(screen.queryByText('Sua margem livre')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Parcela mensal fixa do studio atual')).toBeInTheDocument()
-    expect(screen.getByLabelText('Parcela anual do studio atual')).toBeInTheDocument()
   })
 
-  it('o botão da média do INCC grava a média dos últimos 2 anos', async () => {
-    api.getPlan.mockResolvedValue({ params: { ...PLANO, correcaoObraAno: 3 }, updatedAt: null })
+  it('o aporte anual é em salários CLT e o prazo é o tempo acumulando bens', async () => {
     await logar()
-    await userEvent.click(screen.getByRole('button', { name: /média do INCC dos últimos 2 anos/i }))
-    expect(Number((screen.getByLabelText('Correção das parcelas da obra') as HTMLInputElement).value)).toBe(6.66)
+    const anual = screen.getByLabelText('Aporte anual (em salários)') as HTMLInputElement
+    expect([anual.min, anual.max, anual.step]).toEqual(['0', '12', '0.5'])
+    expect(screen.getByText(/Hoje: .* por ano/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Anos acumulando bens')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Aporte anual')).not.toBeInTheDocument()
   })
 
   it('o resumo do contrato e o teto dos sliders respeitam os 100%', async () => {
@@ -206,7 +203,7 @@ describe('a tela nova', () => {
     expect(screen.getAllByText('Cenário ruim').length).toBeGreaterThan(0)
     const [desktop, celular] = screen.getAllByRole('table').filter((t) => /Seu plano/.test(t.textContent ?? ''))
     expect(within(desktop).getAllByRole('row').length).toBe(within(celular).getAllByRole('row').length)
-    fireEvent.change(screen.getByLabelText(/anos de simulação/i), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText(/anos acumulando bens/i), { target: { value: '3' } })
     expect(await screen.findByText(/os números ao lado mudaram/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'comparar de novo' })).toBeInTheDocument()
   })

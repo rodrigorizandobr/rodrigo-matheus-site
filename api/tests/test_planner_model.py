@@ -179,7 +179,7 @@ class TestLeilaoERecursos:
     def test_padroes_presentes(self):
         d = model.DEFAULT_PARAMS
         for campo in ("leilaoDescontoPct", "leilaoComissaoPct", "leilaoJuridicoPct", "leilaoReformaPct",
-                      "leilaoMesesAteAlugar", "salarioLiquidoCasal", "despesasMensais"):
+                      "leilaoMesesAteAlugar", "annualSalarios"):
             assert campo in d
 
     def test_desconto_fora_da_faixa_nao_grava(self):

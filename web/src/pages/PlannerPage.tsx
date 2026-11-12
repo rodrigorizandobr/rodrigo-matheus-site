@@ -9,10 +9,10 @@ import { posChavesPct, pctAteChaves } from '../planner/contrato'
 import { emReaisDeHoje } from '../planner/inflacao'
 import { PlannerChartEstrategias } from './planner/PlannerChartEstrategias'
 import { PlannerRecomendacao, PlannerRoteiro } from './planner/PlannerCaminhos'
-import { PlannerRecursos } from './planner/PlannerRecursos'
 import { benchmarkRendaFixa, mesDaMeta } from '../planner/indicadores'
 import { MERCADO, aplicarReferencias } from '../planner/mercado'
-import { DEFAULT_PARAMS, type Pagador, type PlannerParams } from '../planner/types'
+import { aplicarRegras } from '../planner/regras'
+import { DEFAULT_PARAMS, type PlannerParams } from '../planner/types'
 import { formatBRL, formatBRLCompact } from '../planner/format'
 import { ParamField } from './planner/ParamField'
 import { ChoiceField } from './pension/ChoiceField'
@@ -20,11 +20,6 @@ import { Group } from './planner/Group'
 import { PlannerLedgerAbas } from './planner/PlannerLedger'
 import { PlannerComparar } from './planner/PlannerComparar'
 import { Novidades, PlannerAvisos, Stat, TesteDeEstresse, TradicionalTemporada, ValeFinanciar } from './planner/PlannerPaineis'
-
-const QUEM_PAGA: { value: Pagador; label: string }[] = [
-  { value: 'inquilino', label: 'Inquilino' },
-  { value: 'proprietario', label: 'Proprietário' },
-]
 
 type Session = { email: string } | null
 type SaveState = 'salvo' | 'salvando' | 'erro' | null
@@ -104,7 +99,8 @@ export function PlannerPage() {
 
   // Com prazo longo a simulação pesa: o slider não pode travar esperando por ela.
   const simulado = useDeferredValue(params)
-  const resultado = useMemo(() => caminhos(simulado, inicio), [simulado, inicio])
+  const efetivo = useMemo(() => aplicarRegras(simulado), [simulado])
+  const resultado = useMemo(() => caminhos(efetivo, inicio), [efetivo, inicio])
   const idAtivo = escolhida ?? resultado.recomendada
   const ativa = resultado.estrategias.find((e) => e.id === idAtivo) ?? resultado.estrategias[0]
   const linhas = ativa.linhas
@@ -171,18 +167,12 @@ export function PlannerPage() {
         <div className="grid lg:grid-cols-[360px_1fr] gap-8 min-w-0">
           <div className="grid gap-4 content-start min-w-0">
             <Group title="Seus recursos hoje" inicial="aberto">
-              <ParamField label="Salário líquido do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
-                          value={params.salarioLiquidoCasal} onChange={set('salarioLiquidoCasal')}
-                          hint="O que cai na conta por mês. Com ele e as despesas, a página calcula a sua margem livre. Zero = não informado." />
-              <ParamField label="Despesas mensais (fora o financiamento da casa)" kind="brl" min={0} max={200_000} step={500}
-                          value={params.despesasMensais} onChange={set('despesasMensais')}
-                          hint="Moradia à parte, mercado, escola, transporte, lazer — tudo que sai todo mês." />
               <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
                           value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
-                          hint="Só serve para calcular o FGTS. Com saldo devedor no apê, a cada 2 anos ele abate o apê. Com o apê quitado, compra studio pronto à vista assim que FGTS + caixa livre fecham a conta." />
-              <ParamField label="Aporte anual" kind="brl" min={0} max={500_000} step={1_000}
-                          value={params.annualAmount} onChange={set('annualAmount')}
-                          hint="O bônus: cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
+                          hint="Calcula o FGTS e vale como base do aporte anual (em salários). Com saldo devedor no apê, a cada 2 anos ele abate o apê. Com o apê quitado, compra studio pronto à vista assim que FGTS + caixa livre fecham a conta." />
+              <ParamField label="Aporte anual (em salários)" kind="num" min={0} max={12} step={0.5}
+                          value={params.annualSalarios} onChange={set('annualSalarios')}
+                          hint={`13º, bônus, PLR: quantos salários brutos do casal você aporta por ano, de uma vez, no mês abaixo. Hoje: ${formatBRL(Math.round(params.annualSalarios * params.salarioBrutoCasal))} por ano.`} />
               <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
                           value={params.annualMonth} onChange={set('annualMonth')} />
               <ParamField label="Saldo devedor do apartamento em que você mora hoje" kind="brl" min={0} max={2_000_000} step={10_000}
@@ -192,8 +182,9 @@ export function PlannerPage() {
               <ParamField label="Prazo que falta no financiamento do apê" kind="meses" min={0} max={420} step={12}
                           value={params.prazoApeMeses} onChange={set('prazoApeMeses')}
                           hint="Com isso o simulador amortiza o apê todo mês, como o banco faz (tabela SAC): a parcela cai um pouco a cada mês e essa queda vira aporte. Zero = o apê só cai com o FGTS." />
-              <ParamField label="Anos de simulação" kind="anos" min={1} max={40} step={1}
-                          value={params.years} onChange={set('years')} />
+              <ParamField label="Anos acumulando bens" kind="anos" min={1} max={40} step={1}
+                          value={params.years} onChange={set('years')}
+                          hint="Você compra e acumula durante todo esse prazo e, no fim, vive só de aluguel. Quer continuar comprando? Aumente o prazo (20, 30, 40 anos)." />
               <ParamField label="Quanto você quer por mês para viver" kind="brl" min={0} max={100_000} step={500}
                           value={params.metaRendaHoje} onChange={set('metaRendaHoje')}
                           hint="A meta de renda, em reais de hoje. O simulador corrige esse valor pela inflação mês a mês." />
@@ -215,15 +206,6 @@ export function PlannerPage() {
                           hint="O reforço anual que você já paga nele até as chaves, no mesmo mês do aporte anual (o do bônus)." />
             </Group>
 
-            <Group title="Viver de renda" inicial="aberto">
-              <ParamField label="Ano de transição para renda passiva" kind="anos" min={0} max={params.years} step={1}
-                          value={Math.min(params.anoTransicao, params.years)} onChange={set('anoTransicao')}
-                          hint="A partir deste ano os aportes do bolso param. O que acontece com os aluguéis depende da escolha abaixo." />
-              <ChoiceField label="Depois da transição" value={params.aposTransicao} onChange={set('aposTransicao')}
-                           options={[{ value: 'vive_da_renda', label: 'Vivo da renda' }, { value: 'reinveste', label: 'Reinvisto tudo' }]}
-                           hint="Vivo da renda: no ano de transição você para de trabalhar — aportes e depósitos de FGTS param — e passa a retirar a sua meta todo mês, limitada ao que os aluguéis deixam depois das parcelas. O que sobrar continua comprando studios. Reinvisto tudo: você só para de aportar; todo aluguel vira studio novo." />
-            </Group>
-
             <Group title="O studio" inicial="aberto">
               <ParamField label="Custo de 1 studio hoje" kind="brl" min={100_000} max={1_000_000} step={5_000}
                           value={params.custoStudio} onChange={set('custoStudio')}
@@ -242,62 +224,24 @@ export function PlannerPage() {
             </Group>
 
             <Group title="Plano investidor (contrato)" inicial="aberto">
-              <ChoiceField label="Índice da obra" value={params.correcaoObraModo} onChange={set('correcaoObraModo')}
-                           options={[{ value: 'propria', label: 'Meu valor' }, { value: 'incc', label: 'Igual ao INCC dos lançamentos' }]} />
-              {params.correcaoObraModo === 'propria' && (
-                <>
-                  <ParamField label="Correção das parcelas da obra" kind="pct" min={0} max={15} step={0.05}
-                              value={params.correcaoObraAno}
-                              onChange={(v) => { setAnterior(null); setParams((p) => ({ ...p, correcaoObraAno: v, correcaoObraModo: 'propria' })) }}
-                              hint="A construtora corrige as parcelas que faltam pelo INCC. O padrão é a média dos últimos 2 anos. Confira no seu contrato o índice e se há teto."
-                              referencia={MERCADO.inccMedia2anos.texto} />
-                  <button type="button" className="chip !h-8 justify-self-start font-display font-semibold text-[11px] uppercase tracking-wider"
-                          onClick={() => { setAnterior(null); setParams((p) => ({ ...p, correcaoObraAno: MERCADO.inccMedia2anos.valor, correcaoObraModo: 'propria' })) }}>
-                    Usar a média do INCC dos últimos 2 anos ({String(MERCADO.inccMedia2anos.valor).replace('.', ',')}%)
-                  </button>
-                </>
-              )}
               <ParamField label="Entrada (no ato)" kind="pct" min={0} max={maxDe('entradaPct', 50)} step={1}
                           value={params.entradaPct} onChange={set('entradaPct')} />
-              <ChoiceField label="Como dividir o parcelado" value={params.parcelamento} onChange={set('parcelamento')}
-                           options={[{ value: 'automatico', label: 'Automático' }, { value: 'manual', label: 'Manual' }]}
-                           hint="Automático: o sistema divide o parcelado até as chaves entre parcelas mensais e reforços anuais pelo seu fluxo — os reforços caem no mês do seu bônus e levam a fatia que ele paga, as mensais levam o resto. Manual: você escolhe as fatias abaixo (só mensais = parcelas fixas iguais)." />
-              {params.parcelamento === 'automatico' ? (
-                <ParamField label="Parcelado até as chaves (mensais + reforços)" kind="pct" min={0} max={Math.min(80, Math.max(params.mensaisPct + params.reforcoPct, 100 - params.entradaPct - params.chavesPct))} step={1}
-                            value={params.mensaisPct + params.reforcoPct}
-                            onChange={(v) => { setAnterior(null); setParams((q) => ({ ...q, mensaisPct: v, reforcoPct: 0 })) }} />
-              ) : (
-                <>
-                  <ParamField label="Parcelas mensais até as chaves" kind="pct" min={0} max={maxDe('mensaisPct', 80)} step={1}
-                              value={params.mensaisPct} onChange={set('mensaisPct')} />
-                  <ParamField label="Reforços periódicos" kind="pct" min={0} max={maxDe('reforcoPct', 40)} step={1}
-                              value={params.reforcoPct} onChange={set('reforcoPct')} />
-                  <ParamField label="Um reforço a cada" kind="meses" min={3} max={24} step={1}
-                              value={params.reforcoCadaMeses} onChange={set('reforcoCadaMeses')} />
-                </>
-              )}
+              <ParamField label="Parcelado até as chaves (mensais + reforços)" kind="pct" min={0} max={Math.min(80, Math.max(params.mensaisPct + params.reforcoPct, 100 - params.entradaPct - params.chavesPct))} step={1}
+                          value={params.mensaisPct + params.reforcoPct}
+                          onChange={(v) => { setAnterior(null); setParams((q) => ({ ...q, mensaisPct: v, reforcoPct: 0 })) }}
+                          hint="O sistema divide o parcelado entre parcelas mensais e reforços anuais pelo seu fluxo: os reforços caem no mês do seu bônus e levam a fatia que ele paga; as mensais levam o resto." />
               <ParamField label="Na entrega das chaves" kind="pct" min={0} max={maxDe('chavesPct', 60)} step={1}
                           value={params.chavesPct} onChange={set('chavesPct')} />
               <ParamField label="Meses para parcelar o resto depois das chaves" kind="meses" min={1} max={96} step={1}
                           value={params.posChavesMeses} onChange={set('posChavesMeses')} />
-              <ParamField label="Correção depois das chaves (IPCA)" kind="pct" min={0} max={15} step={0.25}
-                          value={params.correcaoPosChavesAno} onChange={set('correcaoPosChavesAno')}
-                          hint="Depois da entrega o saldo parcelado corre pelo IPCA, sem juros. Até as chaves vale a correção da obra (INCC)."
-                          referencia={MERCADO.ipca.texto} />
               <p className="text-[11px] text-muted">
                 Até as chaves: {pctAteChaves(params)}% · Depois das chaves: {posChavesPct(params)}% em {params.posChavesMeses} meses, sem juros.
-                Reproduza o cronograma do seu contrato; até as chaves as parcelas são corrigidas pelo índice da obra e depois pelo IPCA. O plano real pode ter datas e valores próprios
+                Reproduza o cronograma do seu contrato; até as chaves as parcelas são corrigidas pelo INCC e o resíduo pago à construtora depois das chaves, pelo IPCA. O plano real pode ter datas e valores próprios
                 por parcela — aqui eles são espalhados em partes iguais.
               </p>
             </Group>
 
-            <Group title="Caixa e reserva">
-              <ChoiceField label="Dinheiro que sobra" value={params.sobraDoCaixa} onChange={set('sobraDoCaixa')}
-                           options={[{ value: 'automatico', label: 'Automático' }, { value: 'adianta_obra', label: 'Adianta a obra' }]}
-                           hint="Automático: a sobra vai para onde rende mais — adiantar a obra (corrigida pelo índice), quitar o saldo depois das chaves ou ficar aplicada no caixa." />
-              <ParamField label="Reserva mínima no caixa" kind="meses" min={0} max={12} step={1}
-                          value={params.reservaMeses} onChange={set('reservaMeses')}
-                          hint="Você escolhe, de 0 a 12 meses (a sugestão é 3). Quantos meses das suas obrigações (parcelas de obra, financiamento, apê, custos fixos) o caixa mantém guardados antes de comprar o próximo studio. Com a dívida da construtora sem juros, o que quebra um plano é o caixa, não o custo. Zero = gasta tudo que a projeção permite." />
+            <Group title="Rendimento do caixa">
               <ParamField label="Rendimento do caixa" kind="pct" min={0} max={15} step={0.25}
                           value={params.rendimentoCaixaAno} onChange={set('rendimentoCaixaAno')}
                           hint="Quanto rende, líquido de imposto, o dinheiro que fica parado esperando a próxima compra."
@@ -310,13 +254,10 @@ export function PlannerPage() {
                           hint="Meses por ano sem inquilino. Padrão de mercado: 1 mês por ano." />
               <ParamField label="IPTU" kind="pct" min={0} max={3} step={0.1}
                           value={params.iptuPctAno} onChange={set('iptuPctAno')}
-                          hint="% ao ano sobre o valor atual do imóvel." />
-              <ChoiceField label="Quem paga o IPTU" value={params.iptuPagador} onChange={set('iptuPagador')} options={QUEM_PAGA} />
+                          hint="% ao ano sobre o valor atual do imóvel. Quem paga é o inquilino; nos meses vagos fica com você." />
               <ParamField label="Condomínio" kind="pct" min={0} max={6} step={0.1}
                           value={params.condominioPctAno} onChange={set('condominioPctAno')}
                           hint="% ao ano sobre o valor atual do imóvel." />
-              <ChoiceField label="Quem paga o condomínio" value={params.condominioPagador} onChange={set('condominioPagador')} options={QUEM_PAGA}
-                           hint="Mesmo pago pelo inquilino, nos meses vagos IPTU e condomínio saem do seu bolso." />
               <ParamField label="Taxa da imobiliária" kind="pct" min={0} max={20} step={0.5}
                           value={params.taxaAdmPct} onChange={set('taxaAdmPct')}
                           hint="% do aluguel recebido. Zere se você mesmo administra." />
@@ -469,7 +410,7 @@ export function PlannerPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Stat label="Vive de renda a partir de"
                     value={params.metaRendaHoje <= 0 ? '—' : linhaMeta ? rotuloMesAno(linhaMeta.ano, linhaMeta.mesDoAno) : 'não chega'}
-                    apoio={params.metaRendaHoje <= 0 ? 'defina sua meta em Viver de renda'
+                    apoio={params.metaRendaHoje <= 0 ? 'defina a meta de renda ao lado'
                       : linhaMeta ? `ano ${linhaMeta.anoDoPlano} do plano · meta de ${formatBRL(params.metaRendaHoje)} de hoje`
                         : `em ${params.years} anos a renda chega a ${pctMeta}% da meta`} />
               <Stat label="Renda disponível no fim" value={formatBRLCompact(conv(ultima.rendaDisponivel, ultima.mes))}
@@ -482,7 +423,6 @@ export function PlannerPage() {
               <Stat label="Studios quitados" value={String(final.studiosQuitadosEquiv)} />
               <Stat label="Dívida e compromissos no fim" value={formatBRLCompact(conv(final.divida, ultima.mes))} title={formatBRL(conv(final.divida, ultima.mes))} />
             </div>
-            <PlannerRecursos p={params} onUsarComoAporte={(v) => { setAnterior(null); setParams((q) => ({ ...q, monthlyAmount: v })) }} />
             <PlannerRecomendacao estrategias={resultado.estrategias} recomendada={resultado.recomendada} porque={resultado.porque}
                                  selecionada={ativa.id} onSelecionar={setEscolhida} anos={simulado.years} metaHoje={simulado.metaRendaHoje} />
             <PlannerChartEstrategias estrategias={resultado.estrategias} selecionada={ativa.id} onSelecionar={setEscolhida}
@@ -491,16 +431,15 @@ export function PlannerPage() {
             <PlannerAvisos avisos={lista} />
             <PlannerRoteiro estrategia={ativa} />
             {ativa.params.compraNaPlanta !== false && <ValeFinanciar p={ativa.params} linhas={linhas} />}
-            <TesteDeEstresse linhas={linhas} reservaMeses={simulado.reservaMeses} moeda={conv} />
-            <TradicionalTemporada p={simulado} ano={inicio.ano} />
-            <PlannerComparar params={params} inicio={inicio} moeda={moeda} />
+            <TesteDeEstresse linhas={linhas} reservaMeses={efetivo.reservaMeses} moeda={conv} />
+            <TradicionalTemporada p={efetivo} ano={inicio.ano} />
+            <PlannerComparar params={aplicarRegras(params)} inicio={inicio} moeda={moeda} />
             <PlannerLedgerAbas estrategias={resultado.estrategias} selecionada={ativa.id} onSelecionar={setEscolhida} />
             <p className="text-[11px] text-muted leading-relaxed">
               Como o sistema compra: todo mês ele soma o saldo acumulado com as entradas e saídas previstas (aportes, aluguéis,
               parcelas da construtora, custos) e compra o studio com menos obra pela frente que essa conta paga até as chaves — sem deixar o
-              caixa ficar abaixo da sua reserva (você escolhe de 0 a 12 meses). No plano investidor a construtora cobra entrada, parcelas e reforços corrigidos pelo índice que
-              você escolher, e o resto depois das chaves corrigido pelo IPCA, sem juros. O que sobra é adiantado na obra, ou fica aplicado no caixa quando isso
-              rende mais. No modo "vivo da renda", depois da transição a sua meta sai dos aluguéis antes de qualquer compra. Simulação
+              caixa ficar abaixo da sua reserva (reserva automática de 3 meses de obrigações). No plano investidor a construtora cobra entrada, parcelas e reforços corrigidos pelo INCC, e o resto depois das chaves corrigido pelo IPCA, sem juros. O que sobra é adiantado na obra, ou fica aplicado no caixa quando isso
+              rende mais. Você acumula bens até o fim do prazo e, depois dele, vive dos aluguéis. Simulação
               educativa, não é recomendação de investimento.
             </p>
           </div>

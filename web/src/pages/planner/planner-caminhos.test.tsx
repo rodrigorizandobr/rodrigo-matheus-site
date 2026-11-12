@@ -6,25 +6,10 @@ import { DEFAULT_PARAMS } from '../../planner/types'
 import { PlannerChartEstrategias } from './PlannerChartEstrategias'
 import { PlannerRecomendacao, PlannerRoteiro } from './PlannerCaminhos'
 import { PlannerLedgerAbas } from './PlannerLedger'
-import { PlannerRecursos } from './PlannerRecursos'
 
 const p = { ...DEFAULT_PARAMS, years: 6, anoTransicao: 4 }
 const r = caminhos(p, inicioDeHoje())
 const conv = (v: number) => v
-
-describe('recursos de hoje', () => {
-  it('sem salário informado pede os dados e mostra o aporte atual', () => {
-    render(<PlannerRecursos p={p} onUsarComoAporte={() => {}} />)
-    expect(screen.getByText(/Informe o salário líquido/i)).toBeInTheDocument()
-  })
-  it('com salário mostra a margem e deixa usá-la como aporte', () => {
-    const usar = vi.fn()
-    render(<PlannerRecursos p={{ ...p, salarioLiquidoCasal: 25_000, despesasMensais: 12_000, parcelaApeAtual: 4_000, monthlyAmount: 1_000 }} onUsarComoAporte={usar} />)
-    expect(screen.getByText('Sobra por mês')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /como aporte mensal/i }))
-    expect(usar).toHaveBeenCalledWith(9_000)
-  })
-})
 
 describe('recomendação e roteiro', () => {
   it('lista as quatro estratégias e marca a recomendada', () => {

@@ -167,10 +167,8 @@ export type PlannerParams = {
   leilaoReformaPct: number
   /** Meses entre arrematar e o primeiro inquilino (desocupação + reforma + locação). */
   leilaoMesesAteAlugar: number
-  /** Salário líquido do casal (CLT), R$/mês — só para calcular a margem livre. 0 = não informado. */
-  salarioLiquidoCasal: number
-  /** Gastos mensais da família fora o financiamento do apê, R$ — só para calcular a margem livre. */
-  despesasMensais: number
+  /** Aporte anual em SALÁRIOS CLT (do casal, brutos): o motor recebe `annualAmount` = isto × salarioBrutoCasal (regras.ts). */
+  annualSalarios: number
 
   // ---- opções internas das estratégias: nunca gravadas, ausentes = comportamento de sempre ----
   /** false = não compra na planta (estratégias consórcio e leilão). */
@@ -270,8 +268,7 @@ export const DEFAULT_PARAMS: PlannerParams = {
   leilaoJuridicoPct: 3,
   leilaoReformaPct: 10,
   leilaoMesesAteAlugar: 10,
-  salarioLiquidoCasal: 0,
-  despesasMensais: 0,
+  annualSalarios: 3,
 }
 
 export type YearPoint = {

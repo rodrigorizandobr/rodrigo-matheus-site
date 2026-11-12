@@ -61,6 +61,5 @@ export const NEUTRO: Partial<PlannerParams> = {
   leilaoJuridicoPct: 3,
   leilaoReformaPct: 10,
   leilaoMesesAteAlugar: 10,
-  salarioLiquidoCasal: 0,
-  despesasMensais: 0,
+  annualSalarios: 0,
 }

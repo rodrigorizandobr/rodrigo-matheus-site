@@ -635,6 +635,14 @@ tem o próprio plano, ninguém vê o de outra.
 >   (`NOVIDADES.id` no `PlannerPaineis.tsx`: troque o id quando mudar número para ele reaparecer).
 > - Fora de escopo por decisão do PO: banco, construtora com juros, home equity, pessoa física.
 
+> **Rodada de 2026-11-14 — tela simples (no ar):** `planner/regras.ts#aplicarRegras` resolve o que NÃO é escolha do usuário
+> antes de o motor rodar (a tela, o `caminhos()` e o comparador usam o resultado): aporte anual = `annualSalarios` × salário
+> bruto do casal (o campo em R$ `annualAmount` fica no plano salvo mas é ignorado); `anoTransicao = years` (acumula bens pelo
+> prazo todo e vive de aluguel no fim — quer continuar comprando, aumente o prazo); obra pelo INCC e resíduo pós-chaves pelo
+> IPCA; parcelamento, sobra do caixa e reserva (3 meses) sempre automáticos; IPTU e condomínio sempre do inquilino. Os campos
+> antigos continuam em `PlannerParams` (os testes do motor os usam), só não aparecem. Saíram `salarioLiquidoCasal`,
+> `despesasMensais` e o cartão de margem livre; entrou `annualSalarios` (types, neutro e `model.py`).
+>
 > **Rodada de 2026-11-13 — quatro caminhos (no ar):** a página parte dos RECURSOS de hoje e devolve um roteiro.
 >
 > - **Margem livre** (`caminhos.ts#margemLivre`, cartão `PlannerRecursos`): salário líquido − parcela do apê − despesas

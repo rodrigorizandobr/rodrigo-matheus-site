@@ -1,25 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { inicioDeHoje } from './calendario'
-import { caminhos, eventosDe, margemLivre, roteiroAnual } from './caminhos'
+import { caminhos, eventosDe, roteiroAnual } from './caminhos'
 import { DEFAULT_PARAMS, type PlannerParams } from './types'
 
 const p: PlannerParams = { ...DEFAULT_PARAMS, years: 10, anoTransicao: 6 }
 const inicio = inicioDeHoje()
-
-describe('margem livre', () => {
-  it('líquido menos apê e despesas, com o bônus diluído no mês', () => {
-    const m = margemLivre({ ...p, salarioLiquidoCasal: 25_000, parcelaApeAtual: 4_000, despesasMensais: 12_000, annualAmount: 96_000 })
-    expect(m.margemMensal).toBe(9_000)
-    expect(m.bonusPorMes).toBe(8_000)
-    expect(m.margemTotalMensal).toBe(17_000)
-    expect(m.comprometidoPct).toBeCloseTo(((4_000 + 12_000) / 25_000) * 100, 6)
-  })
-  it('sem salário informado não inventa margem: usa o aporte que a pessoa já definiu', () => {
-    const m = margemLivre({ ...p, salarioLiquidoCasal: 0, monthlyAmount: 2_000, annualAmount: 24_000 })
-    expect(m.informado).toBe(false)
-    expect(m.margemTotalMensal).toBe(4_000)
-  })
-})
 
 describe('as quatro estratégias', () => {
   const r = caminhos(p, inicio)

@@ -38,19 +38,14 @@ export function PlannerAvisos({ avisos }: { avisos: Aviso[] }) {
 }
 
 const NOVIDADES = {
-  id: '2026-11-caminhos',
+  id: '2026-11-simples',
   itens: [
-    'A página agora começa pelos seus recursos de hoje (salário líquido, despesas, bônus e financiamento da casa) e mostra quanto sobra de verdade por mês.',
-    'Quatro caminhos lado a lado: construtora, consórcio, leilão e mix. O mix escolhe mês a mês o que o caixa permite, e a página diz qual rende mais no seu prazo e por quê.',
-    'O gráfico mostra renda ou patrimônio das quatro estratégias, com pontos nos acontecimentos (compras, leilões, contemplações, chaves, vendas, transição). O diário de bordo tem uma aba por estratégia.',
-    'O roteiro ano a ano diz quanto de renda você terá no fim de cada ano. O leilão é estimativa: confira os números do edital na seção Leilão.',
-    'Os resultados agora aparecem em reais de hoje (dá para ver o valor nominal na chave acima dos cartões).',
-    'Depois da transição você passa a retirar a sua meta de renda; antes, todo aluguel era reinvestido. Dá para voltar em Viver de renda.',
-    'O plano investidor da construtora tem cronograma próprio (entrada, mensais, reforços, chaves e o resto sem juros): corrigido pelo INCC até as chaves e pelo IPCA depois, com o sistema dividindo mensais e reforços pelo seu fluxo.',
-    'O apê amortiza todo mês, o caixa parado rende, e cada studio tem custo de montagem e um tempo até alugar; a holding tem custo fixo mensal.',
-    'O imposto do aluguel segue o calendário da reforma tributária, e o gráfico compara com os mesmos aportes na renda fixa.',
-    'Novos: reserva mínima de caixa, teste de estresse, temporada (Airbnb), consórcio, ágio do pronto, venda nas chaves e comparação de estratégias.',
-    'Os valores sugeridos de aluguel, INCC e juros foram atualizados para novembro de 2026 (centro de São Paulo) — o que você já tinha gravado não muda.',
+    'A tela ficou mais simples: salário bruto do casal, aporte mensal e aporte anual em salários CLT (13º, bônus, PLR). Saíram salário líquido, despesas e o cartão de margem livre.',
+    'Você acumula bens durante todo o prazo e, no fim, vive só de aluguel. Para continuar comprando, aumente os anos acumulando (20, 30, 40).',
+    'Obra corrigida pelo INCC; o resíduo pago à construtora depois das chaves, pelo IPCA. Parcelado, sobra do caixa e reserva (3 meses) são sempre automáticos.',
+    'IPTU e condomínio são sempre do inquilino (nos meses vagos, seus).',
+    'Quatro caminhos lado a lado: construtora, consórcio, leilão e mix, com gráfico de quatro linhas, pontos nos acontecimentos, roteiro ano a ano e uma aba do diário por estratégia.',
+    'O leilão é estimativa: confira os números do edital na seção Leilão.',
   ],
 } as const
 
