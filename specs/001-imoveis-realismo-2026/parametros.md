@@ -45,7 +45,7 @@ congelado no `V1` do teste de caracterização — não entram em `NEUTRO`):
 | `rate` | 0.8 | 0.6 | FipeZap set/2026: 6,74% a.a. (0,56% a.m.) para 1 dormitório |
 | `incc` | 6 | 6.5 | INCC-M em 12 meses até out/2026: ~6,75% |
 | `depreciacao` | 1.5 | 2 | Usado passa a subir 4,5% a.a. (FipeZap venda: +4,54% no ano até out/2026) |
-| `jurosFinHolding` | 0.8 | 1 | Financiamento direto com a construtora: IPCA/IGP-M + 0,69% a 1% a.m. |
+| `jurosFinHolding` | 0.8 | 0 | Plano investidor da construtora: sem juros (informação do PO, 2026-11-12). Construtora que cobra juros: IPCA/IGP-M + 0,69% a 1% a.m. |
 
 Sliders que mudam de passo: `rate` 0,01 · `incc` 0,25 · `depreciacao` 0,25 · `jurosFinHolding` 0,05.
 
@@ -53,8 +53,8 @@ Sliders que mudam de passo: `rate` 0,01 · `incc` 0,25 · `depreciacao` 0,25 · 
 
 | Campo | Tipo | Padrão | Neutro | Backend | Campo na tela | Grupo |
 |---|---|---|---|---|---|---|
-| `prazoFinMeses` | meses | 48 | 48 | (1, 420) | meses, 12–420, passo 12 | Crédito e alavancagem |
-| `correcaoFinAno` | % a.a. | 4.5 | 0 | (0, 30) | pct, 0–12, passo 0,25 | Crédito e alavancagem |
+| `prazoFinMeses` | meses | 36 | 48 | (1, 420) | meses, 12–420, passo 12 | Crédito e alavancagem |
+| `correcaoFinAno` | % a.a. | 0 | 0 | (0, 30) | pct, 0–12, passo 0,25 | Crédito e alavancagem |
 | `comprometimentoMaxPct` | % da renda (0 = sem limite) | 0 | 0 | (0, 100) | pct, 0–100, passo 5 | Crédito e alavancagem |
 
 ## Pacote 5 — temporada

@@ -43,12 +43,13 @@ estimativa minha, sem fonte); tempo médio para alugar; vacância com metodologi
 | Dado | Valor | Fonte e data |
 |---|---|---|
 | Caixa, pessoa física, SFH | a partir de TR + 11,19% a.a. (jun/2026), até 11,49%; SFI a TR + 12%; até 80% do imóvel; até 420 meses; teto do SFH de R$ 2,25 mi | (sem link guardado — uma nova busca em nov/2026 não achou anúncio mais recente) |
-| Direto com a construtora, depois das chaves | IPCA ou IGP-M + 0,69% a 1% a.m. | (sem link guardado) |
+| Plano investidor da construtora | sem juros até as chaves; algumas construtoras parcelam os 30% finais depois da entrega, também sem juros (informação do PO, 2026-11-12, não é pesquisa; correção por INCC/IPCA depende do contrato) | PO |
+| Construtora que cobra juros, depois das chaves | IPCA ou IGP-M + 0,69% a 1% a.m. | (sem link guardado) |
 | Tabela Price em construtora | decisão judicial de maio/2026 barrou capitalização de juros em período menor que um ano | (sem link guardado) |
 | Consórcio de imóveis | taxa de administração média de 0,073% ao mês, prazo médio de 207 meses (ABAC) → ~15% no plano; Banco Central: 21,19% em média, em 217 meses, para grupos novos; de 11,7% a 29,2% entre administradoras | (sem link guardado) |
 | Empréstimo com garantia de imóvel | cerca de 1,09% a 1,8% a.m. (alguns + IPCA), 50% a 60% do valor, até 240 meses | (sem link guardado) |
 
-Uso: linha "construtora" (1,0% a.m. + IPCA, 48 meses), linha "banco" (0,9% a.m. + TR de 2%, 360 meses,
+Uso: linha "plano investidor" (juros 0, 36 meses, padrão), linha "construtora com juros" (1,0% a.m. + IPCA, 48 meses), linha "banco" (0,9% a.m. + TR de 2%, 360 meses,
 80%, 30% da renda), `consorcioTaxaTotalPct` 20. Crédito bancário para a **holding** não tem tabela pública
 e costuma ser pior que o de pessoa física.
 

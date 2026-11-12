@@ -24,7 +24,7 @@ export const MERCADO = {
   usado:      { valor: 4.5,   texto: 'FipeZap venda: +4,54% no ano até out/2026; em São Paulo, cerca de +3%' },
   ipca:       { valor: 4.9,   texto: 'Focus de 9/11/2026: 5,22% em 2026 e 4,90% em 2027' },
   caixa:      { valor: 14.19, texto: 'CDI em 12 meses até out/2026: 14,19% bruto. Selic em 13,75% a.a.; o Focus projeta 11% em 2028' },
-  construtora:{ valor: 1.0,   texto: 'Direto com a construtora: IPCA ou IGP-M + 0,69% a 1% a.m.' },
+  construtora:{ valor: 0,     texto: 'Plano investidor: sem juros, parcelado até as chaves (e, em algumas construtoras, os 30% finais depois). Construtora que cobra juros: IPCA ou IGP-M + 0,69% a 1% a.m. Confira o seu contrato' },
   banco:      { valor: 0.9,   texto: 'Caixa, jun/2026: a partir de TR + 11,19% a.a. (≈ 0,89% a.m.), até 420 meses, até 80% do imóvel' },
   consorcio:  { valor: 20,    texto: 'Taxa de administração do plano inteiro: 15% (média ABAC, 207 meses) a 21% (Banco Central, grupos novos)' },
   diaria:     { valor: 240,   texto: 'São Paulo: diária mediana de R$ 240 (Airbtics); R$ 256 a R$ 282 no Centro (BnBCalc)' },
@@ -81,7 +81,7 @@ Mude em `web/src/planner/types.ts` **e** em `api/planner/model.py`:
 | `rate` | 0.8 | 0.6 |
 | `incc` | 6 | 6.5 |
 | `depreciacao` | 1.5 | 2 |
-| `jurosFinHolding` | 0.8 | 1 |
+| `jurosFinHolding` | 0.8 | 0 (plano investidor: sem juros; decisão D5) |
 
 Passos dos sliders: aluguel 0,01 · INCC 0,25 · envelhecimento 0,25 · juros 0,05.
 

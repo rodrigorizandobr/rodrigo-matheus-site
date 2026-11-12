@@ -38,7 +38,8 @@ export function compararEstrategias(p: PlannerParams, inicio: Inicio): Resultado
 |---|---|---|---|
 | `plano` | Seu plano | — | "Como está nos campos ao lado." |
 | `sem_divida` | Sem financiar | `pctPagoChaves: 100` (e `consorcioCotas: 0`, se existir) | "Paga 100% até as chaves; nenhuma dívida nova." |
-| `construtora` | Construtora, metade financiada | `aplicarLinha(p, 'construtora')` + `pctPagoChaves: 50` | "Metade paga até as chaves, metade em 48 meses a 1% a.m. + IPCA." |
+| `investidor` | Plano investidor, 30% pago até as chaves | `aplicarLinha(p, 'investidor')` + `pctPagoChaves: 30` | "30% pago até as chaves; o resto parcelado em 36 meses sem juros." |
+| `construtora` | Construtora com juros, metade financiada | `aplicarLinha(p, 'construtora')` + `pctPagoChaves: 50` | "Metade paga até as chaves, metade em 48 meses a 1% a.m. + IPCA." |
 | `banco` | Banco, 30 anos, 70% financiado | `aplicarLinha(p, 'banco')` + `pctPagoChaves: 30` | "30% pago até as chaves; o resto em 360 meses, com limite de 30% da renda." |
 | `temporada` | Tudo em temporada — ou "Tudo em aluguel tradicional" | `pctTemporada: p.pctTemporada >= 50 ? 0 : 100` | "A carteira inteira no outro modo de locação." |
 | `consorcio` | Com 2 cotas de consórcio — ou "Sem consórcio" | `consorcioCotas: p.consorcioCotas > 0 ? 0 : 2` | "Duas cartas de crédito começando hoje." / "Sem as cotas." |

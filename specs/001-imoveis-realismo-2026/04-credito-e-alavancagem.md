@@ -1,11 +1,22 @@
 # Pacote 4 — Crédito e alavancagem
 
 **Por quê.** O PO quer mais alavancagem. Hoje existe uma linha só (48 meses, sem correção), e a tela não
-diz se alavancar compensa. Medido no motor atual, com aluguel e juros de mercado: quem paga 100% nas
-chaves termina 15 anos com R$ 4,44 mi; quem financia 90% termina com R$ 3,44 mi. E esticando o prazo
-para 360 meses a 0,91% a.m. (30% financiado), a renda sobe de R$ 15,6 mil para R$ 17,5 mil, mas o
-patrimônio cai de R$ 4,49 mi para R$ 4,37 mi. **Alavancar em 2026 compra mais studios e mais renda, não
-mais patrimônio.** Este pacote dá as linhas de crédito reais e mostra a conta.
+diz se alavancar compensa. Duas realidades opostas, medidas no motor atual com aluguel de mercado:
+
+- **Banco, ou construtora com juros** (IPCA + 1% a.m., ~17,7% a.a.): financiar 90% deixa R$ 3,44 mi
+  contra R$ 4,44 mi pagando tudo; banco em 360 meses sobe a renda de R$ 15,6 mil para R$ 17,5 mil, mas
+  baixa o patrimônio de R$ 4,49 mi para R$ 4,37 mi. Compra mais studios, não mais patrimônio.
+- **Plano investidor da construtora, que é como o PO compra** (sem juros até as chaves e, em algumas, os
+  30% finais parcelados sem juros depois da entrega): pagando 30% até as chaves e o resto em 36 meses,
+  9 studios, R$ 4,50 mi e R$ 17,6 mil de renda; pagando 100%, 8 studios, R$ 4,43 mi e R$ 15,6 mil.
+  Dívida sem juros com bem que rende ~9% a.a. é alavancagem que compensa.
+
+Este pacote dá as linhas de crédito reais, põe o plano investidor como padrão e mostra a conta.
+
+**Limite do que o motor mede:** o plano investidor real costuma ter entrada, parcelas mensais, reforços
+semestrais/anuais e "chaves" com valores próprios. O motor segue o modelo simples (`pctPagoChaves` pago
+durante a obra, o resto financiado depois). Se o PO quiser o cronograma exato do contrato dele, é outra
+especificação.
 
 Neutros a acrescentar em `NEUTRO`: `prazoFinMeses: 48`, `correcaoFinAno: 0`, `comprometimentoMaxPct: 0`.
 (`sobraDoCaixa` já é neutro desde o pacote 2.)
@@ -88,17 +99,22 @@ Dois botões no topo do grupo que preenchem os campos de baixo. Depois a pessoa 
 **Em `credito.ts`:**
 
 ```ts
-export function aplicarLinha(p: PlannerParams, linha: 'construtora' | 'banco'): PlannerParams
-// construtora → { prazoFinMeses: 48,  jurosFinHolding: 1.0, correcaoFinAno: p.ipca, comprometimentoMaxPct: 0 }
+export function aplicarLinha(p: PlannerParams, linha: 'investidor' | 'construtora' | 'banco'): PlannerParams
+// investidor  → { prazoFinMeses: 36,  jurosFinHolding: 0,   correcaoFinAno: 0,      comprometimentoMaxPct: 0 }   // plano investidor: sem juros (decisão D5/D8)
+// construtora → { prazoFinMeses: 48,  jurosFinHolding: 1.0, correcaoFinAno: p.ipca, comprometimentoMaxPct: 0 }   // construtora que cobra juros
 // banco       → { prazoFinMeses: 360, jurosFinHolding: 0.9, correcaoFinAno: 2,      comprometimentoMaxPct: 30,
 //                 pctPagoChaves: Math.max(p.pctPagoChaves, 20) }      // banco não financia mais que 80%
 ```
 
-**Na tela:** dois `chip` lado a lado, **"Direto com a construtora"** e **"Banco, 30 anos"**. Sob eles:
+**Na tela:** três `chip`, **"Plano investidor"**, **"Construtora com juros"** e **"Banco, 30 anos"**. Sob eles:
 
-> *Preenchem os campos abaixo com as condições típicas de novembro/2026. Construtora: IPCA + 1% a.m. em
-> 4 anos. Banco: TR + cerca de 11,4% a.a. em 30 anos, até 80% do imóvel e parcelas limitadas a 30% da
-> renda — condições de pessoa física; para a holding costumam ser piores.*
+> *Preenchem os campos abaixo. Plano investidor: parcelado com a construtora sem juros, em 36 meses depois
+> das chaves (confira o seu contrato — algumas construtoras corrigem por INCC ou IPCA). Construtora com
+> juros: IPCA + 1% a.m. em 4 anos. Banco: TR + cerca de 11,4% a.a. em 30 anos, até 80% do imóvel e
+> parcelas limitadas a 30% da renda — condições de pessoa física; para a holding costumam ser piores.*
+
+O padrão de um plano novo é "Plano investidor" (`jurosFinHolding: 0`, `correcaoFinAno: 0`,
+`prazoFinMeses: 36`, `pctPagoChaves` continua 70).
 
 O botão cujos quatro valores coincidem com o plano atual fica marcado (`neon-red`, `aria-pressed`).
 

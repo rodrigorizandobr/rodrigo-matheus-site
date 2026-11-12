@@ -27,10 +27,16 @@ O que isso mostra, e o que cada pacote ataca:
    (IPCA de 4,5% a.a.); R$ 4,69 milhões viram R$ 2,42 milhões. → pacote 1.
 3. **Ninguém "vive" da renda.** Depois do ano de transição o motor reinveste 100% do aluguel para
    sempre. A página se chama Vivendo de Imóveis e não responde "quando" nem "com quanto". → pacote 1.
-4. **Com os juros de 2026, alavancar tira patrimônio**, e a tela não avisa. No cenário "mercado", quem
-   não financia termina com R$ 4,44 mi; quem financia 90% termina com R$ 3,44 mi. O crédito direto da
-   construtora custa ~17,7% a.a. e o studio rende ~9% a.a. (aluguel líquido + valorização). → pacote 4
-   (mostrar o spread, dar linhas de crédito reais) e pacote 6 (comparar estratégias).
+4. **A alavancagem depende do custo do crédito, e a tela não mostra.** Com crédito a juros de mercado
+   (banco, ou construtora cobrando IPCA + 1% a.m., ~17,7% a.a.) alavancar tira patrimônio: no cenário
+   "mercado", quem não financia termina com R$ 4,44 mi e quem financia 90% com R$ 3,44 mi, porque o
+   studio rende só ~9% a.a. (aluguel líquido + valorização). **Mas o PO compra no "plano investidor"
+   da construtora: parcelado até as chaves sem juros e, em algumas construtoras, os 30% finais também
+   parcelados sem juros depois da entrega** (informação dele, 2026-11-12). Com juros zero a conta vira:
+   pagando 30% até as chaves (resto em 36 meses) o motor dá 9 studios, R$ 4,50 mi e R$ 17,6 mil de renda,
+   contra 8 studios, R$ 4,43 mi e R$ 15,6 mil pagando 100%; com 10%, R$ 4,60 mi. **Para ele, alavancar
+   com a construtora compensa**; o que não compensa é o banco. → pacote 4 (linha "plano investidor" como
+   padrão, mostrar o spread) e pacote 6 (comparar estratégias).
 5. **O financiamento é uma linha só e curta**: 48 meses, sem correção monetária. Não existe banco
    (até 420 meses, TR + ~11,5% a.a.) nem consórcio (sem juros, taxa de ~15% a 21% no plano todo). → pacotes 4 e 7.
 6. **O apartamento em que a pessoa mora só cai com FGTS**: as parcelas pagas todo mês não amortizam
@@ -109,7 +115,8 @@ O executor segue o recomendado, salvo ordem em contrário.
 | D2 | Depois da transição | **"Vivo da renda"** como padrão (retira a meta, para FGTS e aportes) | "Reinvisto tudo" (como hoje) |
 | D3 | Valores dos cartões e do gráfico | **Reais de hoje** por padrão, com botão para ver nominal | Nominal por padrão |
 | D4 | Aluguel padrão | **0,6% a.m.**, com a referência do FipeZap (0,56%) ao lado do campo | Manter 0,8% |
-| D5 | Linha de crédito padrão | **Construtora: 1,0% a.m. + IPCA, 48 meses** | Banco, 360 meses |
+| D5 | Linha de crédito padrão | **Plano investidor da construtora: juros 0, correção 0 depois das chaves, 36 meses** (é como o PO compra) | Banco, 360 meses |
+| D8 | A construtora corrige as parcelas por INCC/IPCA? "Sem juros" não quer dizer "sem correção". Hoje o motor corrige o que falta pagar na obra pelo INCC e nada depois das chaves | **Manter assim**: INCC até as chaves, zero depois. O PO precisa confirmar com o contrato dele; se houver correção depois, é só preencher "Correção do saldo devedor" | Corrigir também depois das chaves |
 | D6 | Imposto da temporada | **Percentual fixo** informado pela pessoa (a regra nova depende de créditos que o simulador não conhece) | Tabela automática |
 | D7 | Meta de renda padrão | **R$ 15.000/mês de hoje** | Outro valor |
 
