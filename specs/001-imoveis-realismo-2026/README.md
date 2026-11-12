@@ -91,6 +91,7 @@ Fontes e datas de cada número: `referencias-2026.md`.
 | 6 | `06-comparar-estrategias.md` | Tabela "seu plano × sem dívida × banco × temporada × cenário ruim" | B | 4 (5 e 7 opcionais) |
 | 7 | `07-consorcio.md` | Cotas de consórcio como linha de crédito | C | 4 |
 | 8 | `08-planta-agio-e-venda-nas-chaves.md` | Ágio do pronto sobre a planta e venda nas chaves | C | 4 |
+| 9 | `09-contrato-investidor-reserva-estresse.md` | Cronograma do contrato do plano investidor, correção pela média do INCC de 2 anos, reserva mínima de caixa, teste de estresse | A (pedido do PO em 2026-11-12) | 2, 4 |
 
 Apoio: `parametros.md` (tabela-mestra de todo campo novo) e `referencias-2026.md` (dados e fontes).
 
@@ -99,7 +100,9 @@ ferramenta que mostra qual estratégia ganha; C = mais alavancagem, mais complex
 
 ## 4. Ordem de execução
 
-`0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8`. Cada pacote termina em produção antes do seguinte começar.
+`0 → 1 → 2 → 3 → 4 → 9 → 5 → 6 → 7 → 8`. O pacote 9 (numerado por último, mas pedido depois) vai logo
+depois do 4: ele troca o "X% até as chaves" pelo cronograma real do contrato, e tudo que vem depois (temporada,
+comparador, consórcio, ágio) deve nascer em cima dele. Cada pacote termina em produção antes do seguinte começar.
 Dentro de um pacote, os itens (1.1, 1.2…) também são sequenciais e cada um pode ser um commit.
 
 Se o PO quiser parar no meio, os pontos de parada naturais são depois do 3 (a página já é honesta) e
@@ -116,6 +119,8 @@ O executor segue o recomendado, salvo ordem em contrário.
 | D3 | Valores dos cartões e do gráfico | **Reais de hoje** por padrão, com botão para ver nominal | Nominal por padrão |
 | D4 | Aluguel padrão | **0,6% a.m.**, com a referência do FipeZap (0,56%) ao lado do campo | Manter 0,8% |
 | D5 | Linha de crédito padrão | **Plano investidor da construtora: juros 0, correção 0 depois das chaves, 36 meses** (é como o PO compra) | Banco, 360 meses |
+| D9 | Índice e valor da correção das parcelas de obra | **Média composta do INCC-M de 24 meses: 6,66% a.a.** (pedido do PO), ajustável; mercado segue o `incc` dos lançamentos | Igual ao `incc` |
+| D10 | Reserva mínima padrão de caixa | **3 meses de obrigações** | 0 (como hoje, gasta tudo) ou 6 |
 | D8 | A construtora corrige as parcelas por INCC/IPCA? "Sem juros" não quer dizer "sem correção". Hoje o motor corrige o que falta pagar na obra pelo INCC e nada depois das chaves | **Manter assim**: INCC até as chaves, zero depois. O PO precisa confirmar com o contrato dele; se houver correção depois, é só preencher "Correção do saldo devedor" | Corrigir também depois das chaves |
 | D6 | Imposto da temporada | **Percentual fixo** informado pela pessoa (a regra nova depende de créditos que o simulador não conhece) | Tabela automática |
 | D7 | Meta de renda padrão | **R$ 15.000/mês de hoje** | Outro valor |
@@ -257,8 +262,9 @@ terminar — nunca entra em commit.
 Coluna da esquerda — grupos recolhíveis (pacote 0, item 0.4), nesta ordem:
 
 1. **Seus aportes** (aberto) · 2. **Viver de renda** (aberto) · 3. **O studio** (aberto) ·
-4. **Crédito e alavancagem** · 5. **Custos do aluguel** · 6. **Temporada (Airbnb)** · 7. **Consórcio** ·
-8. **Documentação de compra** · 9. **Venda** · 10. **Mercado** · 11. **Seu apartamento** · 12. **Horizonte**
+4. **Plano investidor (contrato)** (aberto) · 5. **Crédito e alavancagem** · 6. **Custos do aluguel** ·
+7. **Temporada (Airbnb)** · 8. **Consórcio** · 9. **Documentação de compra** · 10. **Venda** ·
+11. **Mercado** · 12. **Seu apartamento** · 13. **Horizonte**
 
 O grupo de cada campo novo está em `parametros.md`. Grupo de pacote ainda não entregue não aparece.
 
@@ -270,7 +276,7 @@ Coluna da direita, de cima para baixo:
    - "Studios c/ chaves" · "Studios quitados" · "Dívida e compromissos no fim"
 3. Painel **"Atenção"** com os avisos (pacote 3).
 4. Gráfico: patrimônio × "mesmos aportes na renda fixa" (pacote 3).
-5. Cartão "Vale financiar?" (pacote 4) e cartão "Tradicional × temporada" (pacote 5).
+5. Cartão "Vale financiar?" (pacote 4), painel "Teste de estresse" (pacote 9) e cartão "Tradicional × temporada" (pacote 5).
 6. Botão e tabela "Comparar estratégias" (pacote 6).
 7. Diário de bordo (tabela).
 8. Texto de rodapé "Como o sistema compra…", atualizado a cada pacote que muda a regra.

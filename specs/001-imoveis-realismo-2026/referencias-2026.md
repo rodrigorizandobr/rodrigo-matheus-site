@@ -29,7 +29,9 @@ bem maior, mas o Focus o vê caindo); `MERCADO.caixa`, `MERCADO.ipca`.
 | Aluguel em 12 meses (set/2026) | Brasil +9,13%; São Paulo +6,22%; São Paulo a R$ 65,78/m² | mesma fonte |
 | Rentabilidade (FipeZap, jan/2026) | Brasil 5,99%; 1 dormitório 6,67%; 4 ou mais 4,90% | [Portas](https://portas.com.br/dados-inteligencia/aluguel-residencial/) |
 | Preço de venda (FipeZap) | Brasil +4,54% no ano até out/2026; São Paulo cerca de +3%; São Paulo a R$ 12.099/m² (jul/2026) | (sem link guardado) |
-| INCC-M | cerca de 6,75% em 12 meses até out/2026 (São Paulo: 7,60%) | FGV (sem link guardado) |
+| INCC-M | 6,75% em 12 meses até out/2026 (0,35% no mês; São Paulo: 7,60%) | [Brasil 61, 2/11/2026](https://brasil61.com/n/custo-da-construcao-sobe-0-35-em-outubro-aponta-fgv-bras2617395), [ValorFinal](https://valorfinal.com.br/incc-acumulado) |
+| INCC-M um ano antes | 6,58% em 12 meses até out/2025 | [Economic News Brasil](https://economicnewsbrasil.com.br/2025/10/28/incc-m-de-outubro-setor-da-construcao/), [IstoÉ Dinheiro](https://istoedinheiro.com.br/incc-m-sobe-021-em-outubro-e-repete-variacao-de-setembro-revela-fgv) |
+| INCC-M, média de 2 anos | (1,0658 × 1,0675)^½ − 1 = **6,66% a.a.** — padrão da correção das parcelas de obra (pacote 9) | cálculo sobre as duas linhas acima |
 | Vacância residencial em São Paulo | "em torno de 6%" — fonte fraca, sem metodologia | [Monitor Mercantil](https://monitormercantil.com.br/selic-alta-aluguel-em-alta-o-paradoxo-do-mercado-de-apartamentos-para-alugar-em-sao-paulo-em-2026/) |
 
 Uso: `rate` 0,6 (referência 0,56); `incc` 6,5 (referência 6,75); `depreciacao` 2 (usado sobe 4,5%).

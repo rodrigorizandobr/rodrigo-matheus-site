@@ -57,6 +57,25 @@ Sliders que mudam de passo: `rate` 0,01 · `incc` 0,25 · `depreciacao` 0,25 · 
 | `correcaoFinAno` | % a.a. | 0 | 0 | (0, 30) | pct, 0–12, passo 0,25 | Crédito e alavancagem |
 | `comprometimentoMaxPct` | % da renda (0 = sem limite) | 0 | 0 | (0, 100) | pct, 0–100, passo 5 | Crédito e alavancagem |
 
+## Pacote 9 — contrato do plano investidor, reserva e estresse
+
+| Campo | Tipo | Padrão | Neutro | Backend | Campo na tela | Grupo |
+|---|---|---|---|---|---|---|
+| `cronograma` | `'contrato' \| 'simples'` | `'contrato'` | `'simples'` | enum | escolha | Plano investidor (contrato) |
+| `correcaoObraModo` | `'propria' \| 'incc'` | `'propria'` | `'incc'` | enum | escolha | Plano investidor (contrato) |
+| `correcaoObraAno` | % a.a. | 6.66 | — | (0, 30) | pct, 0–15, passo 0,05 | Plano investidor (contrato) |
+| `entradaPct` | % do preço | 10 | — | (0, 100) | pct, 0–50, passo 1 | Plano investidor (contrato) |
+| `mensaisPct` | % do preço | 25 | — | (0, 100) | pct, 0–80, passo 1 | Plano investidor (contrato) |
+| `reforcoPct` | % do preço | 15 | — | (0, 100) | pct, 0–40, passo 1 | Plano investidor (contrato) |
+| `reforcoCadaMeses` | meses | 12 | — | (1, 60) | meses, 3–24, passo 1 | Plano investidor (contrato) |
+| `chavesPct` | % do preço | 20 | — | (0, 100) | pct, 0–60, passo 1 | Plano investidor (contrato) |
+| `posChavesMeses` | meses | 36 | — | (1, 120) | meses, 1–96, passo 1 | Plano investidor (contrato) |
+| `reservaMeses` | meses | 3 | 0 | (0, 24) | meses, 0–12, passo 1 | Crédito e alavancagem |
+
+Regra extra no backend: `entradaPct + mensaisPct + reforcoPct + chavesPct <= 100` (validar depois de
+mesclar com o plano salvo; na leitura, se estourar, os quatro voltam ao padrão). No modo `'contrato'`,
+`pctPagoChaves` e `prazoFinMeses` não são usados (o motor lê os do contrato); continuam gravados para o modo `'simples'`.
+
 ## Pacote 5 — temporada
 
 | Campo | Tipo | Padrão | Neutro | Backend | Campo na tela | Grupo |
@@ -110,6 +129,8 @@ Todos em reais arredondados (`Math.round`), salvo indicação. Campo de pacote a
 | `dividaFinanciamento` | 4 | Soma dos saldos de financiamento das unidades prontas |
 | `aPagarObra` | 4 | `restante` + saldo a financiar das unidades em obra |
 | `valorImoveis` | 4 | Soma do valor de mercado das unidades prontas |
+| `parcelasObra` | 9 | Parcelas de obra do contrato pagas no mês (mensal, reforço, chaves; sem a entrada do ato nem adiantamentos) |
+| `obrigacoesMes` | 9 | `totalParcelasFinanciamento + parcelasObra + parcelaApePaga + custoFixoHolding + parcelasConsorcio` (positivo) |
 | `parcelasConsorcio` | 7 | Parcelas de consórcio pagas no mês |
 | `lanceConsorcio` | 7 | Lance pago no mês |
 | `contemplacoes` | 7 | Cotas contempladas no mês (contagem) |
