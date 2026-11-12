@@ -596,6 +596,12 @@ em agosto, holding financiando o saldo remanescente nas chaves, ano de transiç�
 passiva. Diferente do `/admin`: **qualquer conta Google loga, sem allowlist** — cada pessoa
 tem o próprio plano, ninguém vê o de outra.
 
+> **Próxima rodada já especificada, ainda não implementada (2026-11-12):**
+> `specs/001-imoveis-realismo-2026/` — realismo de 2026 (aluguel e juros de mercado, reais de hoje,
+> retirada depois da transição, apê em SAC, imposto da reforma), linhas de crédito e alavancagem,
+> temporada (Airbnb), comparação de estratégias, consórcio e venda nas chaves. Nove pacotes, em ordem;
+> comece pelo `README.md` de lá. O pedido do PO foi só a especificação: a execução é outra conversa.
+
 | Camada | Onde | Papel |
 |---|---|---|
 | Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |
@@ -976,6 +982,17 @@ fresco do GitHub (`git cat-file` → `git hash-object -w`, hash conferido). O ú
 GitHub era um `firebase-debug.log` de um tree solto, sem commit apontando. A pasta foi marcada como
 "Disponível off-line" no Drive. Se voltar: `find .git -type f -flags +dataless` mostra os presos.
 
+**O git desta pasta não serve para commit nem push (medido 2026-11-11).** A referência `origin/main`
+local ficou velha, o histórico local divergiu do GitHub e o `git fetch` trava aqui. O caminho que funciona:
+
+1. Um clone em **disco local**, fora do Drive: `git clone "$(git remote get-url origin)" ~/clones/rodrigo-matheus`.
+2. Editar e rodar os testes nesta pasta (é onde estão `node_modules` e `.venv`).
+3. Copiar para o clone só os arquivos alterados (`cp`, mantendo o caminho), conferir com `git status`/`git diff`
+   **no clone**, e de lá `git add -A && git commit && git push origin main`.
+
+Nunca rode `git reset --hard origin/main`, `git pull` ou `git checkout <arquivo>` nesta pasta: a referência
+velha apagaria trabalho atual. Para saber o que está de fato no GitHub, olhe o clone.
+
 ## Currículo: uma fonte, duas saídas
 
 O conteúdo de carreira vive em `web/src/i18n/{pt,en}.json` e alimenta a home.
@@ -1059,6 +1076,21 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   `.dockerignore` já existia e já excluía `.venv`/`__pycache__`/`tests/`, mas ele só vale DEPOIS
   do upload, no `COPY` da imagem — não evita o upload em si. Conserto: `api/.gcloudignore` com o
   MESMO conteúdo do `.dockerignore` — derruba o upload de 193 MB para ~4 MB.
+- **Mesmo com o `.gcloudignore`, o deploy do Cloud Run a partir desta pasta do Drive continuou
+  falhando** com o mesmo `Errno 89` (a hipótese acima explicava o tamanho do upload, não o erro
+  inteiro). O que funcionou em todos os deploys de 2026-11-11/12 — **faça assim, não pelo `./deploy.sh`**:
+  1. Mudou `api/`? No **clone em disco local** (ver "Git dentro do Google Drive"), já com o commit:
+     `cd api && rm -rf .venv` e
+     `gcloud run deploy portfolio-api --source . --region southamerica-east1 --project rodrigo-matheus --allow-unauthenticated --memory 512Mi --cpu 1 --min-instances 0 --max-instances 2 --timeout 1000 --quiet`.
+     Depois confira que as variáveis de ambiente seguem lá (`gcloud run services describe portfolio-api
+     --region southamerica-east1 --project rodrigo-matheus`): nesses deploys as 18 sobreviveram; se
+     sumirem, reaplique com o passo `services update` do `deploy.sh`.
+  2. Sempre, nesta pasta: `cd web && npm run build`; da raiz, `set -a; source .env; set +a`,
+     `gcloud storage cp web/dist/index.html gs://$GCS_BUCKET/spa-shell.html` e
+     `npx --yes firebase-tools@14 deploy --only hosting --project rodrigo-matheus`.
+  3. Um comando por chamada: o comando encadeado longo, com o caminho do Drive dentro, foi recusado
+     pela ferramenta de execução. Mudança só de frontend dispensa o passo 1.
+  Nunca deixe cópia do `.env` no clone.
 - **O README está desatualizado:** documenta `GET /api/repos`, mas a rota real em `api/server.py` é `GET /api/data`. `/api/repos` dá 404 no Flask.
 - **O blog não usa mais `web/public/blog/posts.json`** — os posts vivem no Firestore. O arquivo foi
   removido; `migrate_posts.py` levou os três antigos para lá.
@@ -1140,7 +1172,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # 957 testes
-cd web && npm test                                  # 578 testes
+cd web && npm test                                  # 585 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
