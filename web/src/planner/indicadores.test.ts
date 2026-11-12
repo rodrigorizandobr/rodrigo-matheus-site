@@ -10,7 +10,7 @@ const l = (over: Partial<MonthRow> = {}): MonthRow => ({
   aluguelRecebido: 0, comprasImoveis: 0, documentacao: 0, saldo: 0, custosImovel: 0, rendaMensalLiquida: 0, vendas: 0, valorVendas: 0,
   patrimonioLiquido: 0, metaDoMes: 0, rendaDisponivel: 0, retirada: 0, parcelaApePaga: 0, saldoApe: 0, parcelaApe: 0, montagem: 0,
   rendimentoCaixa: 0, custoFixoHolding: 0, amortizacaoExtra: 0, dividaFinanciamento: 0, aPagarObra: 0, valorImoveis: 0, parcelasObra: 0,
-  obrigacoesMes: 0, parcelasConsorcio: 0, lanceConsorcio: 0, contemplacoes: 0, contemplacoesAtrasadas: 0, dividaConsorcio: 0,
+  obrigacoesMes: 0, parcelasConsorcio: 0, lanceConsorcio: 0, contemplacoes: 0, contemplacoesAtrasadas: 0, dividaConsorcio: 0, comprasLeilao: 0, arremates: 0,
   ...over,
 })
 const serie = (rendas: number[], meta = 100) => rendas.map((r, i) => l({ mes: i + 1, rendaDisponivel: r, metaDoMes: meta }))

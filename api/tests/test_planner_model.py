@@ -171,3 +171,20 @@ class TestParidadeComOFront:
         assert set(achados) == set(model.DEFAULT_PARAMS), set(achados) ^ set(model.DEFAULT_PARAMS)
         for chave, valor in achados.items():
             assert model.DEFAULT_PARAMS[chave] == valor, chave
+
+
+class TestLeilaoERecursos:
+    """Campos do pacote 10: leilão e os recursos de hoje (margem livre)."""
+
+    def test_padroes_presentes(self):
+        d = model.DEFAULT_PARAMS
+        for campo in ("leilaoDescontoPct", "leilaoComissaoPct", "leilaoJuridicoPct", "leilaoReformaPct",
+                      "leilaoMesesAteAlugar", "salarioLiquidoCasal", "despesasMensais"):
+            assert campo in d
+
+    def test_desconto_fora_da_faixa_nao_grava(self):
+        with pytest.raises(ValueError):
+            model.sanitize({**model.DEFAULT_PARAMS, "leilaoDescontoPct": 90})
+
+    def test_opcoes_internas_das_estrategias_nao_sao_campos(self):
+        assert "leilaoAtivo" not in model.sanitize({**model.DEFAULT_PARAMS, "leilaoAtivo": True})

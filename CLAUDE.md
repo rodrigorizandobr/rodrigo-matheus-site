@@ -635,6 +635,28 @@ tem o próprio plano, ninguém vê o de outra.
 >   (`NOVIDADES.id` no `PlannerPaineis.tsx`: troque o id quando mudar número para ele reaparecer).
 > - Fora de escopo por decisão do PO: banco, construtora com juros, home equity, pessoa física.
 
+> **Rodada de 2026-11-13 — quatro caminhos (no ar):** a página parte dos RECURSOS de hoje e devolve um roteiro.
+>
+> - **Margem livre** (`caminhos.ts#margemLivre`, cartão `PlannerRecursos`): salário líquido − parcela do apê − despesas
+>   (+ bônus diluído). Sem salário informado (`salarioLiquidoCasal = 0`) a margem é o aporte já definido. Os campos de
+>   recursos moram no 1º grupo da tela ("Seus recursos hoje").
+> - **Quatro estratégias** sobre o MESMO motor, por opções internas dos parâmetros (`compraNaPlanta`, `leilaoAtivo`,
+>   `leilaoLimiarPct`, `leilaoEsperaMeses` — opcionais, NUNCA gravadas, ausentes = comportamento antigo, por isso a
+>   caracterização segue verde): **construtora** (só planta), **consórcio** (só cartas; sem cotas informadas testa 1 a 3 e
+>   fica com a de maior renda — cota demais sufoca o caixa e o motor nunca contempla), **leilão** (só prontos
+>   arrematados) e **mix** (melhor de poucas combinações de "esperar o caixa para o leilão"; a descrição conta o que o
+>   mix de fato fez). `caminhos()` roda ~8 simulações (1 a 2 s) — a página usa `useDeferredValue`.
+> - **Leilão** (`calc.ts`, antes do planejador): studio pronto a `prontoMes × (1 − desconto)` + comissão + jurídico +
+>   reforma + documentação + montagem, pago à vista, aluguel só depois de `leilaoMesesAteAlugar`. No mix, se o leilão
+>   compensa e o caixa chega nele em até `leilaoEsperaMeses`, a planta espera (senão as parcelas da planta nunca deixam
+>   o caixa juntar o arremate). Tudo é ESTIMATIVA: o risco real (ocupação, dívida) não entra; padrões 30% / 5% / 3% / 10% / 10 meses.
+> - **Resultado**: recomendação (maior renda final; diferença < 3% é "empate técnico" e o texto diz isso), roteiro ano a
+>   ano, gráfico das 4 linhas com marcadores de acontecimentos (`eventosDe`), diário de bordo com uma aba por estratégia.
+>   A estratégia escolhida (legenda, tabela ou aba) alimenta cartões, avisos e estresse. Os padrões de leilão e os dois
+>   campos de recursos estão em `types.ts` e `api/planner/model.py` (paridade testada); as opções internas não.
+> - **Achado**: depois do ano de transição o motor não compra mais (sem aportes), então a renda real fica constante e as
+>   quatro estratégias chegam perto; o que as separa é o ritmo de compra nos anos de aporte.
+
 | Camada | Onde | Papel |
 |---|---|---|
 | Motor | `web/src/planner/calc.ts` | Puro, testado. Único cálculo que existe — não o código do canvas do Gemini. |

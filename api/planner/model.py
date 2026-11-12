@@ -93,6 +93,14 @@ DEFAULT_PARAMS: dict[str, Any] = {
     # pacote 8: planta, ágio, venda nas chaves
     "agioProntoPct": 0,
     "pctVendaNasChaves": 0,
+    # pacote 10: leilão, recursos de hoje
+    "leilaoDescontoPct": 30,
+    "leilaoComissaoPct": 5,
+    "leilaoJuridicoPct": 3,
+    "leilaoReformaPct": 10,
+    "leilaoMesesAteAlugar": 10,
+    "salarioLiquidoCasal": 0,
+    "despesasMensais": 0,
 }
 
 #: as quatro fatias do contrato que vão até as chaves: a soma nunca passa de 100%.
@@ -166,6 +174,13 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "consorcioLancePct": (0, 100),
     "agioProntoPct": (0, 100),
     "pctVendaNasChaves": (0, 100),
+    "leilaoDescontoPct": (0, 70),
+    "leilaoComissaoPct": (0, 15),
+    "leilaoJuridicoPct": (0, 30),
+    "leilaoReformaPct": (0, 50),
+    "leilaoMesesAteAlugar": (0, 36),
+    "salarioLiquidoCasal": (0, 500_000),
+    "despesasMensais": (0, 500_000),
 }
 
 #: campos categóricos — não têm faixa, têm um conjunto fechado de valores.

@@ -155,6 +155,32 @@ export type PlannerParams = {
   // ---- pacote 8: planta, ágio, venda nas chaves ----
   agioProntoPct: number
   pctVendaNasChaves: number
+
+  // ---- pacote 10: leilão, recursos de hoje ----
+  /** Leilão/imóvel da Caixa: desconto sobre o valor de mercado do pronto, %. Estimativa. */
+  leilaoDescontoPct: number
+  /** Comissão do leiloeiro, % do valor arrematado. */
+  leilaoComissaoPct: number
+  /** Advogado, desocupação judicial e dívidas de condomínio/IPTU, % do valor arrematado. */
+  leilaoJuridicoPct: number
+  /** Reforma, % do valor de mercado. */
+  leilaoReformaPct: number
+  /** Meses entre arrematar e o primeiro inquilino (desocupação + reforma + locação). */
+  leilaoMesesAteAlugar: number
+  /** Salário líquido do casal (CLT), R$/mês — só para calcular a margem livre. 0 = não informado. */
+  salarioLiquidoCasal: number
+  /** Gastos mensais da família fora o financiamento do apê, R$ — só para calcular a margem livre. */
+  despesasMensais: number
+
+  // ---- opções internas das estratégias: nunca gravadas, ausentes = comportamento de sempre ----
+  /** false = não compra na planta (estratégias consórcio e leilão). */
+  compraNaPlanta?: boolean
+  /** true = compra em leilão. */
+  leilaoAtivo?: boolean
+  /** Com a planta ativa (mix): o leilão só entra se o ganho imediato (valor de mercado ÷ custo total − 1) passa deste %. 0 = sempre que couber. */
+  leilaoLimiarPct?: number
+  /** Mix: espera o leilão se o caixa chega no custo dele em até estes meses (0 = nunca espera; a planta compra primeiro). */
+  leilaoEsperaMeses?: number
 }
 
 export const DEFAULT_PARAMS: PlannerParams = {
@@ -238,6 +264,14 @@ export const DEFAULT_PARAMS: PlannerParams = {
 
   agioProntoPct: 0,
   pctVendaNasChaves: 0,
+
+  leilaoDescontoPct: 30,
+  leilaoComissaoPct: 5,
+  leilaoJuridicoPct: 3,
+  leilaoReformaPct: 10,
+  leilaoMesesAteAlugar: 10,
+  salarioLiquidoCasal: 0,
+  despesasMensais: 0,
 }
 
 export type YearPoint = {
@@ -326,4 +360,9 @@ export type MonthRow = {
   contemplacoes: number
   contemplacoesAtrasadas: number
   dividaConsorcio: number
+  // ---- pacote 10 ----
+  /** Caixa gasto no mês em studios de leilão (arremate, comissão, jurídico, reforma). */
+  comprasLeilao: number
+  /** Studios arrematados no mês. */
+  arremates: number
 }

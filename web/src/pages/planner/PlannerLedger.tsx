@@ -1,4 +1,5 @@
 import { formatBRL } from '../../planner/format'
+import type { EstrategiaRodada, IdEstrategia } from '../../planner/caminhos'
 import type { MonthRow } from '../../planner/types'
 
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -49,10 +50,11 @@ const IMOVEIS: Linha[] = [
   { rotulo: 'financiados', valor: (l) => l.imoveisFinanciados },
   { rotulo: 'vendidos no mês', breve: 'vendidos', valor: (l) => l.vendas },
   { rotulo: 'contemplados no mês', breve: 'contemplados', valor: (l) => l.contemplacoes },
+  { rotulo: 'arrematados no mês', breve: 'arrematados', valor: (l) => l.arremates ?? 0 },
   { rotulo: 'total', valor: (l) => l.totalImoveis },
 ]
 
-const SO_NO_MOBILE = ['vendidos no mês', 'contemplados no mês']
+const SO_NO_MOBILE = ['vendidos no mês', 'contemplados no mês', 'arrematados no mês']
 
 function Empilhado({ linhas, l, formato, breve }: { linhas: Linha[]; l: MonthRow; formato: (v: number) => string; breve?: boolean }) {
   return (
@@ -146,6 +148,31 @@ export function PlannerLedger({ linhas }: { linhas: MonthRow[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+/** Uma aba por estratégia: o mesmo diário de bordo, mês a mês, de cada caminho. */
+export function PlannerLedgerAbas({ estrategias, selecionada, onSelecionar }: {
+  estrategias: EstrategiaRodada[]
+  selecionada: IdEstrategia
+  onSelecionar: (id: IdEstrategia) => void
+}) {
+  const atual = estrategias.find((e) => e.id === selecionada) ?? estrategias[0]
+  return (
+    <div className="grid gap-3 min-w-0">
+      <div role="tablist" aria-label="Diário de bordo por estratégia" className="flex flex-wrap gap-2">
+        {estrategias.map((e) => (
+          <button key={e.id} type="button" role="tab" id={`aba-${e.id}`} aria-selected={e.id === atual.id} aria-controls="diario-painel"
+                  onClick={() => onSelecionar(e.id)}
+                  className={`chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider ${e.id === atual.id ? 'neon-red' : ''}`}>
+            {e.nome}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id="diario-painel" aria-labelledby={`aba-${atual.id}`} className="min-w-0">
+        <PlannerLedger linhas={atual.linhas} />
       </div>
     </div>
   )

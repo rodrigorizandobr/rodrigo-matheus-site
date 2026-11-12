@@ -38,8 +38,12 @@ export function PlannerAvisos({ avisos }: { avisos: Aviso[] }) {
 }
 
 const NOVIDADES = {
-  id: '2026-11-realismo-2',
+  id: '2026-11-caminhos',
   itens: [
+    'A página agora começa pelos seus recursos de hoje (salário líquido, despesas, bônus e financiamento da casa) e mostra quanto sobra de verdade por mês.',
+    'Quatro caminhos lado a lado: construtora, consórcio, leilão e mix. O mix escolhe mês a mês o que o caixa permite, e a página diz qual rende mais no seu prazo e por quê.',
+    'O gráfico mostra renda ou patrimônio das quatro estratégias, com pontos nos acontecimentos (compras, leilões, contemplações, chaves, vendas, transição). O diário de bordo tem uma aba por estratégia.',
+    'O roteiro ano a ano diz quanto de renda você terá no fim de cada ano. O leilão é estimativa: confira os números do edital na seção Leilão.',
     'Os resultados agora aparecem em reais de hoje (dá para ver o valor nominal na chave acima dos cartões).',
     'Depois da transição você passa a retirar a sua meta de renda; antes, todo aluguel era reinvestido. Dá para voltar em Viver de renda.',
     'O plano investidor da construtora tem cronograma próprio (entrada, mensais, reforços, chaves e o resto sem juros): corrigido pelo INCC até as chaves e pelo IPCA depois, com o sistema dividindo mensais e reforços pelo seu fluxo.',

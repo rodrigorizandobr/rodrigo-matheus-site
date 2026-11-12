@@ -1,11 +1,15 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { plannerApi } from '../planner/api'
-import { pontosAnuais, simulateMonthly } from '../planner/calc'
+import { pontosAnuais } from '../planner/calc'
+import { caminhos, type IdEstrategia } from '../planner/caminhos'
 import { inicioDeHoje, rotuloMesAno } from '../planner/calendario'
 import { avisos as calcularAvisos } from '../planner/avisos'
 import { posChavesPct, pctAteChaves } from '../planner/contrato'
 import { emReaisDeHoje } from '../planner/inflacao'
+import { PlannerChartEstrategias } from './planner/PlannerChartEstrategias'
+import { PlannerRecomendacao, PlannerRoteiro } from './planner/PlannerCaminhos'
+import { PlannerRecursos } from './planner/PlannerRecursos'
 import { benchmarkRendaFixa, mesDaMeta } from '../planner/indicadores'
 import { MERCADO, aplicarReferencias } from '../planner/mercado'
 import { DEFAULT_PARAMS, type Pagador, type PlannerParams } from '../planner/types'
@@ -13,8 +17,7 @@ import { formatBRL, formatBRLCompact } from '../planner/format'
 import { ParamField } from './planner/ParamField'
 import { ChoiceField } from './pension/ChoiceField'
 import { Group } from './planner/Group'
-import { PlannerChart } from './planner/PlannerChart'
-import { PlannerLedger } from './planner/PlannerLedger'
+import { PlannerLedgerAbas } from './planner/PlannerLedger'
 import { PlannerComparar } from './planner/PlannerComparar'
 import { Novidades, PlannerAvisos, Stat, TesteDeEstresse, TradicionalTemporada, ValeFinanciar } from './planner/PlannerPaineis'
 
@@ -48,6 +51,7 @@ export function PlannerPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [moeda, setMoeda] = useState<Moeda>(moedaLembrada)
+  const [escolhida, setEscolhida] = useState<IdEstrategia | null>(null)
   const [anterior, setAnterior] = useState<Pick<PlannerParams, 'rate' | 'incc' | 'depreciacao'> | null>(null)
 
   const api = useMemo(() => plannerApi(idToken), [])
@@ -100,10 +104,13 @@ export function PlannerPage() {
 
   // Com prazo longo a simulação pesa: o slider não pode travar esperando por ela.
   const simulado = useDeferredValue(params)
-  const linhas = useMemo(() => simulateMonthly(simulado, inicio), [simulado, inicio])
-  const pontos = useMemo(() => pontosAnuais(linhas, simulado), [linhas, simulado])
-  const lista = useMemo(() => calcularAvisos(linhas, simulado), [linhas, simulado])
-  const bench = useMemo(() => benchmarkRendaFixa(linhas, simulado), [linhas, simulado])
+  const resultado = useMemo(() => caminhos(simulado, inicio), [simulado, inicio])
+  const idAtivo = escolhida ?? resultado.recomendada
+  const ativa = resultado.estrategias.find((e) => e.id === idAtivo) ?? resultado.estrategias[0]
+  const linhas = ativa.linhas
+  const pontos = useMemo(() => pontosAnuais(linhas, ativa.params), [linhas, ativa.params])
+  const lista = useMemo(() => calcularAvisos(linhas, ativa.params), [linhas, ativa.params])
+  const bench = useMemo(() => benchmarkRendaFixa(linhas, ativa.params), [linhas, ativa.params])
   const final = pontos.at(-1)!
   const ultima = linhas.at(-1)!
 
@@ -111,13 +118,8 @@ export function PlannerPage() {
     (valor: number, mes: number) => (moeda === 'hoje' ? emReaisDeHoje(valor, mes, simulado.ipca) : valor),
     [moeda, simulado.ipca],
   )
-  const pontosConv = useMemo(() => pontos.map((pt) => ({
-    ...pt,
-    patrimonioLiquido: conv(pt.patrimonioLiquido, pt.ano * 12),
-    rendaMensalLiquida: conv(pt.rendaMensalLiquida, pt.ano * 12),
-    divida: conv(pt.divida, pt.ano * 12),
-  })), [pontos, conv])
-  const benchConv = useMemo(() => pontos.map((pt) => (pt.ano === 0 ? simulado.initial : conv(bench[pt.ano * 12 - 1] ?? 0, pt.ano * 12))), [pontos, bench, conv, simulado.initial])
+  const benchConv = useMemo(() => bench.map((v, i) => conv(v, i + 1)), [bench, conv])
+  const metaDoMes = useCallback((mes: number) => conv(linhas[mes - 1]?.metaDoMes ?? 0, mes), [linhas, conv])
 
   const mesMeta = mesDaMeta(linhas)
   const linhaMeta = mesMeta === null ? undefined : linhas.find((l) => l.mes === mesMeta)
@@ -168,14 +170,38 @@ export function PlannerPage() {
       ) : (
         <div className="grid lg:grid-cols-[360px_1fr] gap-8 min-w-0">
           <div className="grid gap-4 content-start min-w-0">
+            <Group title="Seus recursos hoje" inicial="aberto">
+              <ParamField label="Salário líquido do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
+                          value={params.salarioLiquidoCasal} onChange={set('salarioLiquidoCasal')}
+                          hint="O que cai na conta por mês. Com ele e as despesas, a página calcula a sua margem livre. Zero = não informado." />
+              <ParamField label="Despesas mensais (fora o financiamento da casa)" kind="brl" min={0} max={200_000} step={500}
+                          value={params.despesasMensais} onChange={set('despesasMensais')}
+                          hint="Moradia à parte, mercado, escola, transporte, lazer — tudo que sai todo mês." />
+              <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
+                          value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
+                          hint="Só serve para calcular o FGTS. Com saldo devedor no apê, a cada 2 anos ele abate o apê. Com o apê quitado, compra studio pronto à vista assim que FGTS + caixa livre fecham a conta." />
+              <ParamField label="Aporte anual" kind="brl" min={0} max={500_000} step={1_000}
+                          value={params.annualAmount} onChange={set('annualAmount')}
+                          hint="O bônus: cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
+              <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
+                          value={params.annualMonth} onChange={set('annualMonth')} />
+              <ParamField label="Saldo devedor do apartamento em que você mora hoje" kind="brl" min={0} max={2_000_000} step={10_000}
+                          value={params.dividaApe} onChange={set('dividaApe')} />
+              <ParamField label="Parcela atual do financiamento do apê" kind="brl" min={0} max={30_000} step={100}
+                          value={params.parcelaApeAtual} onChange={set('parcelaApeAtual')} />
+              <ParamField label="Prazo que falta no financiamento do apê" kind="meses" min={0} max={420} step={12}
+                          value={params.prazoApeMeses} onChange={set('prazoApeMeses')}
+                          hint="Com isso o simulador amortiza o apê todo mês, como o banco faz (tabela SAC): a parcela cai um pouco a cada mês e essa queda vira aporte. Zero = o apê só cai com o FGTS." />
+              <ParamField label="Anos de simulação" kind="anos" min={1} max={40} step={1}
+                          value={params.years} onChange={set('years')} />
+              <ParamField label="Quanto você quer por mês para viver" kind="brl" min={0} max={100_000} step={500}
+                          value={params.metaRendaHoje} onChange={set('metaRendaHoje')}
+                          hint="A meta de renda, em reais de hoje. O simulador corrige esse valor pela inflação mês a mês." />
+            </Group>
+
             <Group title="Seus aportes" inicial="aberto">
               <ParamField label="Aporte mensal" kind="brl" min={0} max={30_000} step={100}
                           value={params.monthlyAmount} onChange={set('monthlyAmount')} />
-              <ParamField label="Aporte anual" kind="brl" min={0} max={500_000} step={1_000}
-                          value={params.annualAmount} onChange={set('annualAmount')}
-                          hint="Cai de uma vez no mês escolhido abaixo, não espalhado pelo ano." />
-              <ParamField label="Mês do aporte anual" kind="mes" min={1} max={12} step={1}
-                          value={params.annualMonth} onChange={set('annualMonth')} />
               <ParamField label="Já pago no 1º studio" kind="brl" min={0} max={500_000} step={1_000}
                           value={params.initial} onChange={set('initial')} />
               <ParamField label="Meses até a entrega do 1º studio" kind="meses" min={0} max={60} step={1}
@@ -196,9 +222,6 @@ export function PlannerPage() {
               <ChoiceField label="Depois da transição" value={params.aposTransicao} onChange={set('aposTransicao')}
                            options={[{ value: 'vive_da_renda', label: 'Vivo da renda' }, { value: 'reinveste', label: 'Reinvisto tudo' }]}
                            hint="Vivo da renda: no ano de transição você para de trabalhar — aportes e depósitos de FGTS param — e passa a retirar a sua meta todo mês, limitada ao que os aluguéis deixam depois das parcelas. O que sobrar continua comprando studios. Reinvisto tudo: você só para de aportar; todo aluguel vira studio novo." />
-              <ParamField label="Quanto você quer por mês para viver" kind="brl" min={0} max={100_000} step={500}
-                          value={params.metaRendaHoje} onChange={set('metaRendaHoje')}
-                          hint="Em reais de hoje. O simulador corrige esse valor pela inflação mês a mês." />
             </Group>
 
             <Group title="O studio" inicial="aberto">
@@ -360,6 +383,25 @@ export function PlannerPage() {
                           hint="Parte da carta que você paga de uma vez, com dinheiro do caixa, para ser contemplado. Abate o saldo devedor e encurta o prazo. Se faltar caixa no mês previsto, a contemplação espera." />
             </Group>
 
+            <Group title="Leilão e imóveis da Caixa">
+              <p className="text-[11px] text-muted leading-relaxed">Tudo aqui é estimativa: cada edital é diferente. Troque pelos números do imóvel que você está olhando.</p>
+              <ParamField label="Desconto sobre o valor de mercado" kind="pct" min={0} max={70} step={1}
+                          value={params.leilaoDescontoPct} onChange={set('leilaoDescontoPct')}
+                          hint="Quanto abaixo do mercado você arremata um studio pronto. Leilões da Caixa e judiciais costumam sair bem abaixo da avaliação, mas o desconto efetivo depende da concorrência." />
+              <ParamField label="Comissão do leiloeiro" kind="pct" min={0} max={15} step={0.5}
+                          value={params.leilaoComissaoPct} onChange={set('leilaoComissaoPct')}
+                          hint="Em geral 5% do valor arrematado." />
+              <ParamField label="Jurídico e dívidas do imóvel" kind="pct" min={0} max={30} step={0.5}
+                          value={params.leilaoJuridicoPct} onChange={set('leilaoJuridicoPct')}
+                          hint="Advogado, desocupação e condomínio/IPTU atrasados, em % do valor arrematado. É onde mora o risco do leilão." />
+              <ParamField label="Reforma" kind="pct" min={0} max={50} step={1}
+                          value={params.leilaoReformaPct} onChange={set('leilaoReformaPct')}
+                          hint="% do valor de mercado." />
+              <ParamField label="Meses até o primeiro inquilino" kind="meses" min={0} max={36} step={1}
+                          value={params.leilaoMesesAteAlugar} onChange={set('leilaoMesesAteAlugar')}
+                          hint="Desocupação, reforma e locação. Nesse período IPTU e condomínio são seus." />
+            </Group>
+
             <Group title="Documentação de compra">
               <ParamField label="ITBI" kind="pct" min={0} max={5} step={0.1}
                           value={params.itbiPct} onChange={set('itbiPct')} />
@@ -418,24 +460,6 @@ export function PlannerPage() {
               <ParamField label="Mês do dissídio" kind="mes" min={1} max={12} step={1}
                           value={params.mesDissidio} onChange={set('mesDissidio')} />
             </Group>
-
-            <Group title="Seu apartamento">
-              <ParamField label="Saldo devedor do apartamento em que você mora hoje" kind="brl" min={0} max={2_000_000} step={10_000}
-                          value={params.dividaApe} onChange={set('dividaApe')} />
-              <ParamField label="Parcela atual do financiamento do apê" kind="brl" min={0} max={30_000} step={100}
-                          value={params.parcelaApeAtual} onChange={set('parcelaApeAtual')} />
-              <ParamField label="Prazo que falta no financiamento do apê" kind="meses" min={0} max={420} step={12}
-                          value={params.prazoApeMeses} onChange={set('prazoApeMeses')}
-                          hint="Com isso o simulador amortiza o apê todo mês, como o banco faz (tabela SAC): a parcela cai um pouco a cada mês e essa queda vira aporte. Zero = o apê só cai com o FGTS." />
-              <ParamField label="Salário bruto do casal (CLT)" kind="brl" min={0} max={200_000} step={500}
-                          value={params.salarioBrutoCasal} onChange={set('salarioBrutoCasal')}
-                          hint="Só serve para calcular o FGTS. Com saldo devedor no apê, a cada 2 anos ele abate o apê. Com o apê quitado, compra studio pronto à vista assim que FGTS + caixa livre fecham a conta." />
-            </Group>
-
-            <Group title="Horizonte">
-              <ParamField label="Anos de simulação" kind="anos" min={1} max={30} step={1}
-                          value={params.years} onChange={set('years')} />
-            </Group>
           </div>
 
           <div className="grid gap-6 content-start min-w-0">
@@ -458,14 +482,19 @@ export function PlannerPage() {
               <Stat label="Studios quitados" value={String(final.studiosQuitadosEquiv)} />
               <Stat label="Dívida e compromissos no fim" value={formatBRLCompact(conv(final.divida, ultima.mes))} title={formatBRL(conv(final.divida, ultima.mes))} />
             </div>
+            <PlannerRecursos p={params} onUsarComoAporte={(v) => { setAnterior(null); setParams((q) => ({ ...q, monthlyAmount: v })) }} />
+            <PlannerRecomendacao estrategias={resultado.estrategias} recomendada={resultado.recomendada} porque={resultado.porque}
+                                 selecionada={ativa.id} onSelecionar={setEscolhida} anos={simulado.years} metaHoje={simulado.metaRendaHoje} />
+            <PlannerChartEstrategias estrategias={resultado.estrategias} selecionada={ativa.id} onSelecionar={setEscolhida}
+                                     conv={conv} benchmark={benchConv} metaDoMes={metaDoMes} moeda={moeda}
+                                     nomeBenchmark={simulado.rendimentoCaixaAno > 0 ? 'Mesmos aportes na renda fixa' : 'Total aportado'} />
             <PlannerAvisos avisos={lista} />
-            <PlannerChart points={pontosConv} benchmark={benchConv} moeda={moeda}
-                          nomeBenchmark={simulado.rendimentoCaixaAno > 0 ? 'Mesmos aportes na renda fixa' : 'Total aportado'} />
-            <ValeFinanciar p={simulado} linhas={linhas} />
+            <PlannerRoteiro estrategia={ativa} />
+            {ativa.params.compraNaPlanta !== false && <ValeFinanciar p={ativa.params} linhas={linhas} />}
             <TesteDeEstresse linhas={linhas} reservaMeses={simulado.reservaMeses} moeda={conv} />
             <TradicionalTemporada p={simulado} ano={inicio.ano} />
             <PlannerComparar params={params} inicio={inicio} moeda={moeda} />
-            <PlannerLedger linhas={linhas} />
+            <PlannerLedgerAbas estrategias={resultado.estrategias} selecionada={ativa.id} onSelecionar={setEscolhida} />
             <p className="text-[11px] text-muted leading-relaxed">
               Como o sistema compra: todo mês ele soma o saldo acumulado com as entradas e saídas previstas (aportes, aluguéis,
               parcelas da construtora, custos) e compra o studio com menos obra pela frente que essa conta paga até as chaves — sem deixar o

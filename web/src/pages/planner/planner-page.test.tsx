@@ -19,6 +19,9 @@ const notify = () => listener?.(currentUser)
 
 import { PlannerPage } from '../PlannerPage'
 
+// A tela roda as quatro estratégias a cada mudança de campo: no jsdom isso leva segundos.
+vi.setConfig({ testTimeout: 90_000 })
+
 // Plano curto: o diário monta uma linha por mês, e estes testes não conferem número nenhum dele.
 const PLANO = { ...DEFAULT_PARAMS, years: 2 }
 
@@ -94,7 +97,8 @@ describe('a tela nova', () => {
     render(<PlannerPage />)
     await screen.findByText('Renda disponível no fim')
   }
-  const grupo = (titulo: string) => screen.getByText(titulo).closest('details') as HTMLDetailsElement
+  const grupo = (titulo: string) =>
+    screen.getAllByText(titulo).find((e) => e.classList.contains('hud-label') && e.closest('summary'))!.closest('details') as HTMLDetailsElement
 
   it('mostra os seis cartões de resultado', async () => {
     await logar()
@@ -105,7 +109,7 @@ describe('a tela nova', () => {
 
   it('os grupos principais começam abertos e os outros fechados', async () => {
     await logar()
-    for (const aberto of ['Seus aportes', 'Viver de renda', 'O studio', 'Plano investidor (contrato)']) expect(grupo(aberto).open, aberto).toBe(true)
+    for (const aberto of ['Seus recursos hoje', 'Seus aportes', 'Viver de renda', 'O studio', 'Plano investidor (contrato)']) expect(grupo(aberto).open, aberto).toBe(true)
     for (const fechado of ['Venda', 'Consórcio', 'Temporada (Airbnb)', 'Mercado']) expect(grupo(fechado).open, fechado).toBe(false)
   })
 
@@ -188,6 +192,7 @@ describe('a tela nova', () => {
 
   it('os painéis de leitura: vale parcelar, tradicional × temporada e comparar', async () => {
     await logar()
+    await userEvent.click(screen.getAllByRole('button', { name: /^Construtora/ })[0]) // o painel só vale para quem compra na planta
     expect(screen.getByText('Vale parcelar com a construtora?')).toBeInTheDocument()
     expect(screen.getByText('Tradicional × temporada')).toBeInTheDocument()
     expect(screen.getByText('Comparar estratégias')).toBeInTheDocument()
@@ -199,7 +204,7 @@ describe('a tela nova', () => {
     await userEvent.click(screen.getByRole('button', { name: 'comparar' }))
     expect(screen.getAllByText('Seu plano').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Cenário ruim').length).toBeGreaterThan(0)
-    const [desktop, celular] = screen.getAllByRole('table').filter((t) => /Estratégia/.test(t.textContent ?? ''))
+    const [desktop, celular] = screen.getAllByRole('table').filter((t) => /Seu plano/.test(t.textContent ?? ''))
     expect(within(desktop).getAllByRole('row').length).toBe(within(celular).getAllByRole('row').length)
     fireEvent.change(screen.getByLabelText(/anos de simulação/i), { target: { value: '3' } })
     expect(await screen.findByText(/os números ao lado mudaram/i)).toBeInTheDocument()

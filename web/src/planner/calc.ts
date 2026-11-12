@@ -598,6 +598,8 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
     let parcelasConsorcioDoMes = 0
     let lanceConsorcioDoMes = 0
     let contemplacoesDoMes = 0
+    let comprasLeilaoDoMes = 0
+    let arrematesDoMes = 0
     for (const cota of cotas) {
       if (cota.fracaoPaga >= 1) continue
       const fracao = Math.min(1 / planoCons.prazo, 1 - cota.fracaoPaga)
@@ -760,8 +762,54 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
       contemplacoesDoMes++
     }
 
+    // Leilão: studio pronto abaixo do mercado, pago à vista. Sozinho compra sempre que couber; com a planta
+    // ativa (mix) só entra se o ganho imediato passar do limiar — senão a planta rende mais por real.
+    if (p.leilaoAtivo) {
+      const arremate = prontoMes * (1 - p.leilaoDescontoPct / 100)
+      const custoSemMontagem = arremate * (1 + (p.leilaoComissaoPct + p.leilaoJuridicoPct) / 100 + docs) + prontoMes * (p.leilaoReformaPct / 100)
+      const ganho = arremate > 0 ? prontoMes / (custoSemMontagem - arremate * docs) - 1 : 0
+      const limiar = p.compraNaPlanta === false ? 0 : (p.leilaoLimiarPct ?? 0) / 100
+      const custoTotal = custoSemMontagem + montagemNoMes(mes)
+      const mesesAlugL = Math.round(clamp(p.leilaoMesesAteAlugar, 0, 36))
+      for (let n = 0; ganho >= limiar - 1e-12 && n < MAX_COMPRAS_POR_MES && custoTotal <= caixa && custoTotal <= Math.max(0, folgaLivre(mes)); n++) {
+        caixa -= custoTotal
+        const gasto = arremate * (1 + (p.leilaoComissaoPct + p.leilaoJuridicoPct) / 100) + prontoMes * (p.leilaoReformaPct / 100)
+        comprasDoMes += gasto
+        comprasLeilaoDoMes += gasto
+        docsDoMes += arremate * docs
+        montagemDoMes += montagemNoMes(mes)
+        arrematesDoMes++
+        unidades.push({
+          mesPronto: mes, mesAlugavel: mes + mesesAlugL, pago: gasto, valorNaEntrega: prontoMes, saldoFinanciado: 0,
+          mesesRestantesFin: 0, restante: 0, fracaoDocs: 0, parcelas: [], precoContrato: 0, mesCompra: mes, docsAPagar: 0,
+          montada: true, daPlanta: false,
+        })
+        teveUnidade = true
+      }
+    }
+
+    // Mix: se o leilão compensa e o caixa chega nele em poucos meses, vale esperar em vez de gastar o
+    // dinheiro em parcelas de planta que adiariam o arremate (o ganho imediato do leilão é o maior da mesa).
+    let esperaOLeilao = false
+    if (p.leilaoAtivo && p.compraNaPlanta !== false && (p.leilaoEsperaMeses ?? 0) > 0) {
+      const arremate = prontoMes * (1 - p.leilaoDescontoPct / 100)
+      const custoBase = arremate * (1 + (p.leilaoComissaoPct + p.leilaoJuridicoPct) / 100) + prontoMes * (p.leilaoReformaPct / 100)
+      const ganho = arremate > 0 ? prontoMes / custoBase - 1 : 0
+      if (ganho >= (p.leilaoLimiarPct ?? 0) / 100 - 1e-12) {
+        const custoTotal = custoBase + arremate * docs + montagemNoMes(mes)
+        const pr = projetar(mes)
+        const reserva = reservaDe(pr)
+        const janela = Math.min(Math.round(p.leilaoEsperaMeses ?? 0), horizonte)
+        let pisoDaquiPraFrente = Infinity
+        for (let k = horizonte; k >= 1; k--) {
+          pisoDaquiPraFrente = Math.min(pisoDaquiPraFrente, pr.caminho[k])
+          if (k <= janela && pisoDaquiPraFrente - reserva >= custoTotal) { esperaOLeilao = true; break }
+        }
+      }
+    }
+
     // Planejador: compra o studio com menos obra pela frente que o caixa projetado paga.
-    for (let n = 0; n < MAX_COMPRAS_POR_MES; n++) {
+    for (let n = 0; p.compraNaPlanta !== false && !esperaOLeilao && n < MAX_COMPRAS_POR_MES; n++) {
       const proj = projetar(mes)
       let r = 0
       while (r <= prazoObra && !cabeNaObra(proj, r, mes)) r++
@@ -877,6 +925,8 @@ export function simulateMonthly(p: PlannerParams, inicio: Inicio = INICIO_PADRAO
       contemplacoes: contemplacoesDoMes,
       contemplacoesAtrasadas,
       dividaConsorcio: Math.round(dividaConsorcio),
+      comprasLeilao: Math.round(comprasLeilaoDoMes),
+      arremates: arrematesDoMes,
     })
   }
 
