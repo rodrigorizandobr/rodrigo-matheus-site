@@ -955,18 +955,18 @@ class TestVozDoAutor:
                             lambda q: service.research.Research(context="notícia", sources=["https://a"]))
         monkeypatch.setattr(service.gemini, "generate_post",
                             lambda *a, **k: _rascunho("Rodrigo acha que esse hábito diz mais sobre liderança."))
-        pedidos = self._revisor(monkeypatch, "Eu acho que esse hábito diz mais sobre liderança.")
+        pedidos = self._revisor(monkeypatch, "Esse hábito diz mais sobre liderança.")
         store.save_config({"banned_phrases": []})
         post = service.generate("openai", now=utc(2026, 9, 14, 21))
         assert len(pedidos) == 1 and "primeira pessoa" in pedidos[0]
-        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Eu acho que esse hábito diz mais sobre liderança."]
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Esse hábito diz mais sobre liderança."]
         assert post["generation"]["bannedLeft"] == []
 
     def test_pega_tambem_no_ingles(self, env, monkeypatch):
         monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: {
-            **DRAFT, "i18n": {"pt": {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["Eu acho."]}]},
+            **DRAFT, "i18n": {"pt": {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["Isso é verdade."]}]},
                               "en": {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": ["Rodrigo thinks so."]}]}}})
-        pedidos = self._revisor(monkeypatch, "I think so.")
+        pedidos = self._revisor(monkeypatch, "It is so.")
         store.save_config({"banned_phrases": []})
         service.generate("tema", now=utc(2026, 9, 14, 21))
         assert len(pedidos) == 1
@@ -988,11 +988,11 @@ class TestVozDoAutor:
 
     def test_editar_com_ia_no_painel_tambem_passa(self, env, monkeypatch):
         post = service.generate("t", now=utc(2026, 9, 14, 21))
-        respostas = iter([_rascunho("Rodrigo acha que sim."), _rascunho("Eu acho que sim.")])
+        respostas = iter([_rascunho("Rodrigo acha que sim."), _rascunho("É assim mesmo.")])
         monkeypatch.setattr(service.gemini, "revise_post", lambda p, i: next(respostas))
         store.save_config({"banned_phrases": []})
         revisado = service.revise(post["id"], "encurte")
-        assert revisado["i18n"]["pt"]["sections"][0]["paragraphs"] == ["Eu acho que sim."]
+        assert revisado["i18n"]["pt"]["sections"][0]["paragraphs"] == ["É assim mesmo."]
 
 
 class TestRecorteNoLinkedIn:
@@ -1362,3 +1362,68 @@ class TestTrocarOVideo:
     def test_post_inexistente(self, env):
         with pytest.raises(service.PostNotFoundError):
             service.redo_clip("nao-existe", "")
+
+
+class TestOpiniaoSemMuletaNaGeracao:
+    """Post sobre tamanho de squad (2026-11-14): "imagino que", "acho que", "minha aposta". O autor tirou à
+    mão no LinkedIn — sem a muleta o texto passa segurança. A barreira é determinística e NÃO fica na lista
+    do painel: a configuração salva no Firestore vence o padrão, e uma lista vazia deixaria passar."""
+
+    def _revisor(self, monkeypatch, devolve):
+        pedidos = []
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda post, instr: pedidos.append(instr) or _rascunho(devolve))
+        return pedidos
+
+    def _noticia(self, monkeypatch, texto):
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho(texto))
+
+    @pytest.mark.parametrize("frase", ["Imagino que o time de oito funcione melhor.", "Acho que o limite é menor.",
+                                        "Minha aposta é que o tamanho cai."])
+    def test_muleta_vira_reescrita_direta_mesmo_com_lista_do_painel_vazia(self, env, monkeypatch, frase):
+        self._noticia(monkeypatch, frase)
+        pedidos = self._revisor(monkeypatch, "O time de oito decide mais rápido.")
+        store.save_config({"banned_phrases": []})
+        post = service.generate("openai", now=utc(2026, 9, 14, 21))
+        assert len(pedidos) == 1 and "AFIRMAÇÃO DIRETA" in pedidos[0]
+        assert post["i18n"]["pt"]["sections"][0]["paragraphs"] == ["O time de oito decide mais rápido."]
+        assert post["generation"]["bannedLeft"] == []
+
+    def test_o_pedido_nao_ensina_outra_muleta(self, env, monkeypatch):
+        self._noticia(monkeypatch, "Acho que sim.")
+        pedidos = self._revisor(monkeypatch, "Sim.")
+        store.save_config({"banned_phrases": []})
+        service.generate("openai", now=utc(2026, 9, 14, 21))
+        pedido = pedidos[0].lower()
+        assert "aposto" not in pedido and "imagino" not in pedido and "(acho" not in pedido
+
+    def test_reflexao_tambem_passa(self, env, monkeypatch):
+        monkeypatch.setattr(service.gemini, "generate_reflection", lambda *a, **k: _rascunho("Acho que liderar é ouvir."))
+        pedidos = self._revisor(monkeypatch, "Liderar é ouvir.")
+        store.save_config({"banned_phrases": [], "reflection_topics": ["t"]})
+        service.generate(None, now=utc(2026, 9, 14, 21), reflection=True)
+        assert len(pedidos) == 1
+
+    def test_texto_direto_nao_reescreve(self, env, monkeypatch):
+        self._noticia(monkeypatch, "Time de oito decide mais rápido.")
+        pedidos = self._revisor(monkeypatch, "x")
+        store.save_config({"banned_phrases": []})
+        service.generate("openai", now=utc(2026, 9, 14, 21))
+        assert pedidos == []
+
+    def test_conferencia_de_fato_sem_fonte_nao_ensina_muleta(self, env, monkeypatch):
+        """A reescrita de 'fato sem fonte' mandava trocar por "acho, imagino, aposto"."""
+        pedidos = []
+        monkeypatch.setattr(service.gemini, "unsupported_claims",
+                            lambda corpo, material: [{"trecho": "Cortaram 30%.", "porque": "sem fonte"}] if not pedidos else [])
+        monkeypatch.setattr(service.gemini, "revise_post",
+                            lambda post, instr: pedidos.append(instr) or _rascunho("Time enxuto custa menos."))
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="notícia", sources=["https://a"]))
+        monkeypatch.setattr(service.gemini, "generate_post", lambda *a, **k: _rascunho("Cortaram 30%."))
+        store.save_config({"banned_phrases": []})
+        service.generate("openai", now=utc(2026, 9, 14, 21))
+        pedido = pedidos[0].lower()
+        assert "imagino" not in pedido and "aposto" not in pedido and "(acho" not in pedido

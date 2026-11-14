@@ -90,7 +90,8 @@ o texto sabendo o que aconteceu, achando graça e com uma opinião na cabeça �
 com uma história boa para repetir.
 
 Quem escreve é você: nunca se refira a si mesmo pelo nome nem em terceira pessoa, em
-nenhum idioma — a opinião é sempre "eu acho", "na minha leitura", "minha aposta"."""
+nenhum idioma. Fale com segurança, como quem tem convicção: a opinião é dita como afirmação, sem
+muleta de dúvida na frente dela."""
 
 RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
 
@@ -165,9 +166,13 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    vamos…". SEM TÍTULO DE SEÇÃO: `heading` sempre vazio. O texto é corrido, um parágrafo
    atrás do outro, como post de LinkedIn escrito por gente — subtítulo no meio é o que
    entrega texto de máquina. Os três movimentos acima são a ordem dos parágrafos, não seções.
-7. OPINIÃO COM LASTRO. Deixe claro o que é opinião, com verbos de quem opina ("acho",
-   "aposto", "imagino"). Onde houver o outro
-   lado, dê a ele uma frase honesta.
+7. OPINIÃO COM LASTRO, DITA COM SEGURANÇA. A opinião entra como AFIRMAÇÃO DIRETA, no
+   indicativo, com a convicção de quem tocou time e produção: a frase afirma, não palpita.
+   O que dá confiança ao texto é o lastro (o mecanismo, o número do material, a consequência
+   concreta), nunca um verbo que avisa "isto é só minha opinião" — esse aviso tira a
+   segurança e é o que mais entrega texto de máquina. Onde o material não sustenta uma
+   afirmação, ela não vira palpite: vira pergunta ao leitor, ou fica de fora. Onde houver o
+   outro lado, dê a ele uma frase honesta.
    TOM DA CRÍTICA. Aceite a PREMISSA do produto: se a coisa foi feita para um trabalho, não
    ponha em dúvida a capacidade dela de fazê-lo — isso é duvidar do que o próprio projeto
    se propõe a ser. A dúvida honesta mira no que cerca a coisa: custo, regras de uso, quem
@@ -188,7 +193,7 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    que não estejam nele. NUNCA afirme algo que Rodrigo viveu, viu ou fez se não estiver
    escrito no material — nada de "já vi", "já passei", "no meu time", "na minha carreira"
    sem o fato ali. Quando o material é notícia, não há nada sobre ele: a voz dele aparece
-   só como opinião ("acho", "aposto", "imagino"). Opinião sim, memória inventada nunca.
+   só como juízo direto sobre o que o material mostra (regra 7). Opinião sim, memória inventada nunca.
 11. IMAGEM. `imagePrompt` em INGLÊS. A capa é uma METÁFORA VISUAL da história, não o retrato
    do assunto. Fórmula: pegue UMA imagem que já está no seu texto (o detalhe mais estranho,
    o número, a comparação do meio do texto) e transforme-a numa cena física, montada com objetos
@@ -386,7 +391,8 @@ RULES_REFLECTION = f"""REGRAS DE ESCRITA — formato REFLEXÃO, diferente do pos
    específico, fique no que ele sustenta.
 6. TOM. Em primeira pessoa, direto, sem a ironia leve do post de notícia — aqui o registro
    é mais sincero que engraçado, mas continua informal, como quem fala com um colega, não
-   como quem dá palestra. Frase curta, nada de jargão de consultoria ("paradigma",
+   como quem dá palestra. Fale com segurança: afirme, sem muleta de dúvida na frente da
+   frase. Frase curta, nada de jargão de consultoria ("paradigma",
    "sinergia", "ecossistema", "jornada", "em um mundo cada vez mais…").
 7. SEM MARCAÇÃO. Texto puro: nada de HTML, markdown, asteriscos ou emoji.
 8. OS DOIS IDIOMAS DIZEM O MESMO. `en` é a versão em inglês do mesmo texto, escrita como
@@ -455,7 +461,7 @@ Aponte cada frase que afirma um FATO ESPECÍFICO que o material não sustenta:
 - como ESTE produto, empresa ou processo funciona por dentro (peça, etapa, equipe, fluxo interno) —
   mesmo escrito como explicação, se o material não descreve, é fato específico.
 Vale para TODO parágrafo, inclusive o de prós e contras e o de opinião.
-NÃO aponte: opinião do próprio autor (acho, aposto, desconfio, na minha visão), pergunta, possibilidade
+NÃO aponte: opinião ou avaliação do próprio autor (dita de forma direta ou com ressalva), pergunta, possibilidade
 dita como possibilidade (pode, talvez), e conhecimento geral usado para explicar como algo funciona
 (física, como uma tecnologia opera) — desde que não traga número ou fato novo sobre o acontecimento.
 Na dúvida entre fato específico e conhecimento geral, aponte.

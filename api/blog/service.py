@@ -136,8 +136,8 @@ def _check_claims(draft: dict[str, Any], material: str) -> tuple[dict[str, Any],
     try:
         revisado = gemini.revise_post(draft, (
             "Estes trechos afirmam fatos que o material da pesquisa não sustenta: " + lista + ". "
-            "Para cada um: corte, ou transforme em opinião explícita do autor (acho, imagino, aposto) "
-            "ou em pergunta ao leitor — nunca troque por outro fato, número ou nome, e não acrescente "
+            "Para cada um: corte, ou transforme em avaliação direta do autor (afirmada com segurança, "
+            "sem marcador de opinião) ou em pergunta ao leitor — nunca troque por outro fato, número ou nome, e não acrescente "
             "informação nenhuma, nem sobre o que alguém disse ou deixou de dizer. Ajuste a frase "
             "vizinha só se precisar para o texto continuar fluindo. Não mude mais nada, nos dois idiomas."))
         draft = {**draft, "i18n": revisado["i18n"], "tags": revisado.get("tags") or draft.get("tags")}
@@ -164,10 +164,11 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
         i18n = rascunho.get("i18n") or {}
         corpo = i18n.get("pt") or {}
         nomes = list(dict.fromkeys(model.author_named(corpo) + model.author_named(i18n.get("en") or {})))
-        return model.banned_found(corpo, phrases), model.banned_found(corpo, memories), nomes
+        muletas = model.hedges_found(corpo, i18n.get("en") or {})
+        return model.banned_found(corpo, phrases), model.banned_found(corpo, memories), nomes, muletas
 
-    palavras, lembrancas, nomes = achar(draft)
-    if not palavras and not lembrancas and not nomes:
+    palavras, lembrancas, nomes, muletas = achar(draft)
+    if not palavras and not lembrancas and not nomes and not muletas:
         return draft, []
     pedidos = ["Não mude mais nada do texto além do que se pede abaixo, nos dois idiomas."]
     if palavras:
@@ -176,19 +177,25 @@ def _scrub_vocab(draft: dict[str, Any], phrases: list[str],
                        "assim): " + "; ".join(f"«{a}…»" for a in palavras) + ".")
     if lembrancas:
         pedidos.append("O material não fala da vida do autor: tire as frases em que ele conta algo que "
-                       "teria visto, vivido ou feito — transforme em opinião (acho, aposto, imagino) "
-                       "ou corte. Começam assim: " + "; ".join(f"«{a}…»" for a in lembrancas) + ".")
+                       "teria visto, vivido ou feito — transforme em opinião direta, afirmada sem marcador "
+                       "de opinião, ou corte. Começam assim: " + "; ".join(f"«{a}…»" for a in lembrancas) + ".")
     if nomes:
         pedidos.append("O blog é do autor e é escrito por ele, em primeira pessoa: onde o texto fala dele "
                        "pelo nome ou em terceira pessoa, reescreva em primeira pessoa (eu, minha, acho), "
                        "sem citar o nome. Nomes que aparecem: " + "; ".join(f"«{a}»" for a in nomes) + ".")
+    if muletas:
+        pedidos.append("O autor fala com segurança, e marcador de opinião tira isso do texto. Reescreva estas "
+                       "passagens como AFIRMAÇÃO DIRETA: mantenha o juízo e tire só o aviso de que é opinião "
+                       "(o texto afirma, não palpita). Se o que a frase diz não se sustenta como afirmação, "
+                       "vire pergunta ao leitor ou corte — nunca troque por outro marcador de dúvida. "
+                       "Nos dois idiomas. Aparecem assim: " + "; ".join(f"«{a}…»" for a in muletas) + ".")
     try:
         revisado = gemini.revise_post(draft, " ".join(pedidos))
     except Exception:
-        return draft, palavras + lembrancas + nomes
+        return draft, palavras + lembrancas + nomes + muletas
     draft = {**draft, "i18n": revisado["i18n"], "tags": revisado.get("tags") or draft.get("tags")}
-    palavras, lembrancas, nomes = achar(draft)
-    return draft, palavras + lembrancas + nomes
+    palavras, lembrancas, nomes, muletas = achar(draft)
+    return draft, palavras + lembrancas + nomes + muletas
 
 
 def _save_generated(topic: str, context: str, found: research.Research, source: str,

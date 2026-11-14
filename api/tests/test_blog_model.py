@@ -245,3 +245,39 @@ class TestAutorEmTerceiraPessoa:
 
     def test_nome_dentro_de_outra_palavra_nao_conta(self):
         assert model.author_named(self._corpo("O sobrenome Rodrigues aparece no processo.")) == []
+
+
+class TestMuletasDeOpiniao:
+    """"imagino que", "acho que", "minha aposta": o autor corta à mão, é o que mais entrega texto de IA."""
+
+    def _corpo(self, *paragrafos):
+        return {"title": "T", "excerpt": "e", "sections": [{"heading": "", "paragraphs": list(paragrafos)}]}
+
+    @pytest.mark.parametrize("frase", [
+        "Imagino que o time de 8 pessoas funcione melhor.",
+        "Acho que o limite é menor.",
+        "Eu acho isso, sim.",
+        "Minha aposta é que o tamanho cai.",
+        "Aposto que ninguém mede isso.",
+        "Na minha leitura, o time é grande demais.",
+        "Na minha visão, é custo.",
+        "Me parece exagero.",
+        "Desconfio que o número está inflado.",
+        "Suspeito que sim.",
+        "Eu diria que é o contrário.",
+    ])
+    def test_pega_as_muletas_em_portugues(self, frase):
+        assert model.hedges_found(self._corpo(frase), {}) != []
+
+    @pytest.mark.parametrize("frase", ["I think the team is too big.", "My bet is it shrinks.",
+                                        "I'd bet nobody measures this.", "I guess so.",
+                                        "In my view it is a cost.", "I suspect it is inflated."])
+    def test_pega_no_ingles(self, frase):
+        assert model.hedges_found(self._corpo("ok"), self._corpo(frase)) != []
+
+    def test_afirmacao_direta_passa(self):
+        corpo = self._corpo("Time de oito pessoas decide mais rápido. O limite real é o custo de coordenar.")
+        assert model.hedges_found(corpo, self._corpo("A team of eight decides faster.")) == []
+
+    def test_nao_pega_palavra_que_so_parece(self):
+        assert model.hedges_found(self._corpo("O parque acha lugar. Ele acharia isso. A aposta do fundo subiu."), {}) == []

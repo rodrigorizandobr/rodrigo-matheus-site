@@ -1,5 +1,6 @@
 """Camada de geração: o que sai do Gemini precisa chegar normalizado e nunca pela metade."""
 import json
+import re
 
 import pytest
 
@@ -649,3 +650,32 @@ class TestVozDoPrompt:
 
     def test_manda_assinar_como_eu_sem_citar_o_proprio_nome_no_texto(self):
         assert "primeira pessoa" in gemini.VOICE and "nunca" in gemini.VOICE and "nome" in gemini.VOICE
+
+
+class TestOpiniaoSemMuleta:
+    """Post sobre tamanho de squad (2026-11-14): saiu com "imagino que", "acho que" e "minha aposta".
+    O autor tirou à mão no LinkedIn: sem a muleta o texto passa segurança, com ela vira "achômetro" e
+    entrega texto de IA. A causa era o PRÓPRIO prompt, que mandava opinar "com verbos de quem opina"."""
+
+    MULETAS = ("acho", "aposto", "imagino", "minha aposta", "na minha leitura", "desconfio")
+
+    def test_o_prompt_de_noticia_nao_sugere_nenhuma_muleta(self, fake):
+        gemini.generate_post("Robô")
+        regras = _corrido(fake).lower()
+        for m in self.MULETAS:
+            assert not re.search(r"\b" + m + r"\b", regras), m
+
+    def test_a_voz_nao_sugere_nenhuma_muleta(self):
+        for m in self.MULETAS:
+            assert not re.search(r"\b" + m + r"\b", gemini.VOICE.lower()), m
+
+    def test_o_prompt_de_reflexao_nao_sugere_nenhuma_muleta(self):
+        for m in self.MULETAS:
+            assert not re.search(r"\b" + m + r"\b", gemini.RULES_REFLECTION.lower()), m
+
+    def test_manda_afirmar_a_opiniao_de_forma_direta(self, fake):
+        gemini.generate_post("Robô")
+        assert "AFIRMAÇÃO DIRETA" in _corrido(fake)
+
+    def test_a_voz_manda_falar_com_seguranca(self):
+        assert "segurança" in gemini.VOICE

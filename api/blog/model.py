@@ -257,6 +257,22 @@ MEMORY_CLAIMS = (
 )
 
 
+#: Muletas de opinião. "Imagino que", "acho que", "minha aposta" tiram a segurança do texto e entregam
+#: que foi escrito por IA (pedido do autor, 2026-11-14: tirou à mão no LinkedIn e o post passou a soar
+#: como convicção, não "achômetro"). Não é gosto de vocabulário editável: fica fora da lista do painel,
+#: porque a configuração salva no Firestore vence o padrão e uma lista vazia deixaria tudo passar.
+#: Cada item vale como começo de palavra, sem acento nem caixa (ver `banned_found`).
+HEDGES_PT = (
+    "acho que", "eu acho", "imagino que", "eu imagino", "minha aposta", "aposto que", "eu aposto",
+    "na minha leitura", "na minha visao", "na minha opiniao", "me parece", "eu diria", "desconfio",
+    "suspeito que", "tenho a impressao", "na minha percepcao",
+)
+HEDGES_EN = (
+    "i think", "i guess", "i imagine", "i suspect", "i believe", "my bet", "i'd bet", "i’d bet",
+    "i would bet", "in my view", "in my opinion", "in my reading", "it seems to me", "i'd say", "i’d say",
+)
+
+
 def _plain(text: str) -> str:
     """Minúsculas e sem acento — a comparação de vocabulário não depende de grafia."""
     decomposed = unicodedata.normalize("NFKD", text or "")
@@ -281,6 +297,11 @@ def banned_found(body: dict[str, Any], phrases: Iterable[str]) -> list[str]:
         if alvo and re.search(r"(?<!\w)" + re.escape(alvo), texto) and phrase not in achadas:
             achadas.append(phrase)
     return achadas
+
+
+def hedges_found(pt: dict[str, Any], en: dict[str, Any] | None = None) -> list[str]:
+    """Muletas de opinião nos dois idiomas ("acho que", "minha aposta", "I think", "my bet"…)."""
+    return banned_found(pt or {}, HEDGES_PT) + banned_found(en or {}, HEDGES_EN)
 
 
 #: o blog é do autor e é escrito POR ele; o nome dele no corpo é voz de terceiro

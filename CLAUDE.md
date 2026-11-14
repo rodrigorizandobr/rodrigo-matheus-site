@@ -169,6 +169,16 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   nunca se citar pelo nome; e `author_named` (palavra inteira, sem acento/caixa: "Rodrigo", "Matheus", pt e
   en) dispara a mesma reescrita única em geração, reflexão, "editar com IA" e na frase que apresenta o vídeo.
   Sobrou nome → fica em `generation.bannedLeft`. Não é lista do painel: não é gosto.
+- **Opinião é dita como AFIRMAÇÃO, sem muleta** (pedido do PO, 2026-11-14; `model.HEDGES_PT/HEDGES_EN`,
+  `model.hedges_found`, `TestOpiniaoSemMuleta`, `TestMuletasDeOpiniao`, `TestOpiniaoSemMuletaNaGeracao`). Post sobre tamanho
+  de squad saiu com "imagino que", "acho que", "minha aposta"; o PO tirou à mão no LinkedIn e o texto passou segurança em vez
+  de "achômetro". A CAUSA era o próprio prompt: `VOICE` e as regras 7 e 10 mandavam opinar com "acho/aposto/imagino", e as
+  reescritas de `service.py` (fato sem fonte, memória) sugeriam as mesmas palavras. Hoje o prompt manda afirmar no
+  indicativo, com lastro (mecanismo, número do material) em vez de aviso de opinião; o que o material não sustenta vira
+  pergunta ou fica de fora. As muletas NÃO são citadas no prompt de geração (palavra citada é ecoada) e a barreira é
+  CONSTANTE no código, fora da lista editável: a configuração salva no Firestore vence o padrão e uma lista vazia do painel
+  deixaria passar. `_scrub_vocab` faz UMA reescrita ("afirmação direta") em pt e en, em geração, reflexão e "editar com IA";
+  sobrou → `generation.bannedLeft`. Posts já publicados não são reescritos sozinhos.
 - **Memória do autor nunca é inventada** (regra 10, `model.MEMORY_CLAIMS`, `TestMemoriaInventada`).
   No modo notícia o modelo recebe só as matérias, e a regra antiga mandava "usar a experiência dele" —
   ele inventava: "já viu time botar produto físico na rua" (o PO nem trabalha com produto físico),
