@@ -372,9 +372,23 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   as duas saíram com o fio na ação. Na reflexão a cena saiu com pessoas em escala real, não maquete, e o fio mais fino.
   Capas já publicadas não mudam sozinhas. Em 2026-11-16 cinco posts que estavam sem capa da casa (dois sem imagem e
   três com quadro de vídeo do YouTube) ganharam capa com o fio, com prompt escrito à mão e a imagem conferida antes de
-  gravar (`web/.gen/ops/capas.py`). **Pendência:** post novo com vídeo ainda nasce sem capa e, quando o recorte fica
-  pronto, recebe o quadro do YouTube (`clip_worker._ready`) — que a home esconde (`home/cover.ts`). Para a lista não
-  voltar a ter buraco, o caminho é gerar a capa da casa também para post com vídeo.
+  gravar (`web/.gen/ops/capas.py`). Desde então post com vídeo também nasce com a capa da casa (bullet acima).
+- **Capa pelo Runware, com o Gemini de reserva** (pedido do PO, 2026-11-16: "use o Runware, tenho bons créditos lá e é mais
+  barata"; `images.provider()`, `images._ask_runware`, `TestRunware`). Mesmo desenho do Claude/Gemini no texto:
+  `BLOG_IMAGE_PROVIDER=runware|gemini` força; vazio = Runware se houver `RUNWARE_API_KEY`, senão Gemini. A API é
+  `POST https://api.runware.ai/v1` com uma LISTA de tarefas e `Authorization: Bearer`; erro pode vir com status 200 (sem
+  `data`, só `errors`). Modelo em `BLOG_RUNWARE_MODEL`, padrão `google:nano-banana@2.1` (o que gerou as capas com o fio
+  aprovadas), em 1376x768: ~US$ 0,034 por capa na tabela do Runware, contra US$ 0,094 direto no Gemini. Runware falhou →
+  tenta o Gemini (post sem capa, ou com foto de banco de imagens, é pior do que a capa pelo caminho antigo). A biblioteca
+  grava `provider: "runware"`. As três variáveis são repassadas em `deploy.sh` e no instalador da rotina do Mac (que gera
+  capa quando um recorte desiste); `conftest.isolate` zera a chave nos testes. **Contrato lido na documentação e coberto por
+  testes com a API simulada; NÃO validado contra o Runware de verdade** — a chave ainda não estava no `.env`. Ao pôr a
+  chave: gerar uma capa real, olhar, e só então confiar. Modelo mais barato (FLUX.2) muda o traço: comparar antes de trocar.
+- **Post com vídeo também nasce com a capa da casa** (pedido do PO, 2026-11-16; `service._save_generated`,
+  `test_com_video_gera_a_capa_da_casa_e_nao_busca_foto`). Antes ele ficava sem capa ("a IA não é gerada à toa") e, com o
+  recorte pronto, recebia o quadro do YouTube (`clip_worker._ready`), que a home nova esconde (`home/cover.ts`): a lista
+  ficava com buraco. Foto de terceiro não entra nesse caso — o vídeo já é o material de fora. O quadro do YouTube e
+  `ensure_cover` continuam só como reserva, para quando a geração da capa falha. O post segue RASCUNHO por causa do recorte.
 - **A capa é uma METÁFORA da história, não o retrato do assunto.** A regra 11 de `gemini.RULES` manda
   pegar UMA imagem do próprio texto (o detalhe estranho, o número, a comparação) e montá-la como cena
   física em escala de maquete, com sujeito, ação e tensão; o vermelho cai no objeto que carrega a ideia.

@@ -27,9 +27,10 @@ rsync -a --delete --exclude __pycache__ "$RAIZ/api/blog" "$RAIZ/api/i18n" "$RAIZ
 "$DEST/venv/bin/pip" install -q --upgrade -r "$DEST/app/requirements-worker.txt"
 
 # 3. só as chaves que a rotina usa, legíveis só por você
-# Gemini/Claude e bucket para recortar; Serper para buscar outro vídeo; SES para os e-mails de aviso.
+# Gemini/Claude e bucket para recortar; Runware/Gemini para a capa quando o recorte desiste;
+# Serper para buscar outro vídeo; SES para os e-mails de aviso.
 ( umask 077
-  grep -E '^(export )?(GEMINI_API_KEY|ANTHROPIC_API_KEY|ANTHROPIC_WORKSPACE_ID|BLOG_LLM|GCS_BUCKET|SERPER_API_KEY|AWS_REGION|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|ALERT_FROM|ALERT_EMAILS|BLOG_ADMIN_EMAILS|SITE_URL)=' "$RAIZ/.env" > "$DEST/env"
+  grep -E '^(export )?(GEMINI_API_KEY|RUNWARE_API_KEY|BLOG_IMAGE_PROVIDER|BLOG_RUNWARE_MODEL|ANTHROPIC_API_KEY|ANTHROPIC_WORKSPACE_ID|BLOG_LLM|GCS_BUCKET|SERPER_API_KEY|AWS_REGION|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|ALERT_FROM|ALERT_EMAILS|BLOG_ADMIN_EMAILS|SITE_URL)=' "$RAIZ/.env" > "$DEST/env"
   # mesmo padrão do deploy.sh: sem destinatário no .env, avisa o dono do site
   grep -qE '^(export )?(ALERT_EMAILS|BLOG_ADMIN_EMAILS)=' "$DEST/env" || echo 'export BLOG_ADMIN_EMAILS=rodrigorizando@gmail.com' >> "$DEST/env" )
 

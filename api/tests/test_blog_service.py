@@ -1218,12 +1218,26 @@ class TestEscadaDeMidia:
         post = service.generate("tema", now=utc(2026, 9, 14, 21))
         assert env["capa"] == ["cena"] and post["image"]["provider"] == "gemini"
 
-    def test_com_video_nao_cria_imagem_nem_busca_foto(self, env, monkeypatch):
+    def test_com_video_gera_a_capa_da_casa_e_nao_busca_foto(self, env, monkeypatch):
+        # pedido do PO, 2026-11-16: post com vídeo nascia sem capa e depois recebia um quadro do
+        # YouTube, que a home esconde — a lista ficava com buraco. Agora todo post tem a capa com o fio.
         self._video(monkeypatch)
         vistos = self._foto(monkeypatch)
         post = service.generate("tema", now=utc(2026, 9, 14, 21))
-        assert post["image"] is None and vistos == [] and env["capa"] == []
+        assert env["capa"] == ["cena"] and post["image"]["provider"] == "gemini"
+        assert vistos == [], "foto de terceiro não entra: a capa do post com vídeo é a da casa"
         assert post["clip"] == {"status": "pending"}
+
+    def test_com_video_e_sem_capa_pedida_continua_sem_capa(self, env, monkeypatch):
+        self._video(monkeypatch)
+        post = service.generate("tema", now=utc(2026, 9, 14, 21), with_image=False)
+        assert post["image"] is None and env["capa"] == []
+
+    def test_com_video_continua_rascunho_mesmo_com_a_capa_pronta(self, env, monkeypatch):
+        self._video(monkeypatch)
+        store.save_config({"auto_publish": True})
+        post = service.generate("tema", now=utc(2026, 9, 14, 21))
+        assert post["status"] == "draft", "o recorte é de terceiro: espera a autorização do dono do vídeo"
 
     def test_com_video_guarda_o_prompt_da_capa_para_o_caso_de_o_recorte_desistir(self, env, monkeypatch):
         self._video(monkeypatch)

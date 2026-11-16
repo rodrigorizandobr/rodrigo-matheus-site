@@ -226,8 +226,8 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
     # gravada aqui — é quando a página foi de fato lida, e a norma pede essa data.
     draft["references"] = [{**ref, "accessedAt": now.isoformat()} for ref in found.references[:8]]
     draft["sources"] = found.sources[:8]
-    # Reflexão não tem fonte: a imagem de IA é a primeira opção. Notícia só cria imagem
-    # quando não há vídeo nem foto real (escada abaixo, depois da busca do vídeo).
+    # Reflexão não tem fonte: a imagem de IA é a primeira opção. Notícia sem vídeo tenta a foto
+    # real antes (escada abaixo); com vídeo, leva a capa da casa (ver o ramo `if achados`).
     draft["image"] = (images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
                       if with_image and reflection else None)
 
@@ -247,9 +247,13 @@ def _save_generated(topic: str, context: str, found: research.Research, source: 
         como_dict = [{"title": a.title, "url": a.url, "thumbnail": a.thumbnail, "channel": a.channel} for a in achados]
         draft["video"], draft["videoCandidates"] = como_dict[0], como_dict[1:]
         draft["clip"] = {"status": "pending"}
+        # Post com vídeo também nasce com a capa da casa (pedido do PO, 2026-11-16). Antes ele ficava
+        # sem capa e, com o recorte pronto, recebia um quadro do YouTube — miniatura de outro canal,
+        # que a home nova esconde. Foto de terceiro não entra aqui: o vídeo já é o material de fora.
+        if with_image and not draft.get("image"):
+            draft["image"] = images.build_cover(draft.get("imagePrompt", ""), draft.get("imageAlt", ""))
     elif with_image and not reflection:
         # Sem vídeo: foto real do assunto; só se não houver, a IA desenha (decisão do PO, 2026-10-17).
-        # Com vídeo, a capa espera: se o recorte desistir, `ensure_cover` faz esta mesma escada.
         draft["image"] = _news_cover(draft, found)
 
     post = store.create_post(draft, now=now)

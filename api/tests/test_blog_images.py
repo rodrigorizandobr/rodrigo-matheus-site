@@ -230,3 +230,91 @@ class TestDirecaoDeArte:
         # "laboratório com detalhes biomecânicos" colado em todo prompt puxava toda capa ao mesmo lugar
         d = images.ART_DIRECTION.lower()
         assert "biomechanical" not in d and "laboratory" not in d
+
+
+
+class TestRunware:
+    """Pedido do PO, 2026-11-16: gerar as capas pelo Runware, onde ele tem crédito e a imagem sai mais barata."""
+
+    @pytest.fixture
+    def runware(self, monkeypatch):
+        chamadas = []
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            chamadas.append({"url": url, "headers": headers, "json": json})
+            if "runware" in url:
+                return FakeResp({"data": [{"taskType": "imageInference", "taskUUID": json[0]["taskUUID"],
+                                           "imageBase64Data": base64.b64encode(_png()).decode(), "cost": 0.0341}]})
+            return FakeResp({"candidates": [{"content": {"parts": [
+                {"inlineData": {"data": base64.b64encode(_png(cor=(10, 10, 10))).decode()}}]}}]})
+
+        monkeypatch.setattr(images.requests, "post", fake_post)
+        monkeypatch.setattr(images, "RUNWARE_KEY", "rw-chave")
+        monkeypatch.setattr(images, "API_KEY", "g-chave")
+        return chamadas
+
+    def test_com_a_chave_do_runware_a_capa_sai_por_ele(self, bucket, runware):
+        capa = images.build_cover("a toy car tied to a red thread", "alt")
+        assert capa["provider"] == "runware"
+        assert [c["url"] for c in runware] == [images.RUNWARE_URL], "o Gemini nem é chamado"
+
+    def test_o_pedido_segue_o_contrato_da_api(self, bucket, runware):
+        images.build_cover("a toy car tied to a red thread", "alt")
+        pedido = runware[0]
+        assert pedido["headers"]["Authorization"] == "Bearer rw-chave"
+        assert isinstance(pedido["json"], list) and len(pedido["json"]) == 1, "o corpo é uma LISTA de tarefas"
+        tarefa = pedido["json"][0]
+        assert tarefa["taskType"] == "imageInference" and tarefa["model"] == images.RUNWARE_MODEL
+        assert (tarefa["width"], tarefa["height"]) == (1376, 768), "16:9, o mesmo tamanho da capa de hoje"
+        assert tarefa["numberResults"] == 1 and tarefa["outputType"] == "base64Data"
+        assert len(tarefa["taskUUID"]) == 36
+
+    def test_a_direcao_de_arte_vai_junto_com_a_cena(self, bucket, runware):
+        images.build_cover("a toy car tied to a red thread", "alt")
+        prompt = runware[0]["json"][0]["positivePrompt"]
+        assert "red thread" in prompt.lower() and "no text" in prompt.lower()
+        assert prompt.endswith("SCENE: a toy car tied to a red thread")
+
+    def test_runware_fora_do_ar_cai_para_o_gemini(self, bucket, runware, monkeypatch):
+        original = images.requests.post
+
+        def fake_post(url, **k):
+            if "runware" in url:
+                runware.append({"url": url})
+                return FakeResp({"errors": [{"code": "x", "message": "fora do ar"}]}, status=500)
+            return original(url, **k)
+
+        monkeypatch.setattr(images.requests, "post", fake_post)
+        capa = images.build_cover("cena", "alt")
+        assert capa["provider"] == "gemini", "post sem capa é pior do que uma capa pelo caminho antigo"
+
+    def test_erro_dentro_de_resposta_200_tambem_conta_como_falha(self, bucket, runware, monkeypatch):
+        monkeypatch.setattr(images, "API_KEY", "")
+        monkeypatch.setattr(images.requests, "post", lambda url, **k: FakeResp({"errors": [{"message": "modelo inválido"}]}))
+        assert images.generate_image("cena") is None
+
+    def test_resposta_com_link_em_vez_de_base64_tambem_serve(self, bucket, runware, monkeypatch):
+        monkeypatch.setattr(images.requests, "post",
+                            lambda url, **k: FakeResp({"data": [{"imageURL": "https://im.runware.ai/x.jpg"}]}))
+        monkeypatch.setattr(images.requests, "get", lambda url, **k: FakeResp(content=_png()))
+        assert images.build_cover("cena", "alt")["provider"] == "runware"
+
+    def test_sem_chave_do_runware_nada_muda(self, bucket, gemini_ok, monkeypatch):
+        monkeypatch.setattr(images, "RUNWARE_KEY", "")
+        assert images.provider() == "gemini"
+        assert images.build_cover("cena", "alt")["provider"] == "gemini"
+
+    def test_da_para_forcar_o_gemini_mesmo_com_a_chave_do_runware(self, bucket, runware, monkeypatch):
+        monkeypatch.setattr(images, "PROVIDER_CHOICE", "gemini")
+        assert images.build_cover("cena", "alt")["provider"] == "gemini"
+        assert all("runware" not in c["url"] for c in runware)
+
+    def test_runware_forcado_sem_chave_nao_tenta_chamar(self, bucket, gemini_ok, monkeypatch):
+        monkeypatch.setattr(images, "RUNWARE_KEY", "")
+        monkeypatch.setattr(images, "PROVIDER_CHOICE", "runware")
+        assert images.build_cover("cena", "alt")["provider"] == "gemini"
+
+    def test_sem_chave_nenhuma_o_post_sai_sem_capa_de_ia(self, bucket, monkeypatch):
+        monkeypatch.setattr(images, "RUNWARE_KEY", "")
+        monkeypatch.setattr(images, "API_KEY", "")
+        assert images.generate_image("cena") is None

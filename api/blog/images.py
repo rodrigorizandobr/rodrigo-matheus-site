@@ -1,4 +1,4 @@
-"""Origens de imagem para o blog: IA (Gemini) e banco de imagens (Pixabay).
+"""Origens de imagem para o blog: IA (Runware ou Gemini) e banco de imagens (Pixabay).
 
 Este módulo só SABE BUSCAR. Quem grava e cataloga é `blog/media.py` — assim toda
 imagem, venha de onde vier, cai na mesma biblioteca com o mesmo tratamento
@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import os
 import random
+import uuid
 from typing import Any
 
 import requests
@@ -36,6 +37,19 @@ IMAGE_SIZE = os.environ.get("BLOG_IMAGE_SIZE", "1K")
 IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": IMAGE_SIZE}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
+
+# Runware (pedido do PO, 2026-11-16): mesma capa, mais barata. A API é uma só para todo modelo:
+# POST com uma LISTA de tarefas e a chave no cabeçalho. O padrão é o Nano Banana 2.1, o modelo
+# que gerou as capas com o fio que o PO aprovou; na tabela do Runware uma imagem 1376x768 sai por
+# cerca de US$ 0,034, contra US$ 0,094 direto no Gemini. Trocar de modelo é trocar a variável —
+# mas confira antes que ele aceita 1376x768 e compare a capa: modelo mais barato muda o traço.
+RUNWARE_KEY = os.environ.get("RUNWARE_API_KEY", "")
+RUNWARE_URL = "https://api.runware.ai/v1"
+RUNWARE_MODEL = os.environ.get("BLOG_RUNWARE_MODEL", "google:nano-banana@2.1")
+#: 16:9 no tamanho que a capa já tinha — passa dos 1200 px que o cartão do LinkedIn pede
+RUNWARE_SIZE = (1376, 768)
+#: "runware" ou "gemini" força; vazio = Runware se houver chave dele, senão Gemini
+PROVIDER_CHOICE = os.environ.get("BLOG_IMAGE_PROVIDER", "").strip().lower()
 
 # A paleta e as proibições do site, coladas em todo prompt de capa. O CENÁRIO não mora
 # aqui: descrever "laboratório com detalhes biomecânicos" em todo prompt puxava toda capa
@@ -69,6 +83,53 @@ def _ask_model(model: str, prompt: str) -> bytes | None:
     return None
 
 
+def provider() -> str:
+    """Quem desenha a capa. Mesmo desenho de `gemini.provider()`: a variável força, a chave decide."""
+    if PROVIDER_CHOICE in ("runware", "gemini"):
+        return PROVIDER_CHOICE
+    return "runware" if RUNWARE_KEY else "gemini"
+
+
+def _ask_runware(prompt: str) -> bytes | None:
+    res = requests.post(
+        RUNWARE_URL,
+        headers={"Authorization": f"Bearer {RUNWARE_KEY}", "content-type": "application/json"},
+        json=[{
+            "taskType": "imageInference", "taskUUID": str(uuid.uuid4()), "model": RUNWARE_MODEL,
+            "positivePrompt": f"{ART_DIRECTION}\n\nSCENE: {prompt}",
+            "width": RUNWARE_SIZE[0], "height": RUNWARE_SIZE[1],
+            "numberResults": 1, "outputType": "base64Data", "outputFormat": "JPG", "includeCost": True,
+        }],
+        timeout=TIMEOUT,
+    )
+    corpo = res.json() if res.ok else {}
+    # erro pode vir com status 200: aí não há `data`, só `errors`
+    if not isinstance(corpo, dict) or corpo.get("errors"):
+        return None
+    for item in corpo.get("data") or []:
+        if item.get("imageBase64Data"):
+            return base64.b64decode(item["imageBase64Data"])
+        if "," in (item.get("imageDataURI") or ""):
+            return base64.b64decode(item["imageDataURI"].split(",", 1)[1])
+        if item.get("imageURL"):
+            baixada = requests.get(item["imageURL"], timeout=TIMEOUT)
+            if baixada.ok and baixada.content:
+                return baixada.content
+    return None
+
+
+def _sources() -> list[tuple[str, Any]]:
+    """Quem tentar, em ordem. Runware primeiro quando é ele o escolhido; o Gemini fica de reserva:
+    post sem capa (ou com foto de banco de imagens) é pior do que uma capa pelo caminho antigo."""
+    fontes: list[tuple[str, Any]] = []
+    if provider() == "runware" and RUNWARE_KEY:
+        fontes.append(("runware", _ask_runware))
+    if API_KEY:
+        for modelo in (m for m in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK) if m):
+            fontes.append(("gemini", lambda p, m=modelo: _ask_model(m, p)))
+    return fontes
+
+
 def generate_image(prompt: str, alt: str = "") -> dict[str, Any] | None:
     """Gera a capa na direção de arte do site e cataloga.
 
@@ -76,15 +137,13 @@ def generate_image(prompt: str, alt: str = "") -> dict[str, Any] | None:
     Crédito existe para dar a quem é devido — banco de imagens tem, ilustração
     da casa não tem.
     """
-    if not API_KEY:
-        return None
-    for modelo in (m for m in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK) if m):
+    for nome, pedir in _sources():
         try:
-            raw = _ask_model(modelo, prompt)
+            raw = pedir(prompt)
         except Exception:
             raw = None
         if raw:
-            return media.store_image(raw, provider="gemini", alt=alt, credit="", prompt=prompt)
+            return media.store_image(raw, provider=nome, alt=alt, credit="", prompt=prompt)
     return None
 
 
