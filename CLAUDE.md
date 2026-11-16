@@ -41,10 +41,17 @@ até a etapa de limpeza: quase tudo o que este arquivo diz sobre palco, clipes e
 | Estilo | `src/styles/fio.css` | Importado por `tokens.css`; tudo em `@layer components`, classes `fio-*`. |
 
 - **`data-fio` é o contrato entre a página e o fio**: `mark` (a `//` do cabeçalho, de onde ele sai), `u` (fim da
-  manchete), `cover`, `blog`, `row` (+ `data-on`), `cp` (pontos da prévia), `career`, `kp` (marcos), `hand`.
+  manchete), `cover`, `blog`, `row` (+ `data-on`), `cp` (pontos da prévia), `career`, `kp` (marcos), `hand` (+ `data-pinch`).
   Mexeu no layout de uma seção? Confira a rota em `routes.ts`: o fio passa por CORREDORES (9 px para dentro do
   recuo do texto, e a margem direita) justamente para não cortar texto. Quem move um ponto sem mudar o tamanho
   da página (filtro de assunto, slider) chama `nudgeThread()`; mudança de tamanho o `ResizeObserver` pega sozinho.
+- **O fio termina ENTRE OS DEDOS da mão** (pedido do PO, 2026-11-16: "deixa a mão sem fio nenhum, faça o fio chegar até entre
+  os dedos dela"). A mão é uma imagem recortada, com fundo transparente e SEM fio (`public/fio/mao-pinca-*.webp`), e fica
+  POR CIMA do fio (`z-index: 7` contra 6): a ponta do fio avança 16 px além da pinça e some atrás dos dedos
+  (`routes.pinchEnd`, `PINCH_INSET`). O ponto da pinça é `PINCH` em `CareerLine.tsx` (fração da imagem, medida no contorno:
+  a fenda entre o indicador e o polegar) e viaja no `data-pinch`. No desktop a imagem é espelhada (`scaleX(-1)` em
+  `fio.css`, ≥ 860 px) e a rota troca o lado junto (`wide`): mexeu num, mexa no outro. Trocou a imagem? Meça a pinça de
+  novo. O título fica acima da linha do fio e o texto abaixo (`--py`). A foto antiga, com fundo e com o fio na mão, saiu.
 - **O cabeçalho é OPACO (`bg-bg`) e, na home, usa a mesma coluna da página (`fio-wrap`)**: o fio nasce embaixo da
   marca `//` e passa por baixo do cabeçalho. Translúcido, o fio apareceria atravessando o menu.
 - **`.fio-stage` tem fundo opaco** para cobrir a grade de azulejos do `body::before`, que as outras páginas ainda usam.
@@ -1309,7 +1316,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # ~960 testes
-cd web && npm test                                  # 827 testes
+cd web && npm test                                  # 832 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

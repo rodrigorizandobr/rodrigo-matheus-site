@@ -127,6 +127,15 @@ describe('utilitários e currículo', () => {
     expect(linha[linha.length - 1]).toHaveTextContent('Digio')
   })
 
+  it('a mão não tem fio: ela marca o ponto da pinça, e é ali que o fio da página termina', async () => {
+    comPosts(POSTS)
+    r()
+    const mao = screen.getByRole('img', { name: /android hand/i })
+    expect(mao).toHaveAttribute('data-fio', 'hand')
+    expect(mao.getAttribute('data-pinch')).toMatch(/^0\.\d+,0\.\d+$/)
+    expect(mao.getAttribute('src')).toMatch(/mao-pinca/)
+  })
+
   it('o currículo em PDF segue o idioma da página, e o completo tem página própria', async () => {
     comPosts(POSTS)
     r()

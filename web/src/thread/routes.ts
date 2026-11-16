@@ -10,7 +10,25 @@ const WIDE = '(min-width: 860px)'
 const LANE = 9
 const FRAME = 9
 
-type Box = { l: number; t: number; w: number; h: number }
+export type Box = { l: number; t: number; w: number; h: number }
+type Pinch = { x: number; y: number }
+
+/** Quanto o fio avança para dentro da mão depois da pinça: a ponta some atrás dos dedos (a imagem fica POR CIMA do fio). */
+const PINCH_INSET = 16
+
+/** `data-pinch="x,y"`: em que fração da imagem (não espelhada) fica a fenda entre o indicador e o polegar. */
+export function parsePinch(attr: string | null): Pinch {
+  const [x, y] = (attr ?? '').split(',').map(Number)
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : { x: 0.5, y: 0.5 }
+}
+
+/** Onde o fio termina. Sem espelho a mão entra pela direita e o fio chega pela esquerda; espelhada, o contrário. */
+export function pinchEnd(box: Box, pinch: Pinch, mirrored: boolean): Pt {
+  const y = box.t + box.h * pinch.y
+  return mirrored
+    ? { x: box.l + box.w * (1 - pinch.x) - PINCH_INSET, y }
+    : { x: box.l + box.w * pinch.x + PINCH_INSET, y }
+}
 
 export function homeRoute(stage: HTMLElement): Pt[] {
   const origin = stage.getBoundingClientRect()
@@ -77,12 +95,11 @@ export function homeRoute(stage: HTMLElement): Pt[] {
     out.push(...pins)
   }
 
+  // A mão é espelhada no desktop (fio.css, ≥ 860 px): `wide` aqui e o `scaleX(-1)` lá andam juntos.
   const hand = one('hand')
   if (hand) {
-    const b = box(hand)
-    const y = b.t + b.h * 0.4975 // altura em que o fio da foto sai pela borda
-    if (wide) out.push({ x: right, y }, { x: b.l + b.w - 1, y })
-    else out.push({ x: left, y }, { x: b.l + 1, y })
+    const end = pinchEnd(box(hand), parsePinch(hand.getAttribute('data-pinch')), wide)
+    out.push({ x: wide ? right : left, y: end.y }, end)
   }
   return out
 }

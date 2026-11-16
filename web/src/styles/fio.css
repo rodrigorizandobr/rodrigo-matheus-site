@@ -49,7 +49,7 @@
   .fio-hero h1 a:hover { color: var(--heading); }
   .fio-lede { max-width: 34em; margin: 26px 0 22px; font-size: 19px; color: var(--text); }
   .fio-cover { grid-area: cover; margin: 0; aspect-ratio: 1376 / 768; background: var(--surface-2); overflow: hidden; }
-  .fio-cover img, .fio-thumb img, .fio-card-pic img, .fio-hand-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .fio-cover img, .fio-thumb img, .fio-card-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
   @media (max-width: 859px) {
     .fio-hero > .fio-wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "cover" "rest"; min-height: 0; }
     .fio-cover { margin: 30px 10px 6px var(--fio-ind); }
@@ -134,17 +134,23 @@
     .fio-kp .fio-kp-lb, .fio-kp.is-up .fio-kp-lb, .fio-kp.is-end .fio-kp-lb { left: 22px; right: auto; top: -11px; bottom: auto; width: calc(100vw - var(--fio-lane) * 2 - 40px); text-align: left; }
   }
 
-  /* quem puxa o fio */
-  .fio-hand { position: relative; margin: clamp(40px, 7vh, 80px) var(--fio-ind) 0; }
-  .fio-hand-pic { aspect-ratio: 4 / 3; overflow: hidden; background: var(--surface-2); }
-  .fio-hand-a { margin-top: 22px; }
+  /* na home o rodapé encosta na página: sem a faixa de azulejos que a margem dele deixaria à mostra */
+  main:has(.fio-stage) + div footer { margin-top: 0 !important; } /* vence o `mt-8` (utility) do rodapé */
+
+  /* quem puxa o fio: a mão recortada entra pelo canto e o fio da página termina entre os dedos dela */
+  .fio-finale { position: relative; margin-top: clamp(36px, 6vh, 72px); border-bottom: 1px solid var(--fio-rule); overflow: hidden; }
+  .fio-hand-img { position: relative; z-index: 7; display: block; margin-left: auto; width: min(70%, 320px); height: auto; } /* acima do fio (z 6) */
+  .fio-hand-a, .fio-hand-b { padding-left: calc(var(--fio-lane) + var(--fio-ind)); padding-right: var(--fio-lane); }
+  .fio-hand-b { margin-bottom: 26px; }
   .fio-hand-b p { margin: 12px 0 18px; max-width: 27em; color: var(--text); }
   @media (min-width: 860px) {
-    .fio-hand-pic { aspect-ratio: 21 / 8.6; }
-    .fio-hand-pic img { transform: scaleX(-1); } /* a mão vai para a esquerda e o fio da foto sai pela direita, onde o fio da página chega */
-    .fio-hand-a, .fio-hand-b { position: absolute; left: 47%; right: 5%; margin: 0; }
-    .fio-hand-a { bottom: 57%; }
-    .fio-hand-b { top: 55%; }
+    .fio-finale { height: clamp(340px, 36vw, 520px); }
+    /* espelhada: a mão vem do canto esquerdo e a pinça aponta para a direita, de onde o fio chega */
+    .fio-hand-img { position: absolute; left: 0; bottom: 0; height: 100%; width: auto; margin: 0; transform: scaleX(-1); }
+    .fio-hand-a, .fio-hand-b { position: absolute; left: 50%; right: calc(var(--fio-lane) + var(--fio-ind)); padding: 0; margin: 0; }
+    /* o título fica acima da linha do fio e o texto abaixo: o fio passa no vão entre os dois */
+    .fio-hand-a { bottom: calc((1 - var(--py)) * 100% + 24px); }
+    .fio-hand-b { top: calc(var(--py) * 100% + 24px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
