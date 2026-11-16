@@ -233,6 +233,12 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   CONSTANTE no código, fora da lista editável: a configuração salva no Firestore vence o padrão e uma lista vazia do painel
   deixaria passar. `_scrub_vocab` faz UMA reescrita ("afirmação direta") em pt e en, em geração, reflexão e "editar com IA";
   sobrou → `generation.bannedLeft`. Posts já publicados não são reescritos sozinhos.
+  **Limpeza dos antigos em 2026-11-16** (pedido do PO): 22 posts (19 publicados e rascunhos) passaram pela mesma reescrita,
+  sem a lista de vocabulário do painel; 0 com sobra, 0 recusados, e a API pública conferida depois: nenhum publicado com
+  muleta, em pt ou en. Custo conhecido da regra: palpite sobre COMO algo funciona vira afirmação ("Imagino o mecanismo
+  assim" → "O mecanismo funciona assim"), e numa frase a reescrita acrescentou explicação de conhecimento comum. Script,
+  backup do estado anterior e o antes/depois de cada trecho: `web/.gen/ops/muletas.py`, `web/.gen/backup-posts-2026-11-16.json`
+  e `web/.gen/muletas-antes-depois.md` (fora do git, só nesta pasta).
 - **Memória do autor nunca é inventada** (regra 10, `model.MEMORY_CLAIMS`, `TestMemoriaInventada`).
   No modo notícia o modelo recebe só as matérias, e a regra antiga mandava "usar a experiência dele" —
   ele inventava: "já viu time botar produto físico na rua" (o PO nem trabalha com produto físico),
@@ -364,7 +370,11 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   que carrega a ideia" descrito abaixo. O bloco "CAPAS JÁ USADAS" diz que o fio continua e o que muda é o sujeito; sem
   isso, "outra ideia, não uma variação destas" faria o modelo fugir do fio. Medido com 2 capas reais (notícia e reflexão):
   as duas saíram com o fio na ação. Na reflexão a cena saiu com pessoas em escala real, não maquete, e o fio mais fino.
-  Capas já publicadas não mudam sozinhas.
+  Capas já publicadas não mudam sozinhas. Em 2026-11-16 cinco posts que estavam sem capa da casa (dois sem imagem e
+  três com quadro de vídeo do YouTube) ganharam capa com o fio, com prompt escrito à mão e a imagem conferida antes de
+  gravar (`web/.gen/ops/capas.py`). **Pendência:** post novo com vídeo ainda nasce sem capa e, quando o recorte fica
+  pronto, recebe o quadro do YouTube (`clip_worker._ready`) — que a home esconde (`home/cover.ts`). Para a lista não
+  voltar a ter buraco, o caminho é gerar a capa da casa também para post com vídeo.
 - **A capa é uma METÁFORA da história, não o retrato do assunto.** A regra 11 de `gemini.RULES` manda
   pegar UMA imagem do próprio texto (o detalhe estranho, o número, a comparação) e montá-la como cena
   física em escala de maquete, com sujeito, ação e tensão; o vermelho cai no objeto que carrega a ideia.
