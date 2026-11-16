@@ -220,6 +220,12 @@ class TestDirecaoDeArte:
         d = images.ART_DIRECTION.lower()
         assert "no people" not in d and "no faces" not in d
 
+    def test_o_unico_vermelho_e_um_fio(self):
+        # pedido do PO, 2026-11-16: a assinatura das capas é um fio vermelho, não um objeto vermelho qualquer
+        d = images.ART_DIRECTION.lower()
+        assert "red thread" in d
+        assert "nothing else in the frame is red" in d
+
     def test_nao_dita_o_cenario_so_a_paleta(self):
         # "laboratório com detalhes biomecânicos" colado em todo prompt puxava toda capa ao mesmo lugar
         d = images.ART_DIRECTION.lower()

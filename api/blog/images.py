@@ -43,7 +43,8 @@ TIMEOUT = 90
 ART_DIRECTION = (
     "Editorial cover photograph, photorealistic, 16:9. Clean, bright, clinical high-tech "
     "research look: white and pale-grey surfaces, soft diffuse light, precise real materials. "
-    "Red is the ONLY saturated color, used sparingly on the key object of the scene. No text, "
+    "The ONLY saturated color is a single red thread (cotton thread or string) that takes "
+    "part in the action of the scene; nothing else in the frame is red. No text, "
     "no letters, no logos. The scene below is a visual metaphor: compose "
     "it as described, with one clear subject."
 )

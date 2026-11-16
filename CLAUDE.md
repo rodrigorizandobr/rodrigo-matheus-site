@@ -303,6 +303,14 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   público também não diz `provider`. Capa de IA vai **sem crédito**: crédito existe para dar a
   quem é devido, e banco de imagens tem esse direito, ilustração da casa não. `PostArticle` só
   desenha a legenda quando há crédito. Migração de uso único: `api/migrate_covers.py`.
+- **O vermelho da capa é sempre um FIO VERMELHO** (pedido do PO, 2026-11-16; regra 11 de `gemini.RULES`, item 9 de
+  `RULES_REFLECTION`, `images.ART_DIRECTION`, `test_o_vermelho_da_capa_e_um_fio_que_faz_a_acao`, `test_o_unico_vermelho_e_um_fio`).
+  Virou a assinatura das capas no site e no feed do LinkedIn: linha ou barbante de algodão, único elemento saturado, e é
+  ele que FAZ a ação da metáfora (amarra, puxa, vaza, enrosca), nunca enfeite ao lado. Substitui "o vermelho cai no objeto
+  que carrega a ideia" descrito abaixo. O bloco "CAPAS JÁ USADAS" diz que o fio continua e o que muda é o sujeito; sem
+  isso, "outra ideia, não uma variação destas" faria o modelo fugir do fio. Medido com 2 capas reais (notícia e reflexão):
+  as duas saíram com o fio na ação. Na reflexão a cena saiu com pessoas em escala real, não maquete, e o fio mais fino.
+  Capas já publicadas não mudam sozinhas.
 - **A capa é uma METÁFORA da história, não o retrato do assunto.** A regra 11 de `gemini.RULES` manda
   pegar UMA imagem do próprio texto (o detalhe estranho, o número, a comparação) e montá-la como cena
   física em escala de maquete, com sujeito, ação e tensão; o vermelho cai no objeto que carrega a ideia.

@@ -271,6 +271,23 @@ class TestCapaComAnalogia:
         gemini.generate_post("OpenAI")
         assert "CAPAS JÁ USADAS" not in _usuario(fake)
 
+    def test_o_vermelho_da_capa_e_um_fio_que_faz_a_acao(self, fake):
+        # pedido do PO, 2026-11-16: o fio vermelho vira a assinatura de toda capa (site e LinkedIn)
+        gemini.generate_post("OpenAI")
+        regras = _sistema(fake)
+        assert "FIO VERMELHO" in regras
+        assert "red thread" in regras  # o imagePrompt é em inglês: o termo tem que estar dado
+        assert "enfeite" in regras  # o fio participa da metáfora, não fica solto ao lado
+
+    def test_o_fio_se_repete_de_proposito_mesmo_com_capas_ja_usadas(self, fake):
+        # sem isso, "outra ideia, não uma variação destas" faria o modelo fugir do fio
+        gemini.generate_post("OpenAI", avoid_covers=["a red thread tied around a toy car"])
+        assert "o fio vermelho continua" in _usuario(fake)
+
+    def test_a_reflexao_tambem_leva_o_fio(self, fake):
+        gemini.generate_reflection("liderar quem sabe mais do que você", context="currículo aqui")
+        assert "red thread" in _sistema(fake)
+
     def test_regras_nao_proibem_pessoas_nem_rostos_na_capa(self, fake):
         gemini.generate_post("OpenAI")
         regras = _sistema(fake)

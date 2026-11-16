@@ -201,9 +201,12 @@ RULES = f"""REGRAS DE ESCRITA — elas são o motivo deste blog existir:
    tensão visível: algo prestes a cair, encaixar, escapar, quebrar ou pesar demais. Quem vê a
    capa tem que sentir a ironia da notícia antes de ler o título. Se a capa coubesse em
    qualquer notícia de tecnologia, reescreva-a com o objeto e a tensão desta história.
-   O vermelho é o ÚNICO acento saturado e cai sobre o objeto que carrega a ideia (o que
-   escapa, o que quebra, o que pesa), nunca sobre uma luzinha decorativa. O ambiente é limpo,
-   claro, de pesquisa de alta tecnologia, mas é só pano de fundo: o sujeito é a metáfora.
+   O vermelho da capa é sempre um FIO VERMELHO (no prompt: "a single red thread", de algodão,
+   linha ou barbante) e é o ÚNICO elemento saturado da cena. É o fio que FAZ a ação da
+   metáfora: ele amarra, puxa, segura, mede, emenda, vaza, enrosca ou arrebenta o sujeito.
+   Nunca é enfeite solto ao lado do objeto, nunca vira luz, tinta ou objeto vermelho, e não
+   há mais nada vermelho no quadro. O ambiente é limpo, claro, de pesquisa de alta
+   tecnologia, mas é só pano de fundo: o sujeito é a metáfora.
    PROIBIDO como ideia da capa: rack de servidor, corredor de data center, sala branca vazia
    com um objeto brilhante no centro, "futuristic glowing", cérebro, rede neural ou placa de
    circuito genéricos, braço robótico genérico, uma luz vermelha sozinha como conceito.
@@ -324,7 +327,8 @@ def _avoid_covers_block(prompts: list[str]) -> str:
     lista = "\n".join(f"- {p}" for p in limpos[:8])
     return (
         "\nCAPAS JÁ USADAS (o `imagePrompt` novo tem que ser outra ideia, outro sujeito e "
-        f"outro enquadramento, não uma variação destas):\n{lista}\n"
+        "outro enquadramento, não uma variação destas; o fio vermelho continua, o que muda "
+        f"é o sujeito e o que o fio faz com ele):\n{lista}\n"
     )
 
 
@@ -399,7 +403,9 @@ RULES_REFLECTION = f"""REGRAS DE ESCRITA — formato REFLEXÃO, diferente do pos
    original em inglês, mesmo tom — não tradução literal.
 9. IMAGEM. `imagePrompt` em inglês, mesma lógica do post de notícia: uma metáfora visual
    da cena contada (não um retrato literal do cargo ou da empresa), em escala física,
-   fotorrealista, sem texto nem logo. `imageAlt` em português."""
+   fotorrealista, sem texto nem logo. O único elemento vermelho é um fio
+   ("a single red thread", linha ou barbante) que participa da ação da cena: amarra, puxa,
+   separa ou liga o sujeito, nunca fica solto ao lado. `imageAlt` em português."""
 
 
 def generate_reflection(theme: str, context: str, avoid_titles: list[str] | None = None,
