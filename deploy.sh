@@ -81,9 +81,9 @@ if [[ -n "${REFRESH_KEY:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
     --set-env-vars "ALERT_FROM=${ALERT_FROM:-}" \
     --set-env-vars "ALERT_EMAILS=${ALERT_EMAILS:-}" \
     --set-env-vars "BLOG_IMAGE_SIZE=${BLOG_IMAGE_SIZE:-1K}" \
-    --set-env-vars "RUNWARE_API_KEY=${RUNWARE_API_KEY:-}" \
+    --set-env-vars "RUNWAYML_API_SECRET=${RUNWAYML_API_SECRET:-}" \
     --set-env-vars "BLOG_IMAGE_PROVIDER=${BLOG_IMAGE_PROVIDER:-}" \
-    --set-env-vars "BLOG_RUNWARE_MODEL=${BLOG_RUNWARE_MODEL:-google:nano-banana@2.1}" \
+    --set-env-vars "BLOG_RUNWAY_MODEL=${BLOG_RUNWAY_MODEL:-nano_banana_2.1}" \
     --quiet
 else
   echo "⚠ REFRESH_KEY/GITHUB_TOKEN ausentes no .env — pulando atualização de env vars."

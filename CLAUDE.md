@@ -373,17 +373,22 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   Capas já publicadas não mudam sozinhas. Em 2026-11-16 cinco posts que estavam sem capa da casa (dois sem imagem e
   três com quadro de vídeo do YouTube) ganharam capa com o fio, com prompt escrito à mão e a imagem conferida antes de
   gravar (`web/.gen/ops/capas.py`). Desde então post com vídeo também nasce com a capa da casa (bullet acima).
-- **Capa pelo Runware, com o Gemini de reserva** (pedido do PO, 2026-11-16: "use o Runware, tenho bons créditos lá e é mais
-  barata"; `images.provider()`, `images._ask_runware`, `TestRunware`). Mesmo desenho do Claude/Gemini no texto:
-  `BLOG_IMAGE_PROVIDER=runware|gemini` força; vazio = Runware se houver `RUNWARE_API_KEY`, senão Gemini. A API é
-  `POST https://api.runware.ai/v1` com uma LISTA de tarefas e `Authorization: Bearer`; erro pode vir com status 200 (sem
-  `data`, só `errors`). Modelo em `BLOG_RUNWARE_MODEL`, padrão `google:nano-banana@2.1` (o que gerou as capas com o fio
-  aprovadas), em 1376x768: ~US$ 0,034 por capa na tabela do Runware, contra US$ 0,094 direto no Gemini. Runware falhou →
-  tenta o Gemini (post sem capa, ou com foto de banco de imagens, é pior do que a capa pelo caminho antigo). A biblioteca
-  grava `provider: "runware"`. As três variáveis são repassadas em `deploy.sh` e no instalador da rotina do Mac (que gera
-  capa quando um recorte desiste); `conftest.isolate` zera a chave nos testes. **Contrato lido na documentação e coberto por
-  testes com a API simulada; NÃO validado contra o Runware de verdade** — a chave ainda não estava no `.env`. Ao pôr a
-  chave: gerar uma capa real, olhar, e só então confiar. Modelo mais barato (FLUX.2) muda o traço: comparar antes de trocar.
+- **Capa pelo Runway, com o Gemini de reserva** (pedido do PO, 2026-11-16: "tenho bons créditos lá e é mais barata";
+  `images.provider()`, `images._ask_runway`, `TestRunway`). Mesmo desenho do Claude/Gemini no texto:
+  `BLOG_IMAGE_PROVIDER=runway|gemini` força; vazio = Runway se houver `RUNWAYML_API_SECRET`, senão Gemini. Usa o SDK
+  oficial (`runwayml`, em `requirements.txt`, importado só dentro de `_runway_client`): `text_to_image.create(...)` encadeado
+  com `wait_for_task_output(timeout=180)` — o padrão do SDK são dez minutos, e estourar o prazo NÃO cancela a tarefa.
+  Modelo em `BLOG_RUNWAY_MODEL`, padrão `nano_banana_2.1` (o que gerou as capas com o fio aprovadas): 4 créditos em 1K =
+  US$ 0,04 por capa, contra US$ 0,094 direto no Gemini. Neste modelo não há campo de resolução: o tamanho sai do `ratio`
+  (`1376:768` = 16:9 em 1K), e cada modelo tem a própria lista de `ratio`. O link do resultado expira em 1–2 dias: a imagem
+  é baixada na hora e gravada na biblioteca com `provider: "runway"`. Tarefa falha (inclusive por moderação) é COBRADA:
+  nunca reenviar ao Runway sozinho — a reserva é o Gemini, que é outro serviço. As variáveis são repassadas em `deploy.sh`
+  e no instalador da rotina do Mac; `conftest.isolate` zera a chave nos testes; `test_o_sdk_instalado_conhece...` trava o
+  nome do modelo e do formato contra o SDK. **NÃO validado contra o Runway de verdade**: a chave ainda não estava no
+  `.env` (a conexão do plugin do Claude Code é do agente, não serve de chave para o servidor) e o plugin proíbe o agente
+  de fazer chamada paga por conta própria. Ao pôr a chave: gerar UMA capa, olhar, e só então confiar.
+  Histórico: o PO disse "Runware" querendo dizer Runway; uma integração com o Runware chegou a ir ao ar por uma hora,
+  inativa (sem chave), e foi removida.
 - **Post com vídeo também nasce com a capa da casa** (pedido do PO, 2026-11-16; `service._save_generated`,
   `test_com_video_gera_a_capa_da_casa_e_nao_busca_foto`). Antes ele ficava sem capa ("a IA não é gerada à toa") e, com o
   recorte pronto, recebia o quadro do YouTube (`clip_worker._ready`), que a home nova esconde (`home/cover.ts`): a lista

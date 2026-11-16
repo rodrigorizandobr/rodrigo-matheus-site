@@ -8,7 +8,7 @@ export type PostStatus = 'draft' | 'scheduled' | 'published'
 export type CoverImage = {
   hash: string
   /** o site público não recebe isto — só o painel, pela biblioteca de mídia */
-  provider?: 'runware' | 'gemini' | 'pixabay'
+  provider?: 'runway' | 'gemini' | 'pixabay'
   /** vazio na ilustração da casa; preenchido no que vem de banco de imagens */
   credit: string
   sourceUrl: string
@@ -100,7 +100,7 @@ export type NewPost = {
 /** Item da biblioteca de mídia. O arquivo vive no GCS; isto é o catálogo. */
 export type MediaItem = {
   hash: string
-  provider: 'upload' | 'runware' | 'gemini' | 'pixabay' | 'web' | 'youtube'
+  provider: 'upload' | 'runway' | 'gemini' | 'pixabay' | 'web' | 'youtube'
   alt: string
   credit: string
   sourceUrl: string

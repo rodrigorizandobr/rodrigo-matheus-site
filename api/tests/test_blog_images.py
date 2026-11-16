@@ -233,88 +233,114 @@ class TestDirecaoDeArte:
 
 
 
-class TestRunware:
-    """Pedido do PO, 2026-11-16: gerar as capas pelo Runware, onde ele tem crédito e a imagem sai mais barata."""
+class TestRunway:
+    """Pedido do PO, 2026-11-16: gerar as capas pelo Runway, onde ele tem crédito e a imagem sai mais barata."""
 
     @pytest.fixture
-    def runware(self, monkeypatch):
-        chamadas = []
+    def runway(self, monkeypatch):
+        """SDK simulado: registra o que foi pedido e devolve uma tarefa concluída com um link."""
+        visto = {"criadas": [], "esperas": [], "baixadas": []}
 
-        def fake_post(url, headers=None, json=None, timeout=None):
-            chamadas.append({"url": url, "headers": headers, "json": json})
-            if "runware" in url:
-                return FakeResp({"data": [{"taskType": "imageInference", "taskUUID": json[0]["taskUUID"],
-                                           "imageBase64Data": base64.b64encode(_png()).decode(), "cost": 0.0341}]})
-            return FakeResp({"candidates": [{"content": {"parts": [
-                {"inlineData": {"data": base64.b64encode(_png(cor=(10, 10, 10))).decode()}}]}}]})
+        class Tarefa:
+            def wait_for_task_output(self, timeout=600):
+                visto["esperas"].append(timeout)
+                return type("Pronta", (), {"output": ["https://runway.example/saida.png"]})()
 
-        monkeypatch.setattr(images.requests, "post", fake_post)
-        monkeypatch.setattr(images, "RUNWARE_KEY", "rw-chave")
+        class Recurso:
+            def create(self, **kw):
+                visto["criadas"].append(kw)
+                return Tarefa()
+
+        monkeypatch.setattr(images, "_runway_client", lambda: type("Cliente", (), {"text_to_image": Recurso()})())
+        monkeypatch.setattr(images.requests, "get", lambda url, **k: (visto["baixadas"].append(url), FakeResp(content=_png()))[1])
+        monkeypatch.setattr(images.requests, "post", lambda *a, **k: FakeResp({"candidates": [{"content": {"parts": [
+            {"inlineData": {"data": base64.b64encode(_png(cor=(10, 10, 10))).decode()}}]}}]}))
+        monkeypatch.setattr(images, "RUNWAY_KEY", "rw-chave")
         monkeypatch.setattr(images, "API_KEY", "g-chave")
-        return chamadas
+        return visto
 
-    def test_com_a_chave_do_runware_a_capa_sai_por_ele(self, bucket, runware):
+    def test_com_a_chave_do_runway_a_capa_sai_por_ele(self, bucket, runway):
         capa = images.build_cover("a toy car tied to a red thread", "alt")
-        assert capa["provider"] == "runware"
-        assert [c["url"] for c in runware] == [images.RUNWARE_URL], "o Gemini nem é chamado"
+        assert capa["provider"] == "runway"
+        assert len(runway["criadas"]) == 1
 
-    def test_o_pedido_segue_o_contrato_da_api(self, bucket, runware):
+    def test_o_pedido_usa_o_modelo_das_capas_aprovadas_em_16_por_9(self, bucket, runway):
         images.build_cover("a toy car tied to a red thread", "alt")
-        pedido = runware[0]
-        assert pedido["headers"]["Authorization"] == "Bearer rw-chave"
-        assert isinstance(pedido["json"], list) and len(pedido["json"]) == 1, "o corpo é uma LISTA de tarefas"
-        tarefa = pedido["json"][0]
-        assert tarefa["taskType"] == "imageInference" and tarefa["model"] == images.RUNWARE_MODEL
-        assert (tarefa["width"], tarefa["height"]) == (1376, 768), "16:9, o mesmo tamanho da capa de hoje"
-        assert tarefa["numberResults"] == 1 and tarefa["outputType"] == "base64Data"
-        assert len(tarefa["taskUUID"]) == 36
+        pedido = runway["criadas"][0]
+        assert pedido["model"] == "nano_banana_2.1"
+        assert pedido["ratio"] == "1376:768", "o mesmo tamanho da capa de hoje; no Runway é a faixa de 1K"
+        assert set(pedido) == {"model", "ratio", "prompt_text"}, "nada de campo que este modelo não tem"
 
-    def test_a_direcao_de_arte_vai_junto_com_a_cena(self, bucket, runware):
+    def test_a_direcao_de_arte_vai_junto_com_a_cena(self, bucket, runway):
         images.build_cover("a toy car tied to a red thread", "alt")
-        prompt = runware[0]["json"][0]["positivePrompt"]
+        prompt = runway["criadas"][0]["prompt_text"]
         assert "red thread" in prompt.lower() and "no text" in prompt.lower()
         assert prompt.endswith("SCENE: a toy car tied to a red thread")
 
-    def test_runware_fora_do_ar_cai_para_o_gemini(self, bucket, runware, monkeypatch):
-        original = images.requests.post
+    def test_espera_a_tarefa_pelo_sdk_com_prazo_curto(self, bucket, runway):
+        # o padrão do SDK é esperar dez minutos; a geração do post inteiro tem que caber numa requisição
+        images.build_cover("cena", "alt")
+        assert runway["esperas"] == [images.RUNWAY_WAIT_SECONDS] and images.RUNWAY_WAIT_SECONDS <= 240
 
-        def fake_post(url, **k):
-            if "runware" in url:
-                runware.append({"url": url})
-                return FakeResp({"errors": [{"code": "x", "message": "fora do ar"}]}, status=500)
-            return original(url, **k)
+    def test_o_link_do_resultado_expira_por_isso_a_imagem_e_baixada_e_guardada(self, bucket, runway):
+        capa = images.build_cover("cena", "alt")
+        assert runway["baixadas"] == ["https://runway.example/saida.png"]
+        assert len(capa["hash"]) == 64, "gravada na nossa biblioteca, pelo hash"
 
-        monkeypatch.setattr(images.requests, "post", fake_post)
+    def test_tarefa_que_falha_cai_para_o_gemini_sem_pedir_de_novo_ao_runway(self, bucket, runway, monkeypatch):
+        class Falha(Exception):
+            pass
+
+        class Tarefa:
+            def wait_for_task_output(self, timeout=600):
+                raise Falha("moderada")
+
+        class Recurso:
+            def create(self, **kw):
+                runway["criadas"].append(kw)
+                return Tarefa()
+
+        monkeypatch.setattr(images, "_runway_client", lambda: type("C", (), {"text_to_image": Recurso()})())
         capa = images.build_cover("cena", "alt")
         assert capa["provider"] == "gemini", "post sem capa é pior do que uma capa pelo caminho antigo"
+        assert len(runway["criadas"]) == 1, "tarefa falha no Runway é cobrada: nunca reenviar sozinho"
 
-    def test_erro_dentro_de_resposta_200_tambem_conta_como_falha(self, bucket, runware, monkeypatch):
+    def test_tarefa_sem_saida_tambem_conta_como_falha(self, bucket, runway, monkeypatch):
+        class Tarefa:
+            def wait_for_task_output(self, timeout=600):
+                return type("Vazia", (), {"output": []})()
+
+        monkeypatch.setattr(images, "_runway_client",
+                            lambda: type("C", (), {"text_to_image": type("R", (), {"create": lambda self, **kw: Tarefa()})()})())
         monkeypatch.setattr(images, "API_KEY", "")
-        monkeypatch.setattr(images.requests, "post", lambda url, **k: FakeResp({"errors": [{"message": "modelo inválido"}]}))
         assert images.generate_image("cena") is None
 
-    def test_resposta_com_link_em_vez_de_base64_tambem_serve(self, bucket, runware, monkeypatch):
-        monkeypatch.setattr(images.requests, "post",
-                            lambda url, **k: FakeResp({"data": [{"imageURL": "https://im.runware.ai/x.jpg"}]}))
-        monkeypatch.setattr(images.requests, "get", lambda url, **k: FakeResp(content=_png()))
-        assert images.build_cover("cena", "alt")["provider"] == "runware"
-
-    def test_sem_chave_do_runware_nada_muda(self, bucket, gemini_ok, monkeypatch):
-        monkeypatch.setattr(images, "RUNWARE_KEY", "")
+    def test_sem_chave_do_runway_nada_muda(self, bucket, gemini_ok, monkeypatch):
+        monkeypatch.setattr(images, "RUNWAY_KEY", "")
+        monkeypatch.setattr(images, "_runway_client", lambda: (_ for _ in ()).throw(AssertionError("não deveria criar cliente")))
         assert images.provider() == "gemini"
         assert images.build_cover("cena", "alt")["provider"] == "gemini"
 
-    def test_da_para_forcar_o_gemini_mesmo_com_a_chave_do_runware(self, bucket, runware, monkeypatch):
+    def test_da_para_forcar_o_gemini_mesmo_com_a_chave_do_runway(self, bucket, runway, monkeypatch):
         monkeypatch.setattr(images, "PROVIDER_CHOICE", "gemini")
         assert images.build_cover("cena", "alt")["provider"] == "gemini"
-        assert all("runware" not in c["url"] for c in runware)
+        assert runway["criadas"] == []
 
-    def test_runware_forcado_sem_chave_nao_tenta_chamar(self, bucket, gemini_ok, monkeypatch):
-        monkeypatch.setattr(images, "RUNWARE_KEY", "")
-        monkeypatch.setattr(images, "PROVIDER_CHOICE", "runware")
+    def test_runway_forcado_sem_chave_nao_tenta_chamar(self, bucket, gemini_ok, monkeypatch):
+        monkeypatch.setattr(images, "RUNWAY_KEY", "")
+        monkeypatch.setattr(images, "PROVIDER_CHOICE", "runway")
         assert images.build_cover("cena", "alt")["provider"] == "gemini"
 
     def test_sem_chave_nenhuma_o_post_sai_sem_capa_de_ia(self, bucket, monkeypatch):
-        monkeypatch.setattr(images, "RUNWARE_KEY", "")
+        monkeypatch.setattr(images, "RUNWAY_KEY", "")
         monkeypatch.setattr(images, "API_KEY", "")
         assert images.generate_image("cena") is None
+
+    def test_o_sdk_instalado_conhece_o_modelo_e_o_formato_que_pedimos(self):
+        # trava de contrato: se o SDK mudar de nome de modelo ou de formato, falha aqui e não em produção
+        import inspect
+
+        from runwayml import TaskFailedError, TaskTimeoutError  # noqa: F401  (as duas existem com estes nomes)
+        from runwayml.resources import text_to_image
+        fonte = inspect.getsource(text_to_image)
+        assert images.RUNWAY_MODEL in fonte and images.RUNWAY_RATIO in fonte and "prompt_text" in fonte
