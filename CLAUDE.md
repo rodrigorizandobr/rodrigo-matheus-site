@@ -381,9 +381,15 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   aprovadas), em 1376x768: ~US$ 0,034 por capa na tabela do Runware, contra US$ 0,094 direto no Gemini. Runware falhou →
   tenta o Gemini (post sem capa, ou com foto de banco de imagens, é pior do que a capa pelo caminho antigo). A biblioteca
   grava `provider: "runware"`. As três variáveis são repassadas em `deploy.sh` e no instalador da rotina do Mac (que gera
-  capa quando um recorte desiste); `conftest.isolate` zera a chave nos testes. **Contrato lido na documentação e coberto por
-  testes com a API simulada; NÃO validado contra o Runware de verdade** — a chave ainda não estava no `.env`. Ao pôr a
-  chave: gerar uma capa real, olhar, e só então confiar. Modelo mais barato (FLUX.2) muda o traço: comparar antes de trocar.
+  capa quando um recorte desiste); `conftest.isolate` zera a chave nos testes. **Validado contra o Runware de verdade em 2026-11-16**, pelo código do
+  blog (`_ask_runware`): 12 s, 1376x768 em JPEG, e **US$ 0,0339 por capa medidos** no campo `cost` da resposta (pedido com
+  `includeCost`), contra US$ 0,094 direto no Gemini; a resposta traz `imageBase64Data`, `imageUUID`, `seed` e `cost`. A
+  capa saiu no mesmo padrão das aprovadas. **A chave é a MESMA do monster-jobs**: lá ela mora no Secret Manager (projeto
+  `mosnter-jobs`, segredo `runware-api-key`) e foi copiada para o `.env` daqui com autorização do PO — se for trocada lá,
+  tem que ser trocada aqui (`.env`, Cloud Run e rotina do Mac). O monster-jobs usa o mesmo modelo
+  (`apps/web/src/lib/anuncios/runware.ts`), que serve de segunda referência do contrato. Modelo mais barato (FLUX.2) muda
+  o traço: comparar antes de trocar. Histórico: por um mal-entendido de nome, o provedor chegou a ser trocado pelo Runway
+  (SDK `runwayml`) por cerca de uma hora, sem chave e sem gerar nada; o commit foi revertido (`32e5f7c`).
 - **Post com vídeo também nasce com a capa da casa** (pedido do PO, 2026-11-16; `service._save_generated`,
   `test_com_video_gera_a_capa_da_casa_e_nao_busca_foto`). Antes ele ficava sem capa ("a IA não é gerada à toa") e, com o
   recorte pronto, recebia o quadro do YouTube (`clip_worker._ready`), que a home nova esconde (`home/cover.ts`): a lista
