@@ -23,8 +23,8 @@ def isolate(monkeypatch, tmp_path):
     # quem rodou `source .env` não pode mandar teste de Gemini para o Claude por acidente
     monkeypatch.setattr(claude, "API_KEY", "")
     monkeypatch.setattr(gemini, "LLM_CHOICE", "")
-    # idem para a capa: com a chave do Runway no ambiente, teste de Gemini iria para o Runway
-    monkeypatch.setattr(images, "RUNWAY_KEY", "")
+    # idem para a capa: com a chave do Runware no ambiente, teste de Gemini iria para o Runware
+    monkeypatch.setattr(images, "RUNWARE_KEY", "")
     monkeypatch.setattr(images, "PROVIDER_CHOICE", "")
     monkeypatch.setattr(server, "_gcs_blob", lambda *a, **kw: None)
     monkeypatch.setattr(server, "CACHE_FILE", tmp_path / "github_cache.json")

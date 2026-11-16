@@ -1,4 +1,4 @@
-"""Origens de imagem para o blog: IA (Runway ou Gemini) e banco de imagens (Pixabay).
+"""Origens de imagem para o blog: IA (Runware ou Gemini) e banco de imagens (Pixabay).
 
 Este módulo só SABE BUSCAR. Quem grava e cataloga é `blog/media.py` — assim toda
 imagem, venha de onde vier, cai na mesma biblioteca com o mesmo tratamento
@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import os
 import random
+import uuid
 from typing import Any
 
 import requests
@@ -37,19 +38,17 @@ IMAGE_CONFIG = {"aspectRatio": "16:9", "imageSize": IMAGE_SIZE}
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 90
 
-# Runway (pedido do PO, 2026-11-16): mesma capa, mais barata. O padrão é o Nano Banana 2.1, o modelo
-# que gerou as capas com o fio que o PO aprovou: 4 créditos em 1K (US$ 0,04, a US$ 0,01 o crédito),
-# contra US$ 0,094 direto no Gemini. No Runway o tamanho é escolhido pelo `ratio` (não há campo de
-# resolução neste modelo): 1376:768 é o 16:9 da faixa de 1K, o mesmo tamanho que a capa já tinha.
-# Trocar de modelo é trocar a variável — mas cada modelo tem a própria lista de `ratio`: confira na
-# documentação antes, e compare a capa (modelo mais barato muda o traço).
-RUNWAY_KEY = os.environ.get("RUNWAYML_API_SECRET", "")
-RUNWAY_MODEL = os.environ.get("BLOG_RUNWAY_MODEL", "nano_banana_2.1")
-RUNWAY_RATIO = os.environ.get("BLOG_RUNWAY_RATIO", "1376:768")
-#: o SDK espera dez minutos por padrão; a geração do post inteiro tem que caber numa requisição.
-#: Estourar o prazo NÃO cancela a tarefa no Runway (ela pode terminar e ser cobrada mesmo assim).
-RUNWAY_WAIT_SECONDS = 180
-#: "runway" ou "gemini" força; vazio = Runway se houver chave dele, senão Gemini
+# Runware (pedido do PO, 2026-11-16): mesma capa, mais barata. A API é uma só para todo modelo:
+# POST com uma LISTA de tarefas e a chave no cabeçalho. O padrão é o Nano Banana 2.1, o modelo
+# que gerou as capas com o fio que o PO aprovou; na tabela do Runware uma imagem 1376x768 sai por
+# cerca de US$ 0,034, contra US$ 0,094 direto no Gemini. Trocar de modelo é trocar a variável —
+# mas confira antes que ele aceita 1376x768 e compare a capa: modelo mais barato muda o traço.
+RUNWARE_KEY = os.environ.get("RUNWARE_API_KEY", "")
+RUNWARE_URL = "https://api.runware.ai/v1"
+RUNWARE_MODEL = os.environ.get("BLOG_RUNWARE_MODEL", "google:nano-banana@2.1")
+#: 16:9 no tamanho que a capa já tinha — passa dos 1200 px que o cartão do LinkedIn pede
+RUNWARE_SIZE = (1376, 768)
+#: "runware" ou "gemini" força; vazio = Runware se houver chave dele, senão Gemini
 PROVIDER_CHOICE = os.environ.get("BLOG_IMAGE_PROVIDER", "").strip().lower()
 
 # A paleta e as proibições do site, coladas em todo prompt de capa. O CENÁRIO não mora
@@ -86,38 +85,45 @@ def _ask_model(model: str, prompt: str) -> bytes | None:
 
 def provider() -> str:
     """Quem desenha a capa. Mesmo desenho de `gemini.provider()`: a variável força, a chave decide."""
-    if PROVIDER_CHOICE in ("runway", "gemini"):
+    if PROVIDER_CHOICE in ("runware", "gemini"):
         return PROVIDER_CHOICE
-    return "runway" if RUNWAY_KEY else "gemini"
+    return "runware" if RUNWARE_KEY else "gemini"
 
 
-def _runway_client() -> Any:
-    # SDK oficial, importado só aqui: quem roda sem o Runway não precisa dele carregado.
-    from runwayml import RunwayML
-    return RunwayML(api_key=RUNWAY_KEY)
-
-
-def _ask_runway(prompt: str) -> bytes | None:
-    """Uma tarefa no Runway, esperada pelo próprio SDK. Tarefa que falha (inclusive por moderação) ou
-    estoura o prazo levanta `TaskFailedError`/`TaskTimeoutError`: quem chama trata como "sem imagem" e
-    NUNCA reenvia sozinho — tarefa falha também é cobrada."""
-    tarefa = _runway_client().text_to_image.create(
-        model=RUNWAY_MODEL, ratio=RUNWAY_RATIO, prompt_text=f"{ART_DIRECTION}\n\nSCENE: {prompt}",
-    ).wait_for_task_output(timeout=RUNWAY_WAIT_SECONDS)
-    saida = getattr(tarefa, "output", None) or []
-    if not saida:
+def _ask_runware(prompt: str) -> bytes | None:
+    res = requests.post(
+        RUNWARE_URL,
+        headers={"Authorization": f"Bearer {RUNWARE_KEY}", "content-type": "application/json"},
+        json=[{
+            "taskType": "imageInference", "taskUUID": str(uuid.uuid4()), "model": RUNWARE_MODEL,
+            "positivePrompt": f"{ART_DIRECTION}\n\nSCENE: {prompt}",
+            "width": RUNWARE_SIZE[0], "height": RUNWARE_SIZE[1],
+            "numberResults": 1, "outputType": "base64Data", "outputFormat": "JPG", "includeCost": True,
+        }],
+        timeout=TIMEOUT,
+    )
+    corpo = res.json() if res.ok else {}
+    # erro pode vir com status 200: aí não há `data`, só `errors`
+    if not isinstance(corpo, dict) or corpo.get("errors"):
         return None
-    # o link do resultado expira em um ou dois dias: baixa agora, e `media.store_image` guarda no nosso bucket
-    baixada = requests.get(saida[0], timeout=TIMEOUT)
-    return baixada.content if baixada.ok and baixada.content else None
+    for item in corpo.get("data") or []:
+        if item.get("imageBase64Data"):
+            return base64.b64decode(item["imageBase64Data"])
+        if "," in (item.get("imageDataURI") or ""):
+            return base64.b64decode(item["imageDataURI"].split(",", 1)[1])
+        if item.get("imageURL"):
+            baixada = requests.get(item["imageURL"], timeout=TIMEOUT)
+            if baixada.ok and baixada.content:
+                return baixada.content
+    return None
 
 
 def _sources() -> list[tuple[str, Any]]:
-    """Quem tentar, em ordem. Runway primeiro quando é ele o escolhido; o Gemini fica de reserva:
+    """Quem tentar, em ordem. Runware primeiro quando é ele o escolhido; o Gemini fica de reserva:
     post sem capa (ou com foto de banco de imagens) é pior do que uma capa pelo caminho antigo."""
     fontes: list[tuple[str, Any]] = []
-    if provider() == "runway" and RUNWAY_KEY:
-        fontes.append(("runway", _ask_runway))
+    if provider() == "runware" and RUNWARE_KEY:
+        fontes.append(("runware", _ask_runware))
     if API_KEY:
         for modelo in (m for m in (IMAGE_MODEL, IMAGE_MODEL_FALLBACK) if m):
             fontes.append(("gemini", lambda p, m=modelo: _ask_model(m, p)))
