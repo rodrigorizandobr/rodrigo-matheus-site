@@ -233,7 +233,7 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   CONSTANTE no código, fora da lista editável: a configuração salva no Firestore vence o padrão e uma lista vazia do painel
   deixaria passar. `_scrub_vocab` faz UMA reescrita ("afirmação direta") em pt e en, em geração, reflexão e "editar com IA";
   sobrou → `generation.bannedLeft`. Posts já publicados não são reescritos sozinhos.
-  **Limpeza dos antigos em 2026-11-16** (pedido do PO): 22 posts (19 publicados e rascunhos) passaram pela mesma reescrita,
+  **Limpeza dos antigos em 2026-11-16** (pedido do PO): 22 posts (15 publicados e 7 rascunhos) passaram pela mesma reescrita,
   sem a lista de vocabulário do painel; 0 com sobra, 0 recusados, e a API pública conferida depois: nenhum publicado com
   muleta, em pt ou en. Custo conhecido da regra: palpite sobre COMO algo funciona vira afirmação ("Imagino o mecanismo
   assim" → "O mecanismo funciona assim"), e numa frase a reescrita acrescentou explicação de conhecimento comum. Script,
