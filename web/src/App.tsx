@@ -1,15 +1,13 @@
 import { Header } from './components/layout/Header'
 import { Footer } from './components/layout/Footer'
-import { Hero } from './components/sections/Hero'
 import { About } from './components/sections/About'
 import { Campaigns } from './components/sections/Campaigns'
 import { Arena } from './components/sections/Arena'
 import { Training } from './components/sections/Training'
 import { Contact } from './components/sections/Contact'
-import { Logs } from './components/sections/Logs'
 import { useI18n } from './i18n/useI18n'
-import { Stage } from './stage/Stage'
 import { BlogPage } from './pages/BlogPage'
+import { HomePage } from './pages/HomePage'
 import { currentRoute } from './pages/router'
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { useHashLanding } from './hooks/useHashLanding'
@@ -20,10 +18,16 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })))
 const PensionPage = lazy(() => import('./pages/PensionPage').then((m) => ({ default: m.PensionPage })))
 
+const OLD_SECTIONS = ['#about', '#experience', '#projects', '#education', '#contact']
+
 export default function App() {
   const { t } = useI18n()
   const [route, setRoute] = useState(currentRoute)
-  useHashLanding(route.page === 'home')
+  useHashLanding(route.page === 'home' || route.page === 'curriculo')
+  // As seções de carreira moravam na home: link antigo para /#about, /#contact… segue valendo.
+  useEffect(() => {
+    if (route.page === 'home' && OLD_SECTIONS.includes(window.location.hash)) window.location.replace(`/curriculo${window.location.hash}`)
+  }, [route.page])
   useEffect(() => {
     const on = () => setRoute(currentRoute())
     window.addEventListener('popstate', on); window.addEventListener('hashchange', on)
@@ -82,20 +86,28 @@ export default function App() {
     )
   }
 
+  if (route.page === 'curriculo') {
+    return (
+      <>
+        <a href="#about" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-red focus:text-white focus:px-3 focus:py-2">{t.skip}</a>
+        <Header />
+        <main className="relative z-10" data-stage="false">
+          <About />
+          <Campaigns />
+          <Arena />
+          <Training />
+          <Contact />
+        </main>
+        <div className="relative z-10"><Footer /></div>
+      </>
+    )
+  }
+
   return (
     <>
-      <a href="#about" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-red focus:text-white focus:px-3 focus:py-2">{t.skip}</a>
-      <Stage />
+      <a href="#blog" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-red focus:text-white focus:px-3 focus:py-2">{t.skip}</a>
       <Header />
-      <main className="relative z-10" data-stage="true">
-        <Hero />
-        <About />
-        <Campaigns />
-        <Arena />
-        <Training />
-        <Logs />
-        <Contact />
-      </main>
+      <main className="relative z-10" data-stage="false"><HomePage /></main>
       <div className="relative z-10"><Footer /></div>
     </>
   )

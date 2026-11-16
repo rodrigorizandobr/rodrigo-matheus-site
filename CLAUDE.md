@@ -21,7 +21,54 @@ Portfólio pessoal + blog. A **v3** vive em `web/`; o backend Flask em `api/`.
 
 **Fluxo:** o frontend faz **uma única** chamada `GET /api/data`, que devolve `{i18n, repos}` de uma vez.
 
-### v3 (`web/`, em desenvolvimento)
+### v4 — fio condutor (home no ar desde 2026-11-16)
+
+Pedido do PO: blog primeiro, utilitários em destaque, currículo depois, e nada de vídeo emendado (a
+diferença de tom entre os clipes do robô era o incômodo). Especificação e etapas em
+`specs/002-fio-condutor/README.md`. **A home (`/`) é `pages/HomePage.tsx`**: o post mais recente em
+manchete, a lista "puxe um fio", os utilitários e a linha da carreira, ligados por um único fio vermelho
+desenhado em SVG. As seções antigas (sobre, experiência, projetos, formação, contato) moram em
+`/curriculo`, no visual antigo. `src/stage/`, o hero e os vídeos continuam no repositório, sem uso,
+até a etapa de limpeza: quase tudo o que este arquivo diz sobre palco, clipes e Veo é histórico.
+
+| Peça | Onde | Papel |
+|---|---|---|
+| Geometria | `src/thread/geometry.ts` | Pura e testada: trechos, caminho, quanto revelar, mola, cruzamento do ponteiro. |
+| Fio | `src/thread/Thread.tsx` | SVG por cima do palco (`.fio-stage`). O laço de animação DORME quando nada se mexe. |
+| Rota | `src/thread/routes.ts` | Lê os elementos com `data-fio` e devolve os pontos, em ordem. Toda parada é opcional. |
+| Seções | `src/home/` | `HeroPost`, `PostStream`, `Tools` (+ `Preview`), `CareerLine`. |
+| Puros | `src/home/{topics,tail,career,cover,format,previa}.ts` | Assuntos pelas tags, fim da manchete, marcos, capa, datas, prévia. |
+| Estilo | `src/styles/fio.css` | Importado por `tokens.css`; tudo em `@layer components`, classes `fio-*`. |
+
+- **`data-fio` é o contrato entre a página e o fio**: `mark` (a `//` do cabeçalho, de onde ele sai), `u` (fim da
+  manchete), `cover`, `blog`, `row` (+ `data-on`), `cp` (pontos da prévia), `career`, `kp` (marcos), `hand`.
+  Mexeu no layout de uma seção? Confira a rota em `routes.ts`: o fio passa por CORREDORES (9 px para dentro do
+  recuo do texto, e a margem direita) justamente para não cortar texto. Quem move um ponto sem mudar o tamanho
+  da página (filtro de assunto, slider) chama `nudgeThread()`; mudança de tamanho o `ResizeObserver` pega sozinho.
+- **O cabeçalho é OPACO (`bg-bg`) e, na home, usa a mesma coluna da página (`fio-wrap`)**: o fio nasce embaixo da
+  marca `//` e passa por baixo do cabeçalho. Translúcido, o fio apareceria atravessando o menu.
+- **`.fio-stage` tem fundo opaco** para cobrir a grade de azulejos do `body::before`, que as outras páginas ainda usam.
+- **A prévia do simulador usa o MOTOR REAL** (`home/previa.ts` → `simulateMonthly` + `aplicarRegras`), só com aporte
+  mensal (sem bônus, FGTS, apê nem studio em andamento). ~100 ms por rodada: por isso `useDeferredValue` nos
+  controles e `import()` só quando a seção chega perto da tela (o blog não baixa o simulador). A renda mostrada é
+  `rendaDisponivel` (já pagas as parcelas) — com mais aporte há mais studios ainda financiados, e a renda livre
+  sobe pouco; o texto diz "já pagas as parcelas" para isso não parecer erro.
+- **Assuntos saem das tags** (`topics.ts`): chave sem acento/hífen/caixa, só tag que aparece em 2+ posts da lista.
+- **Quadro de vídeo de terceiros não entra na home** (`cover.ts`): post com recorte pronto cuja descrição da imagem é
+  o próprio título é miniatura de YouTube. É paliativo — a API pública não diz a origem da capa, de propósito.
+- **Marcos da carreira**: empresa + ano escolhem o item do i18n; só o nível (altura do ponto) mora em `career.ts`.
+  `career.test.ts` quebra se o currículo mudar uma empresa ou data. A posição é CSS (`--f`, `--lv`, `--i`), sem medir a tela.
+- **`Career.tsx` e `career.ts` não cabem na mesma pasta**: o disco do macOS não distingue caixa. O componente é `CareerLine.tsx`.
+- **`<output>` dentro de `<label>` rotula duas vezes** (o `getByLabelText` acha dois): rótulo e valor ficam lado a lado, fora um do outro.
+- **Sem idioma salvo, vale o do navegador** (`useI18n.browserLang`): o leitor chega do LinkedIn Brasil. Antes era sempre inglês.
+- **Link antigo `/#about`, `/#contact`…** é redirecionado para `/curriculo#…` em `App.tsx`.
+- **`web/public/` NÃO está no git** (o `.gitignore` da raiz ignora `public/`): as imagens do fio (`public/fio/*.webp`), os
+  favicons e os vídeos só existem nesta pasta do Drive. Por isso o build do frontend é sempre feito AQUI, nunca no clone.
+  Originais das imagens geradas no Artlist: `web/.gen/fio/*.png` (também fora do git).
+- **Captura de página inteira engana aqui também**: imagem `loading="lazy"` não carrega e o fio só aparece inteiro com
+  `prefers-reduced-motion`. Para conferir: emular movimento reduzido e trocar as imagens para `eager` antes da captura.
+
+### v3 (`web/`, histórico — a home do robô saiu do ar em 2026-11-16)
 
 Hero como tela de seleção de personagem: um androide branco é o avatar do Rodrigo, ocupa a tela
 inteira como **fundo**, e o HUD flutua por cima mostrando métricas reais de carreira
@@ -1262,7 +1309,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 
 ```bash
 cd api && source .venv/bin/activate && pytest      # ~960 testes
-cd web && npm test                                  # 723 testes
+cd web && npm test                                  # 827 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**

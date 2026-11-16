@@ -51,3 +51,21 @@ describe('tocar som', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('corda do fio condutor', () => {
+  it('com o som desligado, dedilhar não cria áudio', async () => {
+    const ctor = vi.fn()
+    vi.stubGlobal('AudioContext', ctor)
+    const { playPluck } = await import('./sound')
+    setSoundOn(false)
+    playPluck(300, 5)
+    expect(ctor).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('trecho curto soa mais agudo que trecho longo, como corda de verdade', async () => {
+    const { pluckFrequency } = await import('./sound')
+    expect(pluckFrequency(60)).toBeGreaterThan(pluckFrequency(800))
+    expect(pluckFrequency(5000)).toBe(pluckFrequency(900))
+  })
+})

@@ -1,5 +1,6 @@
 /* Design tokens — 03-ux-design §2. Red = energy/action (hero). Cyan = data (sections). */
 @import "tailwindcss";
+@import "./fio.css";
 
 :root {
   /* Sterile clean-room palette: white on white, red is the only saturated accent. */

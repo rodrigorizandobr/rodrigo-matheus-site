@@ -1,0 +1,153 @@
+/* Fio condutor — a home v4 (specs/002-fio-condutor). Uma bancada clara, tipografia de manchete e um
+   único fio vermelho. Tudo em @layer components: as utilities do Tailwind têm que continuar vencendo. */
+:root {
+  --fio-lane: clamp(16px, 5vw, 84px);   /* margem lateral da página */
+  --fio-ind: clamp(22px, 2.6vw, 38px);  /* recuo do texto: o fio corre nesse corredor, 9 px para dentro */
+  --fio-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --fio-serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --fio-rule: rgba(20, 20, 26, 0.14);
+}
+
+@layer components {
+  .fio-wrap { max-width: 1280px; margin-inline: auto; padding-inline: var(--fio-lane); }
+
+  /* fundo OPACO: cobre a grade de azulejos que o resto do site desenha no body */
+  .fio-stage { position: relative; background: var(--bg); font-family: var(--fio-serif); font-size: 17px; line-height: 1.55; color: var(--heading); }
+  .fio-stage a { color: inherit; }
+  .fio-in { padding-left: var(--fio-ind); }
+
+  /* o fio */
+  .fio-thread { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; overflow: visible; }
+  .fio-thread path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .fio-thread [data-part="shadow"] { stroke: rgba(20, 20, 26, 0.2); stroke-width: 2.6; filter: blur(1.6px); transform: translate(1px, 3px); }
+  .fio-thread [data-part="line"] { stroke: var(--red); stroke-width: 2.4; }
+  .fio-thread circle { fill: var(--surface-2); stroke: var(--heading); stroke-width: 1.3; transition: opacity 0.25s; }
+
+  /* tipos */
+  .fio-mono { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text); margin: 0; }
+  .fio-d { font-family: var(--fio-display); font-stretch: 62%; font-weight: 800; line-height: 0.92; letter-spacing: -0.005em; text-wrap: balance; margin: 0; color: var(--heading); }
+  .fio-nowrap { display: inline-block; white-space: nowrap; }
+  .fio-btn { font-family: var(--fio-display); font-stretch: 100%; font-weight: 600; font-size: 15px; line-height: 1.2; background: var(--heading); color: var(--bg); padding: 12px 18px; border: 0; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: background 0.2s; }
+  .fio-stage a.fio-btn { color: var(--bg); }
+  .fio-btn:hover { background: var(--red); }
+  .fio-lnk { font-family: var(--fio-display); font-stretch: 100%; font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 4px; }
+  .fio-lnk:hover { color: var(--red); }
+  .fio-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+
+  /* cabeçalho */
+  .fio-brand { font-family: var(--fio-display); font-stretch: 100%; font-weight: 700; font-size: 15px; color: var(--heading); display: flex; align-items: center; gap: calc(var(--fio-ind) - 18px); white-space: nowrap; }
+  .fio-brand svg { width: 18px; height: 18px; flex: none; }
+  .fio-nav-link { font-family: var(--fio-display); font-stretch: 100%; font-weight: 500; font-size: 14px; color: var(--heading); padding: 8px 10px; background: none; border: 0; transition: color 0.2s; }
+  .fio-nav-link:hover { color: var(--red); }
+
+  /* capa: o post mais recente */
+  .fio-hero > .fio-wrap { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-areas: "head cover" "rest cover"; column-gap: clamp(24px, 4vw, 64px); align-items: center; padding-block: clamp(36px, 7vh, 84px) clamp(48px, 9vh, 110px); min-height: min(72svh, 640px); }
+  .fio-head { grid-area: head; align-self: end; }
+  .fio-rest { grid-area: rest; align-self: start; }
+  .fio-head .fio-mono { margin-bottom: 18px; }
+  .fio-hero h1 { font-size: clamp(2.7rem, 6.9vw, 6.5rem); }
+  .fio-hero h1 a:hover { color: var(--heading); }
+  .fio-lede { max-width: 34em; margin: 26px 0 22px; font-size: 19px; color: var(--text); }
+  .fio-cover { grid-area: cover; margin: 0; aspect-ratio: 1376 / 768; background: var(--surface-2); overflow: hidden; }
+  .fio-cover img, .fio-thumb img, .fio-card-pic img, .fio-hand-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  @media (max-width: 859px) {
+    .fio-hero > .fio-wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "cover" "rest"; min-height: 0; }
+    .fio-cover { margin: 30px 10px 6px var(--fio-ind); }
+  }
+
+  /* seções */
+  .fio-sec { scroll-margin-top: calc(var(--header-h) + 8px); }
+  .fio-sec > .fio-wrap { padding-block: clamp(44px, 8vh, 96px); }
+  .fio-sec h2 { font-size: clamp(2.1rem, 4.6vw, 4.1rem); }
+  .fio-lead { max-width: 30em; margin: 16px 0 0; font-size: 20px; font-style: italic; color: var(--text); text-wrap: pretty; }
+
+  /* puxe um fio */
+  .fio-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 10px; }
+  .fio-chip { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; background: none; border: 1px solid var(--fio-rule); padding: 8px 11px; cursor: pointer; color: var(--text); transition: border-color 0.2s, color 0.2s; }
+  .fio-chip:hover { border-color: var(--heading); color: var(--heading); }
+  .fio-chip[aria-pressed="true"] { background: var(--red); border-color: var(--red); color: #fff; }
+  .fio-rows { list-style: none; margin: 0; padding: 0; }
+  .fio-row { border-top: 1px solid var(--fio-rule); transition: opacity 0.35s; }
+  .fio-row > a { display: grid; grid-template-columns: 92px minmax(0, 1fr) clamp(96px, 17vw, 220px); gap: clamp(12px, 2.4vw, 34px); align-items: start; padding: 20px 0 22px; }
+  .fio-row h3 { font-family: var(--fio-display); font-stretch: 68%; font-weight: 750; font-size: clamp(1.35rem, 2.7vw, 2.25rem); line-height: 1; margin: 0; text-wrap: balance; color: var(--heading); transition: transform 0.3s; }
+  .fio-row p { margin: 8px 0 0; color: var(--text); max-width: 40em; font-size: 16px; }
+  .fio-when { padding-top: 6px; display: block; }
+  .fio-when b { color: var(--red); font-weight: 500; }
+  .fio-thumb { aspect-ratio: 16 / 9; background: var(--surface-2); overflow: hidden; display: block; }
+  .fio-thumb img { transition: transform 0.5s; }
+  .fio-row > a:hover h3 { transform: translateX(6px); }
+  .fio-row > a:hover .fio-thumb img { transform: scale(1.05); }
+  .fio-row.is-off { opacity: 0.34; }
+  .fio-row.is-off > a { padding: 9px 0; }
+  .fio-row.is-off h3 { font-size: 17px; font-stretch: 80%; font-weight: 600; }
+  .fio-row.is-off p, .fio-row.is-off .fio-thumb { display: none; }
+  .fio-more { margin-top: 26px; display: inline-block; }
+  @media (max-width: 640px) {
+    .fio-row > a { grid-template-columns: minmax(0, 1fr) 92px; }
+    .fio-when { grid-column: 1 / -1; padding: 0; }
+    .fio-row p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  }
+
+  /* faça a conta */
+  .fio-tools .fio-in { padding-right: var(--fio-ind); }
+  .fio-bench { margin-top: 34px; background: var(--surface-2); border: 1px solid var(--fio-rule); padding: clamp(16px, 2.4vw, 28px) 0 clamp(14px, 2vw, 22px); }
+  .fio-bench-top, .fio-ctl, .fio-fine { padding-inline: clamp(16px, 2.4vw, 28px); }
+  .fio-bench-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; align-items: flex-start; }
+  .fio-res { font-family: var(--fio-display); font-stretch: 62%; font-weight: 800; font-size: clamp(2.4rem, 5.4vw, 4.6rem); line-height: 0.95; font-variant-numeric: tabular-nums; margin-top: 8px; }
+  .fio-res-text { margin: 6px 0 0; color: var(--text); min-height: 1.55em; }
+  .fio-chart { position: relative; height: clamp(180px, 30vw, 300px); margin: 8px 0 0; background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--fio-rule) calc(25% - 1px) 25%); }
+  .fio-plot { position: absolute; inset: 24px 0 10px; }
+  .fio-cp { position: absolute; width: 0; height: 0; transition: top 0.25s ease-out; }
+  .fio-cp span { position: absolute; top: 12px; left: 0; transform: translateX(-50%); white-space: nowrap; }
+  .fio-cp:first-child span { transform: none; left: 8px; }
+  .fio-cp:last-child span { transform: translateX(-100%); left: -8px; }
+  .fio-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 34px; margin-top: 38px; align-items: end; }
+  .fio-field { min-width: 0; }
+  .fio-field-top { display: flex; justify-content: space-between; gap: 12px; }
+  .fio-field-top output { color: var(--heading); }
+  .fio-ctl input[type="range"] { width: 100%; accent-color: var(--red); margin: 8px 0 0; }
+  .fio-fine { font-size: 14px; color: var(--muted); margin: 14px 0 0; }
+  .fio-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(16px, 2.4vw, 30px); margin-top: clamp(16px, 2.4vw, 30px); }
+  .fio-card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); background: var(--surface-2); border: 1px solid var(--fio-rule); min-width: 0; }
+  .fio-card-pic { aspect-ratio: 4 / 3.4; overflow: hidden; }
+  .fio-card-pic img { transition: transform 0.5s; }
+  .fio-card:hover .fio-card-pic img { transform: scale(1.05); }
+  .fio-card-tx { padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .fio-card h3 { font-family: var(--fio-display); font-stretch: 68%; font-weight: 750; font-size: 26px; line-height: 1; margin: 0; color: var(--heading); }
+  .fio-card p { margin: 0; color: var(--text); font-size: 16px; }
+  .fio-card-go { margin-top: auto; font-family: var(--fio-display); font-stretch: 100%; font-weight: 600; font-size: 14px; }
+  .fio-card:hover .fio-card-go { color: var(--red); }
+
+  /* 22 anos numa linha só */
+  .fio-stats { display: flex; flex-wrap: wrap; gap: 6px 30px; margin-top: 22px; }
+  .fio-stats b { font-family: var(--fio-display); font-stretch: 62%; font-weight: 800; font-size: 27px; color: var(--heading); letter-spacing: 0; margin-right: 6px; text-transform: none; }
+  .fio-career { position: relative; height: 380px; margin: 54px 9px 0 0; list-style: none; padding: 0; }
+  .fio-kp { position: absolute; width: 0; height: 0; left: calc(120px + (100% - 120px) * var(--f)); top: calc(310px - 240px * var(--lv)); }
+  .fio-kp-lb { position: absolute; width: 168px; line-height: 1.15; left: 10px; top: 12px; }
+  .fio-kp-lb b { display: block; font-family: var(--fio-display); font-stretch: 75%; font-weight: 700; font-size: 17px; color: var(--heading); }
+  .fio-kp-lb small { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text); }
+  .fio-kp.is-up .fio-kp-lb { left: auto; right: 10px; top: auto; bottom: 12px; text-align: right; }
+  .fio-kp.is-end .fio-kp-lb { left: auto; right: 10px; text-align: right; }
+  @media (max-width: 859px) {
+    .fio-career { height: calc(var(--n) * 72px); margin-right: 0; }
+    .fio-kp { left: calc(9px - var(--fio-ind)); top: calc(var(--i) * 72px + 16px); }
+    .fio-kp .fio-kp-lb, .fio-kp.is-up .fio-kp-lb, .fio-kp.is-end .fio-kp-lb { left: 22px; right: auto; top: -11px; bottom: auto; width: calc(100vw - var(--fio-lane) * 2 - 40px); text-align: left; }
+  }
+
+  /* quem puxa o fio */
+  .fio-hand { position: relative; margin: clamp(40px, 7vh, 80px) var(--fio-ind) 0; }
+  .fio-hand-pic { aspect-ratio: 4 / 3; overflow: hidden; background: var(--surface-2); }
+  .fio-hand-a { margin-top: 22px; }
+  .fio-hand-b p { margin: 12px 0 18px; max-width: 27em; color: var(--text); }
+  @media (min-width: 860px) {
+    .fio-hand-pic { aspect-ratio: 21 / 8.6; }
+    .fio-hand-pic img { transform: scaleX(-1); } /* a mão vai para a esquerda e o fio da foto sai pela direita, onde o fio da página chega */
+    .fio-hand-a, .fio-hand-b { position: absolute; left: 47%; right: 5%; margin: 0; }
+    .fio-hand-a { bottom: 57%; }
+    .fio-hand-b { top: 55%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fio-row, .fio-row h3, .fio-thumb img, .fio-card-pic img, .fio-cp, .fio-thread circle { transition: none; }
+  }
+}

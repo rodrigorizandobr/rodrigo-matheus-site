@@ -17,6 +17,8 @@ describe('routeFor — o mínimo de roteamento que o site precisa', () => {
     ['/vivendo-de-imoveis/', '', { page: 'planner', slug: null }],
     ['/previdencia-privada', '', { page: 'pension', slug: null }],
     ['/previdencia-privada/', '', { page: 'pension', slug: null }],
+    ['/curriculo', '', { page: 'curriculo', slug: null }],
+    ['/curriculo/', '', { page: 'curriculo', slug: null }],
     ['/qualquer-coisa', '', { page: 'home', slug: null }],
   ])('%s%s', (path, hash, expected) => {
     expect(routeFor(path, hash)).toEqual(expected)
@@ -29,6 +31,9 @@ describe('routeFor — o mínimo de roteamento que o site precisa', () => {
   })
   it('/vivendo-de-imoveis-x não é /vivendo-de-imoveis — só o caminho exato abre o simulador', () => {
     expect(routeFor('/vivendo-de-imoveis-x', '')).toEqual({ page: 'home', slug: null })
+  })
+  it('/curriculo-x não é /curriculo — só o caminho exato abre o currículo', () => {
+    expect(routeFor('/curriculo-x', '')).toEqual({ page: 'home', slug: null })
   })
   it('/previdencia-privada-x não é /previdencia-privada — só o caminho exato abre o simulador', () => {
     expect(routeFor('/previdencia-privada-x', '')).toEqual({ page: 'home', slug: null })

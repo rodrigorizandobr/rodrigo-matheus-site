@@ -49,29 +49,12 @@ describe('menu mobile — o botão de fechar não pode sumir', () => {
   })
 })
 
-describe('menu mobile — os links precisam funcionar em qualquer página', () => {
-  it('na home, o link rola a página sem navegar', async () => {
-    const menu = await abrirMenu()
-    const link = within(menu).getByRole('link', { name: /sobre|about/i })
-    expect(link).toHaveAttribute('href', '#about')
-    await userEvent.click(link)
-    expect(scrollToId).toHaveBeenCalledWith('about')
-  })
-
-  it('FORA da home o link aponta para /#secao — senão o clique não faz nada', async () => {
-    irPara('/blog')
-    const menu = await abrirMenu()
-    expect(within(menu).getByRole('link', { name: /sobre|about/i })).toHaveAttribute('href', '/#about')
-  })
-
-  it('fora da home o clique NÃO é interceptado: deixa o navegador navegar', async () => {
-    irPara('/blog')
-    const menu = await abrirMenu()
-    const link = within(menu).getByRole('link', { name: /sobre|about/i })
-    const evento = new MouseEvent('click', { bubbles: true, cancelable: true })
-    link.dispatchEvent(evento)
-    expect(evento.defaultPrevented).toBe(false)
-    expect(scrollToId).not.toHaveBeenCalled()
+describe('navegação — blog, utilitários e currículo, em qualquer página', () => {
+  it('a marca leva à home e é o ponto de onde o fio condutor sai', () => {
+    r()
+    const marca = within(screen.getByRole('banner')).getByRole('link', { name: /Rodrigo Matheus/ })
+    expect(marca).toHaveAttribute('href', '/')
+    expect(marca.querySelector('[data-fio="mark"]')).not.toBeNull()
   })
 
   it('o link do blog leva ao blog em qualquer página', async () => {
@@ -79,11 +62,32 @@ describe('menu mobile — os links precisam funcionar em qualquer página', () =
     expect(within(menu).getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
   })
 
-  it('a navegação do desktop segue a mesma regra', () => {
+  it('o currículo tem página própria: as seções de carreira saíram da home', async () => {
     irPara('/blog')
+    const menu = await abrirMenu()
+    expect(within(menu).getByRole('link', { name: /currículo|résumé/i })).toHaveAttribute('href', '/curriculo')
+  })
+
+  it('os links são do navegador: nada de rolagem interceptada', async () => {
+    const menu = await abrirMenu()
+    const link = within(menu).getByRole('link', { name: /currículo|résumé/i })
+    const evento = new MouseEvent('click', { bubbles: true, cancelable: true })
+    link.dispatchEvent(evento)
+    expect(evento.defaultPrevented).toBe(false)
+    expect(scrollToId).not.toHaveBeenCalled()
+  })
+
+  it('a navegação do desktop tem os mesmos destinos', () => {
     r()
     const nav = screen.getAllByRole('navigation', { name: 'Sections' })[0]
-    expect(within(nav).getByRole('link', { name: /sobre|about/i })).toHaveAttribute('href', '/#about')
+    expect(within(nav).getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
+    expect(within(nav).getByRole('link', { name: /currículo|résumé/i })).toHaveAttribute('href', '/curriculo')
+    expect(within(nav).getByRole('link', { name: /LinkedIn/ })).toHaveAttribute('href', expect.stringContaining('linkedin.com/in/'))
+  })
+
+  it('o cabeçalho é opaco: o fio passa por baixo dele sem aparecer', () => {
+    r()
+    expect(screen.getByRole('banner').className).toMatch(/\bbg-bg\b/)
   })
 })
 
@@ -91,14 +95,14 @@ describe('Utilitários — submenu de formulários avulsos', () => {
   it('no desktop, "Utilitários" não navega sozinho; o submenu tem Vivendo de Imóveis e Previdência Privada', () => {
     r()
     const nav = screen.getAllByRole('navigation', { name: 'Sections' })[0]
-    expect(within(nav).getByRole('button', { name: /utilitários/i })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: /utilitários|tools/i })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
     expect(within(nav).getByRole('link', { name: /previdência privada/i })).toHaveAttribute('href', '/previdencia-privada')
   })
 
   it('no menu mobile, os itens de Utilitários entram direto, sem precisar de hover', async () => {
     const menu = await abrirMenu()
-    expect(within(menu).getByText(/utilitários/i)).toBeInTheDocument()
+    expect(within(menu).getByText(/^(utilitários|tools)$/i)).toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: /vivendo de imóveis/i })).toHaveAttribute('href', '/vivendo-de-imoveis')
     expect(within(menu).getByRole('link', { name: /previdência privada/i })).toHaveAttribute('href', '/previdencia-privada')
   })

@@ -2,19 +2,23 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '../../i18n/useI18n'
 import { gaEvt } from '../../analytics/ga'
-import { scrollToId } from '../../motion/lenis'
+import { LINKEDIN } from '../../home/links'
 import { isSoundOn, playConfirm, playTick, setSoundOn } from '../../motion/sound'
 
-const SECTIONS = ['about', 'experience', 'projects', 'education', 'contact'] as const
-
-/** Formulários avulsos, fora das seções da home. Mais um entra aqui, não vira seção nova. */
+/** Formulários avulsos. Mais um entra aqui, não vira item novo no cabeçalho. */
 const UTILS = [
   { label: 'Vivendo de Imóveis', href: '/vivendo-de-imoveis' },
   { label: 'Previdência Privada', href: '/previdencia-privada' },
 ]
 
+/**
+ * Cabeçalho do site v4: blog, utilitários, currículo. A marca `//` é o ponto de onde o fio condutor
+ * sai (`data-fio="mark"`), e o fundo é OPACO de propósito — o fio passa por baixo sem aparecer.
+ * Todo link navega de verdade: não há mais seção da home para rolar até ela.
+ */
 export function Header() {
   const { t, lang, setLang } = useI18n()
+  const n = t.home.nav
   const [open, setOpen] = useState(false)
   const [sound, setSound] = useState(false)
   useEffect(() => setSound(isSoundOn()), [])
@@ -27,42 +31,37 @@ export function Header() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Fechar a folha ao trocar de página (o link do blog navega de verdade).
   useEffect(() => {
     const onNav = () => setOpen(false)
     window.addEventListener('popstate', onNav)
     return () => window.removeEventListener('popstate', onNav)
   }, [])
 
-  /**
-   * Âncora de seção só existe na home. No blog e no painel o `#about` não casa com
-   * nada, e o clique morria em silêncio — o menu fechava e a página ficava parada.
-   * Fora da home o link vira `/#about` e a navegação é do NAVEGADOR, não nossa.
-   */
-  const onHome = typeof window === 'undefined' || window.location.pathname.replace(/\/+$/, '') === ''
-  const hrefFor = (id: string) => (onHome ? `#${id}` : `/#${id}`)
-
-  const go = (id: string) => { gaEvt('nav_click', { target: `#${id}` }); playConfirm(); setOpen(false); scrollToId(id) }
+  // Na home o cabeçalho usa a mesma coluna da página: a marca `//` tem que cair exatamente sobre o fio.
+  // Nas outras páginas ele acompanha a largura do conteúdo delas.
+  const onHome = typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === ''
   const toggleLang = () => { gaEvt('language_switch', { to_language: next }); setLang(next) }
-
-  const links = (cls: string) => (
-    <>
-      {SECTIONS.map((id) => (
-        <a key={id} href={hrefFor(id)} className={cls}
-           onPointerEnter={playTick}
-           onClick={onHome ? (e) => { e.preventDefault(); go(id) } : () => setOpen(false)}>{t.nav[id]}</a>
-      ))}
-      <a href="/blog/" onClick={() => { gaEvt('nav_click', { target: '/blog' }); setOpen(false) }} className={cls}>Blog</a>
-    </>
-  )
+  const pages = [
+    { label: n.blog, href: '/blog/' },
+    { label: n.resume, href: '/curriculo' },
+  ]
+  const visit = (href: string) => () => { gaEvt('nav_click', { target: href }); setOpen(false) }
+  const sheetLink = 'panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-["▶"] after:text-red after:text-[10px]'
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/90">
-      <div className="w-[min(var(--max),96vw)] mx-auto h-14 flex items-center justify-between gap-3">
-        <a href="/" className="font-mono text-sm text-heading">rodrigo<span className="text-red">_</span>matheus</a>
-        <nav className="hidden md:flex items-center gap-1" aria-label="Sections">
-          {links('hud-label px-3 py-2 hover:text-red transition-colors')}
-          <UtilsMenu linkCls="hud-label px-3 py-2 hover:text-red transition-colors" />
+    <header className="sticky top-0 z-50 border-b border-line/70 bg-bg">
+      <div className={`${onHome ? 'fio-wrap' : 'w-[min(var(--max),96vw)] mx-auto'} h-14 flex items-center justify-between gap-3`}>
+        <a href="/" className="fio-brand" aria-label="Rodrigo Matheus">
+          <svg data-fio="mark" viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M3 16 8 2M10 16 15 2" stroke="var(--red)" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+          </svg>
+          <span className="max-sm:hidden">Rodrigo Matheus</span>
+        </a>
+        <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Sections">
+          <a href={pages[0].href} onClick={visit(pages[0].href)} onPointerEnter={playTick} className="fio-nav-link">{pages[0].label}</a>
+          <UtilsMenu label={n.tools} />
+          <a href={pages[1].href} onClick={visit(pages[1].href)} onPointerEnter={playTick} className="fio-nav-link">{pages[1].label}</a>
+          <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" onPointerEnter={playTick} className="fio-nav-link">LinkedIn ↗</a>
         </nav>
         <div className="flex items-center gap-2">
           <button type="button" aria-label={t.nav_menu.sound} aria-pressed={sound}
@@ -79,8 +78,8 @@ export function Header() {
           </button>
         </div>
       </div>
-      {/* Portalled: the header's backdrop-filter would otherwise become the containing block of this
-          fixed sheet and clip it to the header's height.
+      {/* A folha sai por portal para o <body>: um ancestral com filtro viraria o bloco de contenção de
+          um `fixed` e a cortaria na altura do cabeçalho.
 
           NÃO travamos a rolagem do documento aqui. `overflow: hidden` no <html> DESGRUDA este header
           `sticky`: com a página rolada ele saltava para a sua posição estática, fora da tela, levando
@@ -91,14 +90,10 @@ export function Header() {
              className="md:hidden fixed inset-x-0 bottom-0 z-[60] bg-bg/85 backdrop-blur-2xl overscroll-contain overflow-y-auto"
              style={{ top: 'var(--header-h)' }}>
           <nav aria-label="Sections" className="w-[min(var(--max),94vw)] mx-auto pt-4 pb-10 flex flex-col gap-2">
-            {links('panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-["▶"] after:text-red after:text-[10px]')}
-            <div className="hud-label px-4 pt-3 pb-1">Utilitários</div>
-            {UTILS.map((u) => (
-              <a key={u.href} href={u.href} onClick={() => setOpen(false)}
-                 className="panel px-4 py-4 font-display font-semibold uppercase tracking-wider text-heading text-[14px] flex items-center justify-between after:content-['▶'] after:text-red after:text-[10px]">
-                {u.label}
-              </a>
-            ))}
+            {pages.map((p) => <a key={p.href} href={p.href} onClick={visit(p.href)} className={sheetLink}>{p.label}</a>)}
+            <div className="hud-label px-4 pt-3 pb-1">{n.tools}</div>
+            {UTILS.map((u) => <a key={u.href} href={u.href} onClick={() => setOpen(false)} className={sheetLink}>{u.label}</a>)}
+            <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={`${sheetLink} mt-3`}>LinkedIn</a>
             {/* Saída própria da folha: o X do cabeçalho pode sair de vista em telas curtas. */}
             <button type="button" onClick={() => setOpen(false)}
                     className="chip !h-11 mt-2 justify-center font-display font-semibold text-[11px] uppercase tracking-wider">
@@ -113,27 +108,23 @@ export function Header() {
 }
 
 /**
- * "Utilitários" é um rótulo, não um link — só abre o submenu. Some ao mouse E ao
- * teclado (`group-focus-within`, sem JS): tabular até o primeiro item mantém o
- * menu aberto, igual passar o mouse. Só existe no nav de desktop; no menu mobile
- * (`open && createPortal`, acima) os itens entram direto, sem hover para abrir.
+ * "Utilitários" é um rótulo, não um link — só abre o submenu. Abre ao mouse E ao teclado
+ * (`group-focus-within`, sem JS): tabular até o primeiro item mantém o menu aberto. Só existe no nav
+ * de desktop; no menu mobile os itens entram direto, sem hover para abrir.
  */
-function UtilsMenu({ linkCls }: { linkCls: string }) {
+function UtilsMenu({ label }: { label: string }) {
   return (
     <div className="relative group/utils">
-      <button type="button" aria-haspopup="true" className={`${linkCls} flex items-center gap-1 cursor-default`}>
-        Utilitários
+      <button type="button" aria-haspopup="true" className="fio-nav-link flex items-center gap-1 cursor-default">
+        {label}
         <span aria-hidden="true" className="text-[9px] translate-y-px">▾</span>
       </button>
       <div className="absolute left-0 top-full pt-2 opacity-0 invisible -translate-y-1 transition-all duration-150
                       group-hover/utils:opacity-100 group-hover/utils:visible group-hover/utils:translate-y-0
                       group-focus-within/utils:opacity-100 group-focus-within/utils:visible group-focus-within/utils:translate-y-0">
-        <div className="panel hud-frame min-w-[200px] py-1.5">
+        <div className="min-w-[210px] py-1.5 bg-surface border border-line shadow-[0_14px_40px_rgba(20,20,26,.12)]">
           {UTILS.map((u) => (
-            <a key={u.href} href={u.href} onPointerEnter={playTick}
-               className="block px-4 py-2.5 hud-label hover:text-red transition-colors whitespace-nowrap">
-              {u.label}
-            </a>
+            <a key={u.href} href={u.href} onPointerEnter={playTick} className="fio-nav-link block !px-4 !py-2.5 whitespace-nowrap">{u.label}</a>
           ))}
         </div>
       </div>

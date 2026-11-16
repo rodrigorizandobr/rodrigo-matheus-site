@@ -9,12 +9,21 @@ const STORAGE_KEY = 'lang' // same key the current site (and its GA events) use
 
 const isLang = (v: unknown): v is Lang => v === 'en' || v === 'pt'
 
+/** Sem escolha salva vale o idioma do navegador: o blog é a capa do site e o leitor chega do LinkedIn Brasil. */
+function browserLang(): Lang {
+  try {
+    return /^pt\b/i.test(navigator.language || '') ? 'pt' : 'en'
+  } catch {
+    return 'en'
+  }
+}
+
 function readStoredLang(): Lang {
   try {
     const v = localStorage.getItem(STORAGE_KEY)
-    return isLang(v) ? v : 'en'
+    return isLang(v) ? v : browserLang()
   } catch {
-    return 'en'
+    return browserLang()
   }
 }
 

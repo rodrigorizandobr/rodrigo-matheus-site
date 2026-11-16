@@ -79,3 +79,18 @@ export const playConfirm = () => {
   blip({ freq: 660, duration: 0.09, peak: 0.05 })
   setTimeout(() => blip({ freq: 990, duration: 0.12, peak: 0.035 }), 55)
 }
+
+/** Escala pentatônica: qualquer sequência de cordas dedilhadas soa bem junta. */
+const PLUCK_SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24]
+const PLUCK_LONGEST = 900
+
+/** Trecho curto de fio = corda curta = nota aguda. Acima de 900 px todo trecho soa como o mais grave. */
+export function pluckFrequency(lengthPx: number): number {
+  const shortness = 1 - Math.min(Math.max(lengthPx, 0), PLUCK_LONGEST) / PLUCK_LONGEST
+  return 146.83 * Math.pow(2, PLUCK_SCALE[Math.round(shortness * (PLUCK_SCALE.length - 1))] / 12)
+}
+
+/** O ponteiro dedilhou um trecho do fio condutor. `strength` é a velocidade do cruzamento. */
+export const playPluck = (lengthPx: number, strength: number) =>
+  blip({ freq: pluckFrequency(lengthPx), duration: 0.9, peak: Math.min(0.14, 0.035 + Math.abs(strength) * 0.006), type: 'triangle' })
+
