@@ -71,6 +71,13 @@ class TestGerar:
         with pytest.raises(service.NoTopicError, match="termo vigiado"):
             service.generate(None, now=utc(2026, 9, 14, 21))
 
+    def test_exigindo_noticia__sem_material_nao_escreve_do_curriculo(self, env, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
+        store.save_config({"news_terms": ["OpenAI"]})
+        with pytest.raises(service.NoResearchError, match="OpenAI"):
+            service.generate(None, now=utc(2026, 9, 14, 21), require_news=True)
+        assert env["gerou"] == [] and store.list_posts() == []
+
 
 class TestTickDoAgendador:
     def test_publica_os_vencidos(self, env):
@@ -391,8 +398,9 @@ class TestCompartilharNoLinkedIn:
 class TestGarantirPostNoLinkedin:
     """Pedido do PO, 2026-11-06: nenhum dia de compartilhar pode ficar em branco.
 
-    Fila vazia → rascunho pronto (publica e compartilha) → post novo (reflexão, sem
-    vídeo nem foto de banco, para nunca esbarrar na autorização que só o autor dá)."""
+    Fila vazia → rascunho pronto (publica e compartilha) → post novo, que nunca esbarra na
+    autorização que só o autor dá: NOTÍCIA sem vídeo nem foto de terceiro (2026-11-17) e,
+    se a notícia não sair, reflexão."""
 
     def _com_token(self, monkeypatch, urn="urn:li:share:1"):
         monkeypatch.setattr(service.linkedin, "get_auth", lambda: {"accessToken": "t", "personUrn": "p"})
@@ -442,20 +450,61 @@ class TestGarantirPostNoLinkedin:
         assert gerado["id"] != com_foto["id"]
         assert store.get_post(com_foto["id"])["status"] == "draft"
 
-    def test_sem_fila_e_sem_rascunho__escreve_publica_e_compartilha(self, env, monkeypatch):
+    def _com_noticia(self, monkeypatch):
+        monkeypatch.setattr(service.research, "search_web",
+                            lambda q: service.research.Research(context="matéria da semana"))
+
+    @staticmethod
+    def _proibido(o_que):
+        return lambda *a, **k: (_ for _ in ()).throw(AssertionError(f"não deveria {o_que}"))
+
+    def test_sem_fila_e_sem_rascunho__escreve_NOTICIA_sem_nada_de_terceiro_e_compartilha(self, env, monkeypatch):
+        """Pedido do PO, 2026-11-17: a reserva escrevia reflexão do currículo, e como a fila vivia
+        vazia (toda notícia esperava autorização de vídeo ou foto) o LinkedIn só recebia currículo."""
         enviados = self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        monkeypatch.setattr(service.videos, "search_candidates", self._proibido("buscar vídeo"))
+        monkeypatch.setattr(service.photos, "find", self._proibido("buscar foto de terceiro"))
+        monkeypatch.setattr(service.gemini, "generate_reflection", self._proibido("escrever reflexão"))
+        store.save_config({"news_terms": ["OpenAI"], "auto_publish": False})
+        resultado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert env["gerou"] == ["OpenAI"]
+        assert resultado["generation"]["source"] == "news"
+        assert resultado["status"] == "published", "a reserva publica na hora, com ou sem auto_publish"
+        assert resultado["linkedinPostedAt"] is not None
+        assert resultado["image"]["provider"] == "gemini", "capa da casa, nunca foto de terceiro"
+        assert enviados[0]["texto"]
+
+    def test_reserva_sem_material_de_noticia__cai_na_reflexao(self, env, monkeypatch):
+        """Sem notícia, a reserva não escreve sobre o termo vigiado a partir do currículo:
+        carreira como material é o formato da reflexão."""
+        enviados = self._com_token(monkeypatch)
+        monkeypatch.setattr(service.research, "search_web", lambda q: service.research.Research())
         recebido = {}
         monkeypatch.setattr(service.gemini, "generate_reflection",
                             lambda theme, context, avoid_titles=None, avoid_covers=None:
                             (recebido.update(theme=theme) or dict(DRAFT)))
-        monkeypatch.setattr(service.videos, "search_candidates",
-                            lambda *a, **k: (_ for _ in ()).throw(AssertionError("não deveria buscar vídeo")))
-        store.save_config({"reflection_topics": ["liderar quem sabe mais do que você"]})
+        monkeypatch.setattr(service.videos, "search_candidates", self._proibido("buscar vídeo"))
+        store.save_config({"news_terms": ["OpenAI"], "reflection_topics": ["liderar quem sabe mais do que você"]})
         resultado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert env["gerou"] == [], "notícia sem material não é escrita"
+        assert resultado["generation"]["source"] == "reflection"
         assert resultado["status"] == "published"
         assert resultado["linkedinPostedAt"] is not None
         assert recebido["theme"]
         assert enviados[0]["texto"]
+
+    def test_reserva_com_a_noticia_falhando__cai_na_reflexao(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda *a, **k: (_ for _ in ()).throw(service.gemini.GeminiError("cota")))
+        monkeypatch.setattr(service.gemini, "generate_reflection",
+                            lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
+        store.save_config({"news_terms": ["OpenAI"], "reflection_topics": ["t"]})
+        resultado = service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
+        assert resultado["generation"]["source"] == "reflection"
+        assert resultado["linkedinPostedAt"] is not None
 
     def test_sem_fila_sem_rascunho_e_sem_tema_de_reflexao__erro_explicado(self, env, monkeypatch):
         self._com_token(monkeypatch)
@@ -463,18 +512,72 @@ class TestGarantirPostNoLinkedin:
         with pytest.raises(service.NoTopicError, match="reflex"):
             service.ensure_linkedin_share(now=utc(2026, 9, 15, 12))
 
-    def test_tick_nao_gera_duas_vezes_quando_a_reserva_entra_no_mesmo_dia(self, env, monkeypatch):
-        """Fila e rascunho vazios, dia de gerar E de compartilhar: a reserva do LinkedIn já
-        conta como a geração do dia — gerar de novo faria dois posts na mesma batida."""
+    def test_tick_escreve_a_noticia_do_dia_ANTES_de_compartilhar(self, env, monkeypatch):
+        """Nada pronto para o LinkedIn, dia de gerar E de compartilhar: a notícia do dia é escrita
+        primeiro. Saiu publicável → é ela que vai, e ninguém gera uma segunda vez.
+
+        Antes a reserva rodava na frente e contava como a geração do dia: a notícia nem era escrita."""
         self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection", self._proibido("escrever reflexão"))
+        store.save_config({"linkedin_enabled": True, "auto_publish": True, "generate_weekdays": [0],
+                           "generate_hour": 6, "news_terms": ["t1", "t2"]})
+        resultado = service.tick(now=utc(2026, 9, 14, 12))  # segunda, 9h SP
+        assert resultado["generated"] == 1
+        assert resultado["shared"] == 1
+        assert "geração" not in resultado["error"] and "linkedin" not in resultado["error"]
+        posts = store.list_posts()
+        assert len(posts) == 1 and env["gerou"] == ["t1"]
+        assert posts[0]["generation"]["source"] == "news"
+        assert posts[0]["linkedinPostedAt"] is not None
+
+    def test_tick_noticia_presa_em_rascunho__a_reserva_escreve_OUTRA_noticia(self, env, monkeypatch):
+        """Decisão do PO, 2026-11-17 ("notícia dupla"): a notícia do dia achou vídeo e espera a
+        autorização do autor; a reserva escreve uma segunda, sem nada de terceiro, e é essa que vai."""
+        self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        monkeypatch.setattr(service.gemini, "generate_reflection", self._proibido("escrever reflexão"))
+        monkeypatch.setattr(service.videos, "search_candidates", lambda q, **k: [
+            service.videos.VideoResult(title="Vídeo", url="https://youtu.be/x", channel="Canal")])
+        store.save_config({"linkedin_enabled": True, "auto_publish": True, "generate_weekdays": [0],
+                           "generate_hour": 6, "news_terms": ["t1", "t2"]})
+        resultado = service.tick(now=utc(2026, 9, 14, 12))
+        assert resultado["generated"] == 1
+        assert resultado["shared"] == 1
+        assert env["gerou"] == ["t1", "t2"], "a segunda notícia é de outro termo vigiado"
+        por_tema = {p["topic"]: p for p in store.list_posts()}
+        assert por_tema["t1"]["status"] == "draft" and por_tema["t1"]["clip"], "espera a autorização do autor"
+        assert por_tema["t1"]["linkedinPostedAt"] is None
+        assert por_tema["t2"]["status"] == "published" and not por_tema["t2"].get("clip")
+        assert por_tema["t2"]["linkedinPostedAt"] is not None
+
+    def test_tick_com_post_na_fila__compartilha_o_da_fila_e_a_noticia_do_dia_sai_depois(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        store.save_config({"linkedin_enabled": True, "auto_publish": True, "generate_weekdays": [0],
+                           "generate_hour": 6, "news_terms": ["t1"]})
+        antigo = service.generate("já publicado", now=utc(2026, 9, 10, 21))
+        resultado = service.tick(now=utc(2026, 9, 14, 12))
+        assert resultado["generated"] == 1 and resultado["shared"] == 1
+        assert store.get_post(antigo["id"])["linkedinPostedAt"] is not None
+        assert env["gerou"] == ["já publicado", "t1"], "uma geração só: a fila já tinha o que mandar"
+
+    def test_tick_noticia_fora_do_ar__a_reflexao_segura_o_dia_e_nada_e_gerado_de_novo(self, env, monkeypatch):
+        self._com_token(monkeypatch)
+        self._com_noticia(monkeypatch)
+        tentativas = []
+        monkeypatch.setattr(service.gemini, "generate_post",
+                            lambda *a, **k: tentativas.append(1) or (_ for _ in ()).throw(service.gemini.GeminiError("cota")))
         monkeypatch.setattr(service.gemini, "generate_reflection",
                             lambda theme, context, avoid_titles=None, avoid_covers=None: dict(DRAFT))
         store.save_config({"linkedin_enabled": True, "generate_weekdays": [0], "generate_hour": 6,
                            "news_terms": ["t"], "reflection_topics": ["t"]})
-        resultado = service.tick(now=utc(2026, 9, 14, 12))  # segunda, 9h SP
+        resultado = service.tick(now=utc(2026, 9, 14, 12))
         assert resultado["shared"] == 1
-        assert resultado["generated"] == 0
-        assert len(store.list_posts()) == 1
+        assert "geração" in resultado["error"] and "cota" in resultado["error"]
+        assert len(tentativas) == 2, "a notícia do dia e a da reserva; a batida não insiste uma terceira vez"
+        posts = store.list_posts()
+        assert len(posts) == 1 and posts[0]["generation"]["source"] == "reflection"
 
     def test_botao_manual_de_fila_nao_cai_para_rascunho_nem_gera(self, env, monkeypatch):
         """`share_next` continua só a fila — é o botão "próximo da fila", não a garantia do tick."""

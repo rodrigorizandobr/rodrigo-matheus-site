@@ -158,7 +158,11 @@ entra no DOM como texto, então não há `dangerouslySetInnerHTML` nem sanitiza�
   `gcloud scheduler jobs update http blog-tick --attempt-deadline=1020s` (senão o Scheduler
   acha que a chamada travou no meio do sleep e DISPARA DE NOVO — gerando ou compartilhando em
   dobro). O `attemptDeadline` não é gerenciado por código, só por este comando manual; se o job
-  for recriado do zero, refaça os dois ajustes juntos. `JITTER_MIN_MINUTES`/`JITTER_MAX_MINUTES`
+  for recriado do zero, refaça os dois ajustes juntos. **Desde 2026-11-17 os dois valem 1500s e
+  1520s**: com a "notícia dupla" (abaixo) a batida pode escrever dois posts depois da espera, e
+  medido nos logs o trabalho de uma batida com geração já passava de 100 s — 900 s de espera +
+  duas gerações estouravam os 1000 s em cerca de 1 dia a cada 6. O teto do Scheduler para alvo
+  HTTP é 1800s. `JITTER_MIN_MINUTES`/`JITTER_MAX_MINUTES`
   moram em `model.py` (são os mesmos números para as três ações), o sorteio em si é do `service`.
 - **Pauta esgotada não gera.** Repetir tema produz post quase igual ao anterior — pior que não publicar.
 - **A página do post é servida pelo Cloud Run**, não por HTML estático: um post que entra no ar
@@ -1255,7 +1259,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   inteiro). O que funcionou em todos os deploys de 2026-11-11/12 — **faça assim, não pelo `./deploy.sh`**:
   1. Mudou `api/`? No **clone em disco local** (ver "Git dentro do Google Drive"), já com o commit:
      `cd api && rm -rf .venv` e
-     `gcloud run deploy portfolio-api --source . --region southamerica-east1 --project rodrigo-matheus --allow-unauthenticated --memory 512Mi --cpu 1 --min-instances 0 --max-instances 2 --timeout 1000 --quiet`.
+     `gcloud run deploy portfolio-api --source . --region southamerica-east1 --project rodrigo-matheus --allow-unauthenticated --memory 512Mi --cpu 1 --min-instances 0 --max-instances 2 --timeout 1500 --quiet`.
      Depois confira que as variáveis de ambiente seguem lá (`gcloud run services describe portfolio-api
      --region southamerica-east1 --project rodrigo-matheus`): nesses deploys as 18 sobreviveram; se
      sumirem, reaplique com o passo `services update` do `deploy.sh`.
@@ -1323,6 +1327,22 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   mesmo `tick`, geraria um SEGUNDO post na mesma batida. O botão manual do painel ("compartilhar o
   próximo da fila") continua em `share_next`, intacto — só a fila, nunca pula para rascunho nem escreve
   post sozinho: é um clique do autor, não a garantia do agendador.
+- **"Notícia dupla": a reserva é NOTÍCIA, e a notícia do dia é escrita ANTES do LinkedIn** (decisão do PO,
+  2026-11-17; `service._reserve_post`, `service._has_something_to_share`, o `gerar()` de `tick`,
+  `TestGarantirPostNoLinkedin`). O PO reparou que o robô só publicava post do currículo. Medido no Firestore: as cinco
+  notícias de 03 a 12/11 acharam vídeo ou foto de terceiro e ficaram em rascunho esperando autorização (7 paradas no
+  painel); a fila do LinkedIn secou em 12/11; em 14 e 17/11 a camada 3 acima escreveu a reflexão, que rodava ANTES da
+  geração e contava como a geração do dia — a notícia nem era escrita, e isso se repetiria para sempre (a reflexão é
+  compartilhada na hora e a fila volta a ficar vazia). O que substitui a descrição da camada 3 e da revalidação acima:
+  (a) dia de gerar e de compartilhar sem nada pronto (fila vazia e nenhum rascunho publicável) → `tick` escreve a
+  notícia do dia PRIMEIRO, pelo caminho normal (busca vídeo e foto); saiu publicável → é ela que vai ao LinkedIn;
+  (b) ficou em rascunho ou agendada → `_reserve_post` escreve OUTRA notícia, do próximo termo do rodízio, com
+  `third_party_media=False` (não busca vídeo nem foto de terceiro; capa da casa direto) e `require_news=True`,
+  publicada na hora; (c) a reflexão virou o último recurso: sem material de pesquisa (`NoResearchError` — a reserva não
+  escreve sobre o termo vigiado a partir do currículo) ou com a notícia falhando. Com a fila cheia nada muda:
+  compartilha o da fila e gera depois. Custo: até duas gerações nesses dias, e os rascunhos com vídeo continuam
+  acumulando até o autor aprovar. `result["generated"]` conta só a notícia do dia, não a da reserva. Por isso o tempo
+  limite subiu para 1500s/1520s (acima). Não validado ao vivo até a primeira batida depois do deploy (19/11/2026, 7h).
 - **O post no LinkedIn leva o TEXTO e a CAPA, não um cartão de link.** `linkedin.share_text` monta
   título, resumo e as seções (título da seção + primeiro parágrafo na mesma unidade) e fecha com
   hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e o post GERADO já nasce
@@ -1345,7 +1365,7 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # ~960 testes
+cd api && source .venv/bin/activate && pytest      # ~1040 testes
 cd web && npm test                                  # 832 testes
 ```
 
