@@ -1342,7 +1342,9 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
   escreve sobre o termo vigiado a partir do currículo) ou com a notícia falhando. Com a fila cheia nada muda:
   compartilha o da fila e gera depois. Custo: até duas gerações nesses dias, e os rascunhos com vídeo continuam
   acumulando até o autor aprovar. `result["generated"]` conta só a notícia do dia, não a da reserva. Por isso o tempo
-  limite subiu para 1500s/1520s (acima). Não validado ao vivo até a primeira batida depois do deploy (19/11/2026, 7h).
+  limite subiu para 1500s/1520s (acima). **Validado ao vivo na batida de 19/11/2026, 7h**: a notícia do dia (Anthropic na Nasdaq) achou vídeo e ficou em
+  rascunho; a reserva escreveu outra notícia (Google e o Gemini Pro), com capa do Runware, publicada e enviada ao
+  LinkedIn no mesmo horário.
 - **O post no LinkedIn leva o TEXTO e a CAPA, não um cartão de link.** `linkedin.share_text` monta
   título, resumo e as seções (título da seção + primeiro parágrafo na mesma unidade) e fecha com
   hashtags + link. O LinkedIn limita a 3000 caracteres (`MAX_TEXT`) e o post GERADO já nasce
@@ -1365,8 +1367,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # ~1040 testes
-cd web && npm test                                  # 832 testes
+cd api && source .venv/bin/activate && pytest      # ~1150 testes
+cd web && npm test                                  # 848 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
@@ -1384,6 +1386,93 @@ síncrono e não precisa.
 num teste, use `monkeypatch.setattr(server, "REFRESH_KEY", ...)`, não `monkeypatch.setenv`.
 
 
+
+## Portaria contra robôs (2026-11-19)
+
+Pedido do PO: "blindar o login do site, cadastro, do admin principalmente, mas também dos forms de utilitários, para que
+tenha recaptcha, proteções contra bots". Decisão dele: pacote completo, **bloqueando desde o primeiro dia**, e sem segundo
+fator próprio no painel (a proteção do `/admin` é a conta Google dele + allowlist + o que está aqui).
+
+**Caixinha de reCAPTCHA não protegeria nada.** O site não tem formulário de senha nem de cadastro (o login é a janela do
+Google), e robô não clica em botão: chama a API direto. O reCAPTCHA entra INVISÍVEL, pelo Firebase App Check: o navegador
+prova que a chamada saiu do site, e o servidor recusa o que chega sem a prova.
+
+Medido antes de mexer: login por e-mail e senha LIGADO no Firebase sem uso nenhum (1 conta no projeto, a do PO, pelo
+Google) — porta de cadastro aberta a qualquer script com a chave pública; nenhum App Check; nenhum limite de requisições
+nem de tamanho de corpo; chave pública do navegador aceitando qualquer origem.
+
+| Peça | Onde | Papel |
+|---|---|---|
+| Prova do navegador | `api/guard/appcheck.py` | Confere o token do App Check (PyJWT + chaves públicas do Firebase): RS256, emissor e destino DESTE projeto, validade, e `sub` = app do site. |
+| Quem pede a prova | `api/guard/policy.py` | Puro. Por PREFIXO: `/api/blog/admin/`, `/api/planner/`, `/api/pension/`. Teto de corpo por rota. |
+| Limite | `api/guard/ratelimit.py` | Puro. Balde de fichas por chave, em memória. |
+| Cola com o Flask | `api/guard/web.py` | `before_request` do app: tamanho → prova → limite por navegador. `account_blocked(uid)` para as rotas. |
+| Só login Google | `blog/auth.py`, `planner/auth.py`, `pension/auth.py` | `firebase.sign_in_provider == "google.com"`, senão 401. |
+| Navegador | `web/src/lib/firebase.ts` | `initializeAppCheck` (reCAPTCHA Enterprise, por pontuação) e `appCheckToken()`. |
+| Clientes da API | `blog/api.ts`, `planner/api.ts`, `pension/api.ts` | Segundo parâmetro OBRIGATÓRIO `getProof`; cabeçalho `X-Firebase-AppCheck`. |
+| Política do site | `firebase.json` + `web/src/lib/csp.test.ts` | A CSP libera o script, a moldura e a troca da prova. |
+
+- **`APP_CHECK_MODE` é a saída de emergência** (variável do Cloud Run, lida em `appcheck.MODE`): ausente = EXIGE; `monitor`
+  deixa passar e registra `[appcheck] passaria a recusar (...)`; `off` desliga. Valor desconhecido exige (erro de digitação
+  não abre a porta). reCAPTCHA fora do ar, ou painel travado por causa dele:
+  `gcloud run services update portfolio-api --update-env-vars APP_CHECK_MODE=monitor --region southamerica-east1 --project rodrigo-matheus`.
+  O `./deploy.sh` usa `--set-env-vars`, que apaga o que não está na lista: um deploy completo volta a exigir sozinho.
+- **Ordem de deploy quando a portaria muda**: servidor primeiro, em `monitor` (ele já devolve o CORS novo e não recusa o
+  site antigo), depois o site, depois tirar a variável. Servidor exigindo antes de o site mandar a prova derruba painel e
+  utilitários; site antes do servidor quebra as operações longas no preflight.
+- **Rota nova do painel já nasce protegida** (o critério é o prefixo). As duas exceções estão em `policy.py`: o `OPTIONS`
+  (preflight não leva cabeçalho próprio) e a volta do LinkedIn (`/api/blog/admin/linkedin/callback`: é o LinkedIn que
+  manda o navegador, quem autoriza é o `state`). Leitura pública, agendador e `/api/refresh` não pedem prova: leitor do
+  blog nem carrega o Firebase, `<video>` não manda cabeçalho, e os dois últimos têm chave própria.
+- **`Access-Control-Allow-Headers` precisa listar `X-Firebase-AppCheck`** (`blog/routes.py`): gerar e revisar post vão
+  direto ao Cloud Run, de outra origem, e sem isso o preflight barra a chamada antes de ela sair. A recusa 403 também leva
+  o cabeçalho de CORS (o `after_request` do blueprint roda mesmo quando o `before_request` do app responde), senão o
+  painel só veria "falha de rede".
+- **O limite NÃO é por IP, de propósito.** O servidor é alcançado por dois caminhos (pelo Hosting e direto no Cloud Run):
+  por um deles quem chama escreve o que quiser no `X-Forwarded-For`, e pelo outro o endereço que chega é o do próprio
+  Hosting. Limite por IP seria burlado ou barraria gente de verdade. As duas chaves não se forjam: o token do App Check
+  (um navegador que passou pelo reCAPTCHA; 240 chamadas/min) e o uid (uma conta Google; 60 gravações de plano/min — o
+  simulador salva sozinho 0,9 s depois da última mudança). Chamada sem prova é recusada sem gastar limite de ninguém.
+- **Os limites moram na memória do processo**: até 2 instâncias, e zeram quando o Cloud Run dorme. Servem para segurar
+  abuso, não para contabilidade.
+- **Tamanho do corpo** (`policy.max_body`, aplicado no `before_request`): 32 KB nos planos, 13 MB no upload (a rota recusa
+  acima de 12 MB com mensagem própria), 1 MB no resto. Antes não havia teto nenhum.
+- **O App Check nasce ANTES do Auth** em `lib/firebase.ts` (`getAppInstance`): é assim que o SDK de login passa a mandar a
+  prova sozinho. Sem a prova, `appCheckToken()` falha e a chamada nem sai; o erro é a MESMA frase que o servidor devolve no
+  403 (`PROOF_FAILED` / `guard.web.NO_PROOF`): recarregar e, se continuar, desligar o bloqueador de anúncios para o site.
+- **Quem pode ser barrado sem ser robô**: navegador ou extensão que bloqueia o reCAPTCHA, e quem não manda `Referer`
+  (a chave pública agora exige). É o custo de "bloqueando já". Reclamação de "não consigo usar o simulador" → comece por aí.
+- **`npm run dev` não fala mais com o painel de verdade**: `localhost` não está na chave do reCAPTCHA, de propósito. Para
+  isso, registrar um token de depuração no console do Firebase (App Check → apps → tokens de depuração) e pôr em
+  `web/.env.local` como `VITE_APPCHECK_DEBUG_TOKEN`; só vale em modo dev. As bancadas (`/dev-admin.html`) não dependem disso.
+- **`conftest.isolate` desliga a prova e zera os limites** para a suíte inteira; `tests/test_guard_web.py` liga de volta
+  com a fixture `exigindo`. `test_guard_appcheck.py` assina tokens DE VERDADE com uma chave gerada na hora — só a busca da
+  chave pública do Google é trocada.
+- **Configuração feita no Google Cloud por API, fora do código** (2026-11-19; se o projeto for recriado, refazer):
+  1. APIs `recaptchaenterprise.googleapis.com` e `firebaseappcheck.googleapis.com` habilitadas.
+  2. Chave de reCAPTCHA `site-app-check` (web, por pontuação), só nos 4 domínios do site. A chave de site é pública e está
+     em `lib/firebase.ts`. `gcloud recaptcha keys list --project rodrigo-matheus`.
+  3. App do site registrado no App Check com essa chave: prova válida por 1 h, nota mínima 0,5
+     (`.../v1/projects/394784830589/apps/<appId>/recaptchaEnterpriseConfig`).
+  4. Login por e-mail e senha DESLIGADO (`signIn.email.enabled = false` no Identity Toolkit). Um `accounts:signUp` por
+     script devolve `OPERATION_NOT_ALLOWED`.
+  5. App Check exigido no login: `.../services/identitytoolkit.googleapis.com` com `enforcementMode: ENFORCED`. Se o
+     login pelo Google parar de funcionar, é aqui que se desfaz primeiro (`UNENFORCED`, mesma chamada).
+  6. Chave do navegador ("Browser key (auto created by Firebase)") restrita por origem aos 4 domínios + `localhost:5173`,
+     mantendo os 27 alvos de API. Estado anterior guardado em `web/.gen/ops/chaves-api-antes-2026-11-19.json`.
+- **Há um segundo app web no mesmo projeto Firebase** (`mkt-place-web`), sem site, sem dados e sem contas. As mudanças de
+  projeto (itens 4 a 6) valem para ele também; `appcheck.APP_IDS` só aceita o app do site, então ele não fala com esta API.
+- **Custo**: 10 mil verificações de reCAPTCHA por mês são gratuitas (por organização); só quem abre `/admin` ou um
+  utilitário gasta uma, a cada hora de uso.
+- **Validado contra a produção**: sem prova, com prova forjada e direto no Cloud Run → 403 `app_check` (painel e os dois
+  utilitários); corpo de 100 KB num plano → 413; leitura pública, sitemap, agendador e volta do LinkedIn inalterados. No
+  Chrome do PO, com o bloqueio ligado, painel e os dois simuladores carregaram (200) — nos registros, as chamadas dele não
+  geraram linha `[appcheck]`, ou seja, a prova real passou pela conferência de assinatura. Chave pública: chamada sem
+  origem e de outro site recusadas. Login: cerca de 8 minutos depois de ligar a exigência, o Firebase passou a responder
+  "Firebase App Check token is invalid" a chamada de login sem a prova (antes disso aceitava: a exigência demora a
+  propagar, não conclua nada no primeiro minuto); a sessão do PO seguiu válida (`accounts:lookup` 200) e, num navegador
+  limpo, "Entrar com Google" abriu a tela de login do Google normalmente. **Não validado: um login novo do começo ao
+  fim** (precisa da conta dele) e a renovação do token depois de uma hora.
 
 ## Segurança de `/api/refresh`
 
