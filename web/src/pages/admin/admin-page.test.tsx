@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../lib/firebase', () => ({
   idToken: async () => 't',
+  appCheckToken: async () => 'prova',
   signInWithGoogle: vi.fn(), signOutUser: vi.fn(),
   watchUser: (cb: (u: { email: string }) => void) => { cb({ email: 'eu@example.com' }); return () => {} },
 }))

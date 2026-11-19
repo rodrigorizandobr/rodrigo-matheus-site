@@ -1,4 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
+import { ReCaptchaEnterpriseProvider, getToken, initializeAppCheck, type AppCheck } from 'firebase/app-check'
 import {
   GoogleAuthProvider, browserLocalPersistence, getAuth, onAuthStateChanged,
   setPersistence, signInWithPopup, signOut, type Auth, type User,
@@ -23,14 +24,49 @@ const config = {
   appId: '1:394784830589:web:98c642029a8168d5cf2d14',
 }
 
+/**
+ * Chave de SITE do reCAPTCHA (pública por desenho, como as de cima). É o reCAPTCHA invisível, por
+ * pontuação: não existe caixinha para marcar. A chave só funciona nos domínios do site.
+ */
+const RECAPTCHA_SITE_KEY = '6LfVXScuAAAAANZ25NW4FFEkknpeZdW1qrh4flz_'
+
+/** A mesma frase que o servidor devolve no 403 (`api/guard/web.py`): a pessoa lê igual nos dois casos. */
+export const PROOF_FAILED =
+  'Não deu para confirmar que este acesso vem do site. Recarregue a página; se continuar, desative o bloqueador de anúncios para este site.'
+
 let app: FirebaseApp | null = null
+let appCheck: AppCheck | null = null
 let auth: Auth | null = null
 
-function getAuthInstance(): Auth {
-  if (!auth) {
-    app = app ?? initializeApp(config)
-    auth = getAuth(app)
+/**
+ * App Check: o navegador passa pelo reCAPTCHA invisível e recebe uma prova de que a chamada sai
+ * DESTE site, num navegador de verdade. A prova vai em toda chamada do painel e dos utilitários
+ * (`appCheckToken`), e o próprio login do Firebase a exige. Robô que chama a API direto não a tem.
+ *
+ * Tem que nascer ANTES do Auth: é assim que o SDK de login passa a mandar a prova sozinho.
+ *
+ * Em `npm run dev` o reCAPTCHA não roda (localhost não está na chave, de propósito). Para usar o
+ * painel de verdade a partir do localhost, registre um token de depuração no console do Firebase
+ * (App Check → apps → gerenciar tokens de depuração) e ponha em `web/.env.local`:
+ * `VITE_APPCHECK_DEBUG_TOKEN=<token>`. Só vale em modo dev; nunca vai para o build.
+ */
+function getAppInstance(): FirebaseApp {
+  if (!app) {
+    app = initializeApp(config)
+    if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+      (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
+        import.meta.env.VITE_APPCHECK_DEBUG_TOKEN
+    }
+    appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true,
+    })
   }
+  return app
+}
+
+function getAuthInstance(): Auth {
+  if (!auth) auth = getAuth(getAppInstance())
   return auth
 }
 
@@ -40,8 +76,21 @@ export async function signInWithGoogle(): Promise<User> {
   await setPersistence(instance, browserLocalPersistence)
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
-  const { user } = await signInWithPopup(instance, provider)
-  return user
+  try {
+    const { user } = await signInWithPopup(instance, provider)
+    return user
+  } catch (err) {
+    throw readable(err)
+  }
+}
+
+/**
+ * O login do Firebase também exige a prova do navegador. Sem ela (reCAPTCHA bloqueado) o SDK devolve
+ * um código que não diz nada a quem está na tela: vira a mesma frase das outras recusas.
+ */
+function readable(err: unknown): Error {
+  if ((err as { code?: string } | null)?.code === 'auth/firebase-app-check-token-is-invalid') return new Error(PROOF_FAILED)
+  return err instanceof Error ? err : new Error(String(err))
 }
 
 export const signOutUser = () => signOut(getAuthInstance())
@@ -57,5 +106,23 @@ export function watchUser(cb: (user: User | null) => void): () => void {
 export async function idToken(): Promise<string> {
   const user = getAuthInstance().currentUser
   if (!user) throw new Error('sessão expirada — entre novamente')
-  return user.getIdToken()
+  try {
+    return await user.getIdToken()
+  } catch (err) {
+    throw readable(err)
+  }
+}
+
+/**
+ * A prova do navegador, para o header X-Firebase-AppCheck. Também buscada a cada chamada: vale uma
+ * hora e o SDK devolve a guardada enquanto ela não vence. Se o reCAPTCHA foi bloqueado (extensão,
+ * navegador de privacidade), a chamada nem sai: o erro já diz à pessoa o que fazer.
+ */
+export async function appCheckToken(): Promise<string> {
+  getAppInstance()
+  try {
+    return (await getToken(appCheck as AppCheck, false)).token
+  } catch {
+    throw new Error(PROOF_FAILED)
+  }
 }

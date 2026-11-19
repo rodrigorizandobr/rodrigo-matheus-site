@@ -12,7 +12,8 @@ def allowlist(monkeypatch):
 
 def _token_valido(**over):
     base = {"email": "rodrigorizando@gmail.com", "email_verified": True,
-            "aud": "rodrigo-matheus", "iss": "https://securetoken.google.com/rodrigo-matheus"}
+            "aud": "rodrigo-matheus", "iss": "https://securetoken.google.com/rodrigo-matheus",
+            "firebase": {"sign_in_provider": "google.com"}}
     return {**base, **over}
 
 
@@ -50,6 +51,14 @@ class TestAutorizacao:
     def test_emissor_errado_e_recusado(self, monkeypatch):
         monkeypatch.setattr(auth, "_verify", lambda t: _token_valido(iss="https://evil.example/x"))
         with pytest.raises(auth.AuthError, match="emissor"):
+            auth.verify_admin("Bearer t")
+
+    @pytest.mark.parametrize("firebase", [{"sign_in_provider": "password"}, {"sign_in_provider": "anonymous"},
+                                          {"sign_in_provider": "custom"}, {}, None])
+    def test_o_dono_so_entra_pelo_login_do_google(self, monkeypatch, firebase):
+        """Mesmo com o e-mail certo e verificado: o painel não aceita conta de e-mail e senha."""
+        monkeypatch.setattr(auth, "_verify", lambda t: _token_valido(firebase=firebase))
+        with pytest.raises(auth.AuthError, match="Google"):
             auth.verify_admin("Bearer t")
 
     def test_assinatura_invalida_vira_AuthError_e_nao_vaza_a_excecao_original(self, monkeypatch):

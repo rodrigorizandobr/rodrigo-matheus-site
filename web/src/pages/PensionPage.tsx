@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
+import { appCheckToken, idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { pensionApi } from '../pension/api'
 import { simulate, simulateMonthly } from '../pension/calc'
 import { DEFAULT_PARAMS, type PensionParams } from '../pension/types'
@@ -30,7 +30,7 @@ export function PensionPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
 
-  const api = useMemo(() => pensionApi(idToken), [])
+  const api = useMemo(() => pensionApi(idToken, appCheckToken), [])
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextSave = useRef(false)
 

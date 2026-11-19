@@ -17,12 +17,12 @@ export class ApiError extends Error {
 export type SavedPlan = { params: PensionParams; updatedAt: string | null }
 export type TokenGetter = () => Promise<string>
 
-async function call<T>(url: string, token: string, method: string, body?: unknown): Promise<T> {
+async function call<T>(url: string, token: string, proof: string, method: string, body?: unknown): Promise<T> {
   let res: Response
   try {
     res = await fetch(url, {
       method,
-      headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      headers: { Authorization: `Bearer ${token}`, 'X-Firebase-AppCheck': proof, 'content-type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     })
   } catch (cause) {
@@ -33,11 +33,15 @@ async function call<T>(url: string, token: string, method: string, body?: unknow
   return parsed as T
 }
 
-export const pensionApi = (getToken: TokenGetter) => ({
+/**
+ * `getProof` devolve a prova de que a chamada sai do site, num navegador de verdade (App Check,
+ * `lib/firebase.ts`). O servidor recusa com 403 o que chegar sem ela (`api/guard/`).
+ */
+export const pensionApi = (getToken: TokenGetter, getProof: TokenGetter) => ({
   async getPlan(): Promise<SavedPlan> {
-    return call<SavedPlan>('/api/pension/plan', await getToken(), 'GET')
+    return call<SavedPlan>('/api/pension/plan', await getToken(), await getProof(), 'GET')
   },
   async savePlan(patch: Partial<PensionParams>): Promise<SavedPlan> {
-    return call<SavedPlan>('/api/pension/plan', await getToken(), 'PUT', patch)
+    return call<SavedPlan>('/api/pension/plan', await getToken(), await getProof(), 'PUT', patch)
   },
 })

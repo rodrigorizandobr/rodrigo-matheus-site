@@ -37,7 +37,8 @@ def admin_cors(res):
     if origin in CORS_ORIGINS and request.path.startswith("/api/blog/admin/"):
         res.headers["Access-Control-Allow-Origin"] = origin
         res.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, DELETE, OPTIONS"
-        res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        # X-Firebase-AppCheck: a prova do navegador que a portaria (api/guard/) exige em todo o painel
+        res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Firebase-AppCheck"
         res.headers["Access-Control-Max-Age"] = "3600"
         res.headers.add("Vary", "Origin")
     return res

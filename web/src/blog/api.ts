@@ -26,9 +26,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-const json = (method: string, token: string, body?: unknown): RequestInit => ({
+/**
+ * Cabeçalhos de toda chamada do painel: quem é a pessoa (login) e a prova de que a chamada sai do
+ * site, num navegador de verdade (App Check, `lib/firebase.ts`). O servidor recusa com 403 o que
+ * chegar sem a prova (`api/guard/`). Buscados a cada chamada: os dois vencem em uma hora.
+ */
+const credentials = async (getToken: TokenGetter, getProof: TokenGetter): Promise<Record<string, string>> => ({
+  Authorization: `Bearer ${await getToken()}`,
+  'X-Firebase-AppCheck': await getProof(),
+})
+
+const json = (method: string, headers: Record<string, string>, body?: unknown): RequestInit => ({
   method,
-  headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+  headers: { ...headers, 'content-type': 'application/json' },
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
 })
 
@@ -56,9 +66,9 @@ export const blogApi = {
     }
   },
 
-  admin(getToken: TokenGetter) {
+  admin(getToken: TokenGetter, getProof: TokenGetter) {
     const call = async <T>(url: string, method = 'GET', body?: unknown): Promise<T> =>
-      request<T>(url, json(method, await getToken(), body))
+      request<T>(url, json(method, await credentials(getToken, getProof), body))
     const callLong = async <T>(url: string, method: string, body?: unknown): Promise<T> =>
       call<T>(`${LONG_BASE}${url}`, method, body)
 
@@ -127,7 +137,7 @@ export const blogApi = {
           form.append('alt', alt)
           const res = await fetch('/api/blog/admin/media/upload', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${await getToken()}` },
+            headers: await credentials(getToken, getProof),
             body: form,
           })
           const body = await res.json().catch(() => ({}))

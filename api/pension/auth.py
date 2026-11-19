@@ -53,6 +53,10 @@ def verify_user(header: str | None) -> dict[str, str]:
         raise AuthError("emissor inesperado")
     if not claims.get("email_verified"):
         raise AuthError("e-mail não verificado")
+    # "Qualquer conta" é qualquer conta GOOGLE. Conta de e-mail e senha se cria por script na API
+    # do Firebase, sem passar pelo site: mesmo com o provedor desligado no console, aqui não entra.
+    if (claims.get("firebase") or {}).get("sign_in_provider") != "google.com":
+        raise AuthError("login não é do Google")
 
     uid = (claims.get("sub") or claims.get("user_id") or "").strip()
     if not uid:

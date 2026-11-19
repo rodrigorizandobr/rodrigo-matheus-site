@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import server  # noqa: E402
 from blog import claude, gemini, images, service  # noqa: E402
+from guard import appcheck, web as guard_web  # noqa: E402
+from guard.ratelimit import Limiter  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +28,11 @@ def isolate(monkeypatch, tmp_path):
     # idem para a capa: com a chave do Runware no ambiente, teste de Gemini iria para o Runware
     monkeypatch.setattr(images, "RUNWARE_KEY", "")
     monkeypatch.setattr(images, "PROVIDER_CHOICE", "")
+    # a prova do navegador fica DESLIGADA na suíte (as rotas são testadas pelo que fazem); quem testa
+    # a portaria liga de volta (tests/test_guard_web.py). Os limites nascem zerados a cada teste.
+    monkeypatch.setattr(appcheck, "MODE", "off")
+    monkeypatch.setattr(guard_web, "_browser", Limiter(*guard_web.BROWSER_LIMIT))
+    monkeypatch.setattr(guard_web, "_account", Limiter(*guard_web.ACCOUNT_LIMIT))
     monkeypatch.setattr(server, "_gcs_blob", lambda *a, **kw: None)
     monkeypatch.setattr(server, "CACHE_FILE", tmp_path / "github_cache.json")
     monkeypatch.setattr(server, "REFRESH_KEY", "test-refresh-key")

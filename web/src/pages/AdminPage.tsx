@@ -11,7 +11,7 @@ import { LinkedInAlert } from './admin/LinkedInAlert'
 import { ImagePicker } from './admin/ImagePicker'
 import { TopicComposer } from './admin/TopicComposer'
 import { ReflectionComposer } from './admin/ReflectionComposer'
-import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
+import { appCheckToken, idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { DISCARD_QUESTION, deleteQuestion, hasUnsavedChanges, linkedinShareQuestion } from '../blog/editing'
 import { adminPath, parseAdminPath, readStashedPreview, resolvePreview, stashPreview, type AdminTab as Tab, type AdminView } from './admin/adminRoute'
 type Session = { email: string } | null
@@ -43,7 +43,7 @@ export function AdminPage() {
   const [topic, setTopic] = useState('')
   const [linkedin, setLinkedin] = useState<LinkedInStatus | null>(null)
 
-  const api = useMemo(() => blogApi.admin(idToken), [])
+  const api = useMemo(() => blogApi.admin(idToken, appCheckToken), [])
 
   // `editing` é a cópia de trabalho; `saved`, a última versão que o servidor confirmou.
   const dirty = !!editing && !!saved && hasUnsavedChanges(editing, saved)

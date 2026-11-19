@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
+import { appCheckToken, idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
 import { plannerApi } from '../planner/api'
 import { caminhos, type IdEstrategia } from '../planner/caminhos'
 import { inicioDeHoje } from '../planner/calendario'
@@ -39,7 +39,7 @@ export function PlannerPage() {
   const [escolhida, setEscolhida] = useState<IdEstrategia | null>(null)
   const [anterior, setAnterior] = useState<Pick<PlannerParams, 'rate' | 'incc' | 'depreciacao'> | null>(null)
 
-  const api = useMemo(() => plannerApi(idToken), [])
+  const api = useMemo(() => plannerApi(idToken, appCheckToken), [])
   const inicio = useMemo(() => inicioDeHoje(), [])
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextSave = useRef(false)

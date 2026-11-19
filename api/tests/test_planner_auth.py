@@ -11,7 +11,8 @@ def projeto(monkeypatch):
 
 def _token_valido(**over):
     base = {"sub": "uid-abc123", "email": "qualquer@gmail.com", "email_verified": True,
-            "aud": "rodrigo-matheus", "iss": "https://securetoken.google.com/rodrigo-matheus"}
+            "aud": "rodrigo-matheus", "iss": "https://securetoken.google.com/rodrigo-matheus",
+            "firebase": {"sign_in_provider": "google.com"}}
     return {**base, **over}
 
 
@@ -45,6 +46,14 @@ class TestVerificacao:
     def test_emissor_errado_e_recusado(self, monkeypatch):
         monkeypatch.setattr(auth, "_verify", lambda t: _token_valido(iss="https://evil.example/x"))
         with pytest.raises(auth.AuthError, match="emissor"):
+            auth.verify_user("Bearer t")
+
+    @pytest.mark.parametrize("firebase", [{"sign_in_provider": "password"}, {"sign_in_provider": "anonymous"},
+                                          {"sign_in_provider": "custom"}, {}, None])
+    def test_login_que_nao_e_do_google_e_recusado(self, monkeypatch, firebase):
+        """Conta criada por script na API do Firebase (e-mail e senha) não entra, nem com e-mail verificado."""
+        monkeypatch.setattr(auth, "_verify", lambda t: _token_valido(firebase=firebase))
+        with pytest.raises(auth.AuthError, match="Google"):
             auth.verify_user("Bearer t")
 
     def test_assinatura_invalida_vira_AuthError_e_nao_vaza_a_excecao_original(self, monkeypatch):

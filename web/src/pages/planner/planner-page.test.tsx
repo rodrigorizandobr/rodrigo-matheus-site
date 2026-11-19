@@ -8,6 +8,7 @@ let currentUser: { email: string } | null = null
 
 vi.mock('../../lib/firebase', () => ({
   idToken: async () => 't',
+  appCheckToken: async () => 'prova',
   signInWithGoogle: vi.fn(async () => { currentUser = { email: 'eu@example.com' }; notify() }),
   signOutUser: vi.fn(async () => { currentUser = null; notify() }),
   watchUser: (cb: (u: { email: string } | null) => void) => { listener = cb; cb(currentUser); return () => { listener = null } },

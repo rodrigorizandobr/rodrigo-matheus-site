@@ -62,6 +62,10 @@ def verify_admin(header: str | None) -> str:
         raise AuthError("emissor inesperado")
     if not claims.get("email_verified"):
         raise AuthError("e-mail não verificado")
+    # O site só tem login pelo Google. Conta de e-mail e senha se cria por script na API do
+    # Firebase, sem passar pelo site: mesmo com o provedor desligado no console, aqui não entra.
+    if (claims.get("firebase") or {}).get("sign_in_provider") != "google.com":
+        raise AuthError("login não é do Google")
 
     email = (claims.get("email") or "").strip().lower()
     if email not in ADMIN_EMAILS:

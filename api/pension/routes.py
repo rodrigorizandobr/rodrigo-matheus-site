@@ -12,6 +12,8 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from . import store
+from guard.web import account_blocked
+
 from .auth import AuthError, verify_user
 
 bp = Blueprint("pension", __name__)
@@ -34,6 +36,10 @@ def user_only(fn):
             request.pension_user = verify_user(request.headers.get("Authorization"))
         except AuthError as exc:
             return jsonify({"error": str(exc)}), 401
+        if request.method != "GET":  # limite de gravações por conta: uma conta não regrava o plano sem parar
+            recusa = account_blocked(request.pension_user["uid"])
+            if recusa is not None:
+                return recusa
         return fn(*args, **kwargs)
     return wrapper
 

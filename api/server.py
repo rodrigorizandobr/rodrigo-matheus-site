@@ -41,6 +41,11 @@ app.register_blueprint(blog_page_bp)
 app.register_blueprint(planner_bp)
 app.register_blueprint(pension_bp)
 
+# Portaria contra robôs, na frente de todas as rotas (prova do navegador, limites) — ver api/guard/.
+from guard.web import install as install_guard  # noqa: E402
+
+install_guard(app)
+
 # Lock to prevent concurrent refresh
 _refresh_lock = threading.Lock()
 
