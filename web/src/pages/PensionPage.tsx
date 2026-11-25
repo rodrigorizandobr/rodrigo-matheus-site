@@ -1,117 +1,42 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { appCheckToken, idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
+import { useCallback, useEffect, useMemo } from 'react'
 import { pensionApi } from '../pension/api'
 import { simulate, simulateMonthly } from '../pension/calc'
 import { DEFAULT_PARAMS, type PensionParams } from '../pension/types'
 import { formatBRL, formatBRLCompact, formatPct } from '../planner/format'
 import { ParamField } from './planner/ParamField'
+import { PlanBar } from './plan/PlanBar'
+import { usePlanSession } from './plan/usePlanSession'
 import { ChoiceField } from './pension/ChoiceField'
 import { CompanyBandsField } from './pension/CompanyBandsField'
 import { PensionChart } from './pension/PensionChart'
 import { PensionLedger } from './pension/PensionLedger'
 
-type Session = { email: string } | null
-type SaveState = 'salvo' | 'salvando' | 'erro' | null
-
-const SAVE_DEBOUNCE_MS = 900
-
 /**
- * /previdencia-privada — simulador de PGBL/VGBL de um plano corporativo (salário,
- * idade, contrapartida da empresa por faixa etária), aberto a qualquer conta Google
- * (sem allowlist). Cada pessoa tem o próprio plano, guardado pelo uid (api/pension/).
- * O cálculo roda inteiro no navegador (pension/calc.ts); o backend só guarda e devolve
- * os parâmetros.
+ * /previdencia-privada — simulador de PGBL/VGBL de um plano corporativo (salário, idade, contrapartida da
+ * empresa por faixa etária). Abre para qualquer visitante, sem login, com os valores padrão que o
+ * administrador escolheu; quem entra com o Google guarda o próprio plano, pelo uid (api/pension/). O cálculo
+ * roda inteiro no navegador (pension/calc.ts); o backend só guarda e devolve os parâmetros. Sessão,
+ * salvamento e edição dos padrões moram em `plan/usePlanSession`.
  */
 export function PensionPage() {
-  const [session, setSession] = useState<Session | undefined>(undefined)
-  const [params, setParams] = useState<PensionParams>(DEFAULT_PARAMS)
-  const [loaded, setLoaded] = useState(false)
-  const [saveState, setSaveState] = useState<SaveState>(null)
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const plan = usePlanSession<PensionParams>({ makeApi: pensionApi, factory: DEFAULT_PARAMS })
+  const { params, setParams } = plan
 
-  const api = useMemo(() => pensionApi(idToken, appCheckToken), [])
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const skipNextSave = useRef(false)
-
-  useEffect(() => {
-    document.title = 'Previdência Privada — Rodrigo Matheus'
-    return watchUser((user) => setSession(user ? { email: user.email ?? '' } : null))
-  }, [])
-
-  useEffect(() => {
-    if (!session) return
-    let vivo = true
-    setLoaded(false)
-    api.getPlan().then((plano) => {
-      if (!vivo) return
-      skipNextSave.current = true
-      setParams(plano.params)
-      setLoaded(true)
-    }).catch((err) => setError(err instanceof Error ? err.message : String(err)))
-    return () => { vivo = false }
-  }, [session, api])
-
-  // Autosalva 900ms depois da última mudança — não dispara na carga inicial do plano.
-  useEffect(() => {
-    if (!loaded) return
-    if (skipNextSave.current) { skipNextSave.current = false; return }
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    setSaveState('salvando')
-    saveTimer.current = setTimeout(() => {
-      api.savePlan(params)
-        .then(() => setSaveState('salvo'))
-        .catch(() => setSaveState('erro'))
-    }, SAVE_DEBOUNCE_MS)
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, loaded])
+  useEffect(() => { document.title = 'Previdência Privada — Rodrigo Matheus' }, [])
 
   const set = useCallback(<K extends keyof PensionParams>(key: K) => (value: PensionParams[K]) =>
-    setParams((p) => ({ ...p, [key]: value })), [])
+    setParams((p) => ({ ...p, [key]: value })), [setParams])
 
   const pontos = useMemo(() => simulate(params), [params])
   const linhas = useMemo(() => simulateMonthly(params), [params])
   const final = pontos.at(-1)!
 
-  if (session === undefined) {
-    return <Shell><p className="text-muted text-[13px]">Verificando sessão…</p></Shell>
-  }
-
-  if (session === null) {
-    return (
-      <Shell>
-        <div className="panel hud-frame p-8 md:p-10 max-w-md mx-auto text-center grid gap-5">
-          <div>
-            <div className="font-display font-bold tracking-[.2em] text-heading text-[13px]">PREVIDÊNCIA PRIVADA</div>
-            <p className="text-[13px] text-muted mt-2">Simule seu PGBL ou VGBL. Entre com o Google — o plano é só seu.</p>
-          </div>
-          <button type="button"
-                  onClick={() => { setBusy('login'); setError(''); signInWithGoogle().catch((err) => setError((err as Error).message)).finally(() => setBusy(null)) }}
-                  disabled={busy === 'login'}
-                  className="cta cta-primary !py-3 font-display font-semibold text-[12px] uppercase tracking-wider">
-            {busy === 'login' ? 'abrindo…' : 'entrar com Google'}
-          </button>
-          {error && <p className="text-[12px] text-red">{error}</p>}
-        </div>
-      </Shell>
-    )
-  }
-
   return (
     <Shell>
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-8">
-        <div>
-          <div className="font-display font-bold tracking-[.2em] text-heading text-[13px]">PREVIDÊNCIA PRIVADA</div>
-          <p className="text-[12px] text-muted mt-1">
-            {session.email} · {saveState === 'salvando' ? 'salvando…' : saveState === 'erro' ? 'erro ao salvar' : saveState === 'salvo' ? 'salvo' : ' '}
-          </p>
-        </div>
-        <button type="button" onClick={() => signOutUser()} className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">sair</button>
-      </div>
+      <PlanBar title="PREVIDÊNCIA PRIVADA" plan={plan} />
 
-      {!loaded ? (
-        <p className="text-muted text-[13px]">Carregando seu plano…</p>
+      {!plan.ready ? (
+        <p className="text-muted text-[13px]">Carregando…</p>
       ) : (
         <div className="grid lg:grid-cols-[360px_1fr] gap-8 min-w-0">
           <div className="grid gap-7 content-start min-w-0">

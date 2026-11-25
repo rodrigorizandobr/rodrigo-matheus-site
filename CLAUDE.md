@@ -1367,8 +1367,8 @@ curl "https://rodrigomatheus.com.br/api/refresh?key=$REFRESH_KEY"
 ## Testes
 
 ```bash
-cd api && source .venv/bin/activate && pytest      # ~1150 testes
-cd web && npm test                                  # 848 testes
+cd api && source .venv/bin/activate && pytest      # ~1215 testes
+cd web && npm test                                  # 925 testes
 ```
 
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
@@ -1473,6 +1473,61 @@ nem de tamanho de corpo; chave pública do navegador aceitando qualquer origem.
   propagar, não conclua nada no primeiro minuto); a sessão do PO seguiu válida (`accounts:lookup` 200) e, num navegador
   limpo, "Entrar com Google" abriu a tela de login do Google normalmente. **Não validado: um login novo do começo ao
   fim** (precisa da conta dele) e a renovação do token depois de uma hora.
+
+## Utilitários sem login e valores padrão (2026-11-25)
+
+Pedido do PO: os dois utilitários (`/vivendo-de-imoveis`, `/previdencia-privada`) passam a funcionar logados e não logados.
+O visitante abre e já vê o formulário, brinca à vontade e, se quiser, entra com o Google para salvar e voltar depois. E o
+administrador escolhe os **valores padrão** que o visitante vê, porque "não quero que use o meu, que aí acaba expondo o meu
+salário, minha vida pessoal".
+
+| Peça | Onde | Papel |
+|---|---|---|
+| Estado | `web/src/pages/plan/usePlanSession.ts` | Hook dos DOIS utilitários: padrão, sessão, plano, autosave, pergunta pós-login, modo do administrador. |
+| Faixa do topo | `web/src/pages/plan/PlanBar.tsx` | "Salvar com o Google" / e-mail + estado + sair; pergunta de conflito; painel do administrador. |
+| Regras puras | `web/src/plan/resolve.ts` | `deepEqual` e `resolveAfterLogin` (testados sem React). |
+| Lembrete | `web/src/plan/session-hint.ts` | `localStorage` `rm:entrou`: só "alguém entrou aqui", nunca quem. |
+| Padrões no servidor | `{planner,pension}/store.py` | `get_defaults`/`save_defaults`, documento `app_defaults/{planner,pension}`. |
+| Rotas | `{planner,pension}/routes.py` | `GET /api/*/defaults` pública; `PUT` só do administrador; `GET /plan` devolve `saved` e `isAdmin`. |
+
+- **O plano pessoal NUNCA vira padrão, e o padrão nunca vira plano de ninguém.** São coleções separadas (`planner_plans`
+  por uid; `app_defaults` com um documento por utilitário) e nenhuma função copia uma para a outra. No navegador, o
+  administrador edita o padrão num MODO à parte: o plano pessoal dele fica guardado em memória e volta intacto, e o
+  autosave do plano fica desligado enquanto isso. Os testes que seguram isto: `test_*_defaults.py` ("o plano do admin
+  nunca vira o padrão do visitante") e `usePlanSession.test.tsx` ("o plano pessoal NUNCA recebe valores do modo padrão").
+- **Leitura pública, gravação não.** `GET /api/*/defaults` não pede login nem prova do navegador (`PUBLIC_READS` em
+  `guard/policy.py`, CAMINHO EXATO e só GET/HEAD): quem só brinca não carrega o Firebase, então não tem como mandar a
+  prova. `Cache-Control: public, max-age=0, s-maxage=60`; o administrador editando lê com `?fresh=<agora>` para furar a
+  borda. A resposta só tem `params`, `updatedAt` e `custom`: nada de quem gravou. `PUT` passa por TUDO: prova do navegador,
+  login Google (`user_only`), lista de administradores do painel (`blog.auth.is_admin`, lida na hora, a MESMA do blog) e o
+  limite de gravações por conta. **O servidor decide quem é admin** (`isAdmin` em `GET /plan`): a tela só esconde o botão.
+- **Gravar o padrão SUBSTITUI o anterior inteiro** (fábrica + o que veio), em vez de somar: o que o administrador vê no
+  formulário é o que o visitante recebe, sem sobra escondida. Validação igual à do plano (`sanitize`, contrato <= 100%).
+- **Conta nova começa do padrão do administrador** (`get_plan` sem documento devolve `saved: false` e os padrões). Plano já
+  salvo não muda quando o padrão muda: `merged` continua partindo do exemplo de FÁBRICA, que só preenche campo que não existia.
+- **Firebase e reCAPTCHA só carregam quando precisam** (`import()` dentro do hook): no clique de "salvar com o Google", ou
+  para quem tem o lembrete. Visitante que só olha não baixa o SDK e não gasta uma verificação da cota gratuita de reCAPTCHA
+  (10 mil por mês). Quem já entrou antes vê "Carregando…" até o plano chegar (`bootPending`), para o formulário não piscar do
+  padrão para o plano. Sem armazenamento (janela privada) o lembrete só fica desligado: entra-se clicando em salvar.
+- **O que acontece ao entrar** (`resolveAfterLogin`): conta sem plano e tela intocada → mostra o padrão e não grava; conta
+  sem plano e tela mexida → grava o que a pessoa montou (era isso que ela queria salvar); conta com plano e tela intocada →
+  carrega o plano; conta com plano e tela mexida → PERGUNTA ("manter o plano salvo" / "usar o que está na tela"), porque os
+  dois têm valor e gravar um apagaria o outro. "Tela mexida" é `deepEqual` contra o padrão que a página recebeu.
+- **Plano que não carregou NUNCA é regravado.** `loaded` só vira verdadeiro depois que `getPlan` respondeu; se falhou
+  (reCAPTCHA bloqueado, rede), o erro aparece e o autosave fica desligado, senão ele gravaria o padrão por cima do plano de
+  verdade. Mesma razão de o autosave parar enquanto a pergunta está de pé.
+- **Sair devolve a tela ao padrão**, também quando o login expira: o plano de uma pessoa não fica à vista num computador
+  compartilhado. `skipNextSave` (ref) pula o autosave que a troca de parâmetros dispararia; ele é consumido na próxima
+  rodada do efeito, e quem o liga tem que trocar algo que faça o efeito rodar (hoje: `params`, `loaded`, `mode` ou `escolha`).
+- **Trocar para o modo padrão grava antes um autosave pendente** do plano (`pendingSave`): senão a edição feita nos últimos
+  900 ms se perdia na troca.
+- **Enquanto o administrador não define os padrões, o visitante vê o EXEMPLO DE FÁBRICA do código** (`DEFAULT_PARAMS` em
+  `web/src/planner/types.ts` e `api/planner/model.py`, e os equivalentes da previdência), com salário de R$ 34.000, saldo
+  devedor de R$ 400.000 etc. Esses números já estavam no código público do site; o plano pessoal do PO só existe no
+  Firestore, por uid. Primeiro passo depois do deploy: entrar no utilitário, "editar padrões dos visitantes", salvar os
+  valores que ele quer mostrar. Não há botão de apagar o padrão: "valores de fábrica" põe o exemplo na tela e ele salva.
+- Visitante pode ser barrado só em duas situações: login (precisa do reCAPTCHA) e erro de rede na leitura do padrão (aí vê
+  o exemplo de fábrica e o simulador segue funcionando, sem salvar).
 
 ## Segurança de `/api/refresh`
 

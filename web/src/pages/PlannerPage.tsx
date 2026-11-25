@@ -1,5 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { appCheckToken, idToken, signInWithGoogle, signOutUser, watchUser } from '../lib/firebase'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { plannerApi } from '../planner/api'
 import { caminhos, type IdEstrategia } from '../planner/caminhos'
 import { inicioDeHoje } from '../planner/calendario'
@@ -14,73 +13,35 @@ import { aplicarRegras } from '../planner/regras'
 import { DEFAULT_PARAMS, type PlannerParams } from '../planner/types'
 import { formatBRL } from '../planner/format'
 import { ParamField } from './planner/ParamField'
+import { PlanBar } from './plan/PlanBar'
+import { usePlanSession } from './plan/usePlanSession'
 import { ChoiceField } from './pension/ChoiceField'
 import { Group } from './planner/Group'
 import { PlannerLedgerAbas } from './planner/PlannerLedger'
 import { PlannerComparar } from './planner/PlannerComparar'
 import { PlannerAvisos, TesteDeEstresse, TradicionalTemporada, ValeFinanciar } from './planner/PlannerPaineis'
 
-type Session = { email: string } | null
-type SaveState = 'salvo' | 'salvando' | 'erro' | null
-const SAVE_DEBOUNCE_MS = 900
 /**
  * /vivendo-de-imoveis — simulador de patrimônio em studios comprados na planta pelo plano investidor da
- * construtora, aberto a qualquer conta Google (sem allowlist): cada pessoa tem o próprio plano, guardado
- * pelo uid (api/planner/). O cálculo roda inteiro no navegador (planner/calc.ts); o backend só guarda e
- * devolve os parâmetros.
+ * construtora. Abre para qualquer visitante, sem login, com os valores padrão que o administrador escolheu;
+ * quem entra com o Google guarda o próprio plano, pelo uid (api/planner/). O cálculo roda inteiro no
+ * navegador (planner/calc.ts); o backend só guarda e devolve os parâmetros. Sessão, salvamento e edição dos
+ * padrões moram em `plan/usePlanSession`.
  */
 export function PlannerPage() {
-  const [session, setSession] = useState<Session | undefined>(undefined)
-  const [params, setParams] = useState<PlannerParams>(DEFAULT_PARAMS)
-  const [loaded, setLoaded] = useState(false)
-  const [saveState, setSaveState] = useState<SaveState>(null)
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const plan = usePlanSession<PlannerParams>({ makeApi: plannerApi, factory: DEFAULT_PARAMS })
+  const { params, setParams } = plan
   const [escolhida, setEscolhida] = useState<IdEstrategia | null>(null)
   const [anterior, setAnterior] = useState<Pick<PlannerParams, 'rate' | 'incc' | 'depreciacao'> | null>(null)
 
-  const api = useMemo(() => plannerApi(idToken, appCheckToken), [])
   const inicio = useMemo(() => inicioDeHoje(), [])
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const skipNextSave = useRef(false)
 
-  useEffect(() => {
-    document.title = 'Vivendo de Imóveis — Rodrigo Matheus'
-    return watchUser((user) => setSession(user ? { email: user.email ?? '' } : null))
-  }, [])
-
-  useEffect(() => {
-    if (!session) return
-    let vivo = true
-    setLoaded(false)
-    api.getPlan().then((plano) => {
-      if (!vivo) return
-      skipNextSave.current = true
-      setParams(plano.params)
-      setLoaded(true)
-    }).catch((err) => setError(err instanceof Error ? err.message : String(err)))
-    return () => { vivo = false }
-  }, [session, api])
-
-  // Autosalva 900ms depois da última mudança — não dispara na carga inicial do plano.
-  useEffect(() => {
-    if (!loaded) return
-    if (skipNextSave.current) { skipNextSave.current = false; return }
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    setSaveState('salvando')
-    saveTimer.current = setTimeout(() => {
-      api.savePlan(params)
-        .then(() => setSaveState('salvo'))
-        .catch(() => setSaveState('erro'))
-    }, SAVE_DEBOUNCE_MS)
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, loaded])
+  useEffect(() => { document.title = 'Vivendo de Imóveis — Rodrigo Matheus' }, [])
 
   const set = useCallback(<K extends keyof PlannerParams>(key: K) => (value: PlannerParams[K]) => {
     setAnterior(null)
     setParams((p) => ({ ...p, [key]: value }))
-  }, [])
+  }, [setParams])
 
   // Com prazo longo a simulação pesa: o slider não pode travar esperando por ela.
   const simulado = useDeferredValue(params)
@@ -91,48 +52,16 @@ export function PlannerPage() {
   const linhas = ativa.linhas
   const lista = useMemo(() => calcularAvisos(linhas, ativa.params), [linhas, ativa.params])
 
-  if (session === undefined) {
-    return <Shell><p className="text-muted text-[13px]">Verificando sessão…</p></Shell>
-  }
-
-  if (session === null) {
-    return (
-      <Shell>
-        <div className="panel hud-frame p-8 md:p-10 max-w-md mx-auto text-center grid gap-5">
-          <div>
-            <div className="font-display font-bold tracking-[.2em] text-heading text-[13px]">VIVENDO DE IMÓVEIS</div>
-            <p className="text-[13px] text-muted mt-2">Simule sua carteira de studios. Entre com o Google — o plano é só seu.</p>
-          </div>
-          <button type="button"
-                  onClick={() => { setBusy('login'); setError(''); signInWithGoogle().catch((err) => setError((err as Error).message)).finally(() => setBusy(null)) }}
-                  disabled={busy === 'login'}
-                  className="cta cta-primary !py-3 font-display font-semibold text-[12px] uppercase tracking-wider">
-            {busy === 'login' ? 'abrindo…' : 'entrar com Google'}
-          </button>
-          {error && <p className="text-[12px] text-red">{error}</p>}
-        </div>
-      </Shell>
-    )
-  }
-
   const somaContrato = params.entradaPct + params.mensaisPct + params.reforcoPct + params.chavesPct
   const maxDe = (campo: 'entradaPct' | 'mensaisPct' | 'reforcoPct' | 'chavesPct', teto: number) =>
     Math.min(teto, Math.max(params[campo], 100 - (somaContrato - params[campo])))
 
   return (
     <Shell>
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-8">
-        <div>
-          <div className="font-display font-bold tracking-[.2em] text-heading text-[13px]">VIVENDO DE IMÓVEIS</div>
-          <p className="text-[12px] text-muted mt-1">
-            {session.email} · {saveState === 'salvando' ? 'salvando…' : saveState === 'erro' ? 'erro ao salvar' : saveState === 'salvo' ? 'salvo' : ' '}
-          </p>
-        </div>
-        <button type="button" onClick={() => signOutUser()} className="chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider">sair</button>
-      </div>
+      <PlanBar title="VIVENDO DE IMÓVEIS" plan={plan} />
 
-      {!loaded ? (
-        <p className="text-muted text-[13px]">Carregando seu plano…</p>
+      {!plan.ready ? (
+        <p className="text-muted text-[13px]">Carregando…</p>
       ) : (
         <div className="grid lg:grid-cols-[360px_1fr] gap-8 min-w-0">
           <div className="grid gap-4 content-start min-w-0">

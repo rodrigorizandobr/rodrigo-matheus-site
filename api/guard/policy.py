@@ -16,6 +16,11 @@ PROTECTED_PREFIXES = ("/api/blog/admin/", "/api/planner/", "/api/pension/")
 #: Quem autoriza é o `state` de uso único, que só existe porque um admin logado pediu a conexão.
 WITHOUT_PROOF = frozenset({"/api/blog/admin/linkedin/callback"})
 
+#: os valores padrão dos utilitários são a vitrine: quem só quer brincar com o simulador não entra, nem
+#: carrega o Firebase, então não tem como mandar a prova. É leitura pública, como a dos posts. CAMINHO
+#: EXATO e só leitura: gravar o padrão passa por prova, login Google e lista de administradores.
+PUBLIC_READS = frozenset({"/api/planner/defaults", "/api/pension/defaults"})
+
 KB = 1024
 MB = 1024 * KB
 
@@ -29,7 +34,10 @@ DEFAULT_BODY = 1 * MB
 
 def needs_proof(path: str, method: str) -> bool:
     # o navegador não manda cabeçalho próprio no preflight: recusar ali quebraria toda chamada direta do painel
-    if method.upper() == "OPTIONS" or path in WITHOUT_PROOF:
+    method = method.upper()
+    if method == "OPTIONS" or path in WITHOUT_PROOF:
+        return False
+    if method in ("GET", "HEAD") and path in PUBLIC_READS:
         return False
     return path.startswith(PROTECTED_PREFIXES)
 

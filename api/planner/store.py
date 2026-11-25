@@ -1,5 +1,9 @@
 """Persistência do simulador em Firestore: um documento por usuário, chaveado
-pelo uid do Firebase — nunca por e-mail, que pode mudar de conta para conta."""
+pelo uid do Firebase — nunca por e-mail, que pode mudar de conta para conta.
+
+Os valores PADRÃO (o que um visitante vê ao abrir a página) moram num documento próprio, que só o
+administrador grava. O plano pessoal do administrador é um documento de conta como o de qualquer
+pessoa e nunca vira padrão: são duas coleções, e nenhuma função aqui copia uma para a outra."""
 from __future__ import annotations
 
 import os
@@ -11,6 +15,8 @@ from google.cloud import firestore
 from . import model
 
 PLANS = "planner_plans"
+DEFAULTS = "app_defaults"
+DEFAULTS_DOC = "planner"
 
 _client: firestore.Client | None = None
 
@@ -26,14 +32,35 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def get_plan(uid: str) -> dict[str, Any]:
-    """Os parâmetros salvos sobre os padrões. Quem nunca salvou recebe o exemplo do simulador."""
-    snap = _db().collection(PLANS).document(uid).get()
+def get_defaults() -> dict[str, Any]:
+    """O que o visitante vê ao abrir a página: o que o administrador gravou, ou o exemplo de fábrica."""
+    snap = _db().collection(DEFAULTS).document(DEFAULTS_DOC).get()
     saved = snap.to_dict() if snap.exists else None
     return {
         "params": model.merged((saved or {}).get("params")),
         "updatedAt": (saved or {}).get("updatedAt"),
+        "custom": saved is not None,
     }
+
+
+def save_defaults(params: dict[str, Any]) -> dict[str, Any]:
+    """Grava o padrão dos visitantes. SUBSTITUI o anterior inteiro (o que o administrador vê no formulário é
+    o que o visitante recebe; sobra do padrão antigo não fica escondida) e valida tudo antes de gravar."""
+    novo = {**model.DEFAULT_PARAMS, **model.sanitize(params)}
+    model.check_contract(novo)
+    now = _now()
+    _db().collection(DEFAULTS).document(DEFAULTS_DOC).set({"params": novo, "updatedAt": now})
+    return {"params": novo, "updatedAt": now, "custom": True}
+
+
+def get_plan(uid: str) -> dict[str, Any]:
+    """Os parâmetros salvos sobre os padrões de fábrica. Quem nunca salvou recebe o padrão dos visitantes
+    (`saved: False`): é assim que a tela sabe se há um plano da pessoa para não sobrescrever."""
+    snap = _db().collection(PLANS).document(uid).get()
+    if not snap.exists:
+        return {"params": get_defaults()["params"], "updatedAt": None, "saved": False}
+    saved = snap.to_dict() or {}
+    return {"params": model.merged(saved.get("params")), "updatedAt": saved.get("updatedAt"), "saved": True}
 
 
 def save_plan(uid: str, patch: dict[str, Any], email: str = "") -> dict[str, Any]:
@@ -51,4 +78,4 @@ def save_plan(uid: str, patch: dict[str, Any], email: str = "") -> dict[str, Any
     if email:
         doc["email"] = email
     _db().collection(PLANS).document(uid).set(doc, merge=True)
-    return {"params": novo, "updatedAt": now}
+    return {"params": novo, "updatedAt": now, "saved": True}

@@ -32,6 +32,12 @@ def load_admin_emails() -> frozenset[str]:
 
 ADMIN_EMAILS = load_admin_emails()
 
+
+def is_admin(email: str | None) -> bool:
+    """Esta conta está na lista de administradores? Os utilitários (imóveis, previdência) usam a MESMA
+    lista do painel do blog, lida na hora da chamada: quem a muda aqui a muda lá."""
+    return (email or "").strip().lower() in ADMIN_EMAILS
+
 _request = google_requests.Request()
 
 

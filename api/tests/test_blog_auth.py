@@ -53,6 +53,14 @@ class TestAutorizacao:
         with pytest.raises(auth.AuthError, match="emissor"):
             auth.verify_admin("Bearer t")
 
+    def test_is_admin_responde_pela_mesma_lista_do_painel(self):
+        """Os utilitários perguntam "esta conta é admin?" sem repetir a lista: quem muda o painel muda lá também."""
+        assert auth.is_admin("rodrigorizando@gmail.com") is True
+        assert auth.is_admin(" Rodrigorizando@Gmail.com ") is True
+        assert auth.is_admin("alguem@gmail.com") is False
+        assert auth.is_admin("") is False
+        assert auth.is_admin(None) is False
+
     @pytest.mark.parametrize("firebase", [{"sign_in_provider": "password"}, {"sign_in_provider": "anonymous"},
                                           {"sign_in_provider": "custom"}, {}, None])
     def test_o_dono_so_entra_pelo_login_do_google(self, monkeypatch, firebase):

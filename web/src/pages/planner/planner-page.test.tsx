@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DEFAULT_PARAMS } from '../../planner/types'
+import { rememberSignedIn } from '../../plan/session-hint'
 
-const api = vi.hoisted(() => ({ getPlan: vi.fn(), savePlan: vi.fn() }))
+const api = vi.hoisted(() => ({ getDefaults: vi.fn(), getPlan: vi.fn(), savePlan: vi.fn(), saveDefaults: vi.fn() }))
 let currentUser: { email: string } | null = null
 
 vi.mock('../../lib/firebase', () => ({
@@ -29,29 +30,58 @@ const PLANO = { ...DEFAULT_PARAMS, years: 2 }
 beforeEach(() => {
   currentUser = null
   try { window.localStorage.clear() } catch { /* sem armazenamento */ }
-  api.getPlan.mockReset(); api.savePlan.mockReset()
-  api.getPlan.mockResolvedValue({ params: PLANO, updatedAt: null })
+  for (const f of Object.values(api)) f.mockReset()
+  api.getDefaults.mockResolvedValue({ params: PLANO, updatedAt: null, custom: false })
+  api.getPlan.mockResolvedValue({ params: PLANO, updatedAt: null, saved: true, isAdmin: false })
   api.savePlan.mockImplementation(async (patch: Partial<typeof DEFAULT_PARAMS>) =>
     ({ params: { ...PLANO, ...patch }, updatedAt: '2026-11-11T00:00:00Z' }))
 })
 afterEach(() => vi.restoreAllMocks())
 
-describe('portão de login', () => {
-  it('mostra o botão de entrar quando deslogado', async () => {
+describe('sem entrar', () => {
+  it('abre direto com o formulário e o resultado, sem pedir login', async () => {
     render(<PlannerPage />)
-    expect(await screen.findByRole('button', { name: /entrar com google/i })).toBeInTheDocument()
+    expect(await screen.findByText('Onde colocar o seu dinheiro')).toBeInTheDocument()
+    expect(screen.getByLabelText(/anos acumulando bens/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^entrar com google$/i })).not.toBeInTheDocument()
   })
 
-  it('clicar em entrar chama o login do Google', async () => {
+  it('carrega o padrão do servidor e não toca no plano de ninguém', async () => {
     render(<PlannerPage />)
-    await userEvent.click(await screen.findByRole('button', { name: /entrar com google/i }))
+    await screen.findByText('Onde colocar o seu dinheiro')
+    expect(api.getDefaults).toHaveBeenCalled()
+    expect(api.getPlan).not.toHaveBeenCalled()
+  })
+
+  it('oferece salvar com o Google e avisa que nada é salvo antes disso', async () => {
+    render(<PlannerPage />)
+    expect(await screen.findByRole('button', { name: /salvar com o google/i })).toBeInTheDocument()
+    expect(screen.getByText(/nada do que você mexer é salvo/i)).toBeInTheDocument()
+  })
+
+  it('mexer num slider não salva nada', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<PlannerPage />)
+    fireEvent.change(await screen.findByLabelText(/anos acumulando bens/i), { target: { value: '3' } })
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(api.savePlan).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('salvar com o Google leva ao login e, com a tela mexida numa conta nova, guarda o que a pessoa montou', async () => {
+    api.getPlan.mockResolvedValue({ params: PLANO, updatedAt: null, saved: false, isAdmin: false })
+    render(<PlannerPage />)
+    fireEvent.change(await screen.findByLabelText(/anos acumulando bens/i), { target: { value: '3' } })
+    await userEvent.click(screen.getByRole('button', { name: /salvar com o google/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /^sair$/i })).toBeInTheDocument())
+    await waitFor(() => expect(api.savePlan).toHaveBeenCalledWith(expect.objectContaining({ years: 3 })))
   })
 })
 
 describe('depois de logado', () => {
   const logar = async () => {
     currentUser = { email: 'eu@example.com' }
+    rememberSignedIn()
     render(<PlannerPage />)
     await waitFor(() => expect(api.getPlan).toHaveBeenCalled())
   }
@@ -93,6 +123,7 @@ describe('depois de logado', () => {
 describe('a tela nova', () => {
   const logar = async () => {
     currentUser = { email: 'eu@example.com' }
+    rememberSignedIn()
     render(<PlannerPage />)
     await screen.findByText('Onde colocar o seu dinheiro')
   }
@@ -130,7 +161,7 @@ describe('a tela nova', () => {
   })
 
   it('"Usar referências de mercado" troca aluguel, INCC e envelhecimento e dá para desfazer', async () => {
-    api.getPlan.mockResolvedValue({ params: { ...PLANO, rate: 0.8 }, updatedAt: null })
+    api.getPlan.mockResolvedValue({ params: { ...PLANO, rate: 0.8 }, updatedAt: null, saved: true, isAdmin: false })
     await logar()
     const aluguel = screen.getByLabelText('Aluguel bruto mensal') as HTMLInputElement
     expect(Number(aluguel.value)).toBe(0.8)
