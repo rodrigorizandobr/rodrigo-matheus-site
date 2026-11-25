@@ -1497,8 +1497,14 @@ salário, minha vida pessoal".
   nunca vira o padrão do visitante") e `usePlanSession.test.tsx` ("o plano pessoal NUNCA recebe valores do modo padrão").
 - **Leitura pública, gravação não.** `GET /api/*/defaults` não pede login nem prova do navegador (`PUBLIC_READS` em
   `guard/policy.py`, CAMINHO EXATO e só GET/HEAD): quem só brinca não carrega o Firebase, então não tem como mandar a
-  prova. `Cache-Control: public, max-age=0, s-maxage=60`; o administrador editando lê com `?fresh=<agora>` para furar a
-  borda. A resposta só tem `params`, `updatedAt` e `custom`: nada de quem gravou. `PUT` passa por TUDO: prova do navegador,
+  prova. O servidor manda `Cache-Control: public, max-age=0, s-maxage=60`, **mas o Hosting sobrescreve o Cache-Control de
+  TODA resposta com o `no-cache` da regra `**` do `firebase.json`**: por isso há uma regra própria,
+  `/api/@(planner|pension)/defaults`, DEPOIS da geral (a última que bate vence; `hosting-cache.test.ts` trava a ordem). Sem
+  ela, todo visitante acordava o Cloud Run e o primeiro esperava a partida a frio com o formulário escondido. O
+  administrador editando lê com `?fresh=<agora>` para furar a borda (a chave de cache inclui a query).
+  **Achado, não mexido:** pelo mesmo motivo o `s-maxage=300` de `/api/blog/posts` também não chega ao navegador (medido
+  `x-cache: MISS`); a frase "o cache de CDN faz o container ser acionado raramente" (blog, acima) só vale para quem
+  tiver regra própria no Hosting. A resposta só tem `params`, `updatedAt` e `custom`: nada de quem gravou. `PUT` passa por TUDO: prova do navegador,
   login Google (`user_only`), lista de administradores do painel (`blog.auth.is_admin`, lida na hora, a MESMA do blog) e o
   limite de gravações por conta. **O servidor decide quem é admin** (`isAdmin` em `GET /plan`): a tela só esconde o botão.
 - **Gravar o padrão SUBSTITUI o anterior inteiro** (fábrica + o que veio), em vez de somar: o que o administrador vê no

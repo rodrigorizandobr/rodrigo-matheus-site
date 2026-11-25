@@ -82,6 +82,15 @@
             "value": "public, max-age=0, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "/api/@(planner|pension)/defaults",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, s-maxage=60"
+          }
+        ]
       }
     ],
     "rewrites": [
