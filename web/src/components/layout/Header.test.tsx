@@ -19,6 +19,25 @@ const irPara = (pathname: string) => window.history.replaceState({}, '', pathnam
 beforeEach(() => { scrollToId.mockClear(); irPara('/') })
 afterEach(() => { document.documentElement.style.overflow = ''; document.body.style.overflow = '' })
 
+describe('Header — marca no celular', () => {
+  /** O jsdom não aplica os breakpoints do Tailwind: o que se confere aqui é QUAL classe cada texto leva. */
+  it('o nome inteiro some abaixo de sm e a sigla RM aparece só nessa faixa', () => {
+    r()
+    const marca = within(screen.getByRole('banner')).getByRole('link', { name: 'Rodrigo Matheus' })
+    expect(within(marca).getByText('Rodrigo Matheus')).toHaveClass('max-sm:hidden')
+    const sigla = within(marca).getByText('RM')
+    expect(sigla).toHaveClass('sm:hidden')
+    expect(sigla).not.toHaveClass('max-sm:hidden')
+  })
+
+  it('a sigla é só visual: o nome que o leitor de tela lê continua sendo "Rodrigo Matheus", sem "RM" colado', () => {
+    r()
+    const marca = within(screen.getByRole('banner')).getByRole('link', { name: 'Rodrigo Matheus' })
+    expect(within(marca).getByText('RM')).toHaveAttribute('aria-hidden', 'true')
+    expect(marca).toHaveAccessibleName('Rodrigo Matheus')
+  })
+})
+
 describe('Header — menu mobile', () => {
   it('botão de menu abre a folha com os links e fecha com Escape', async () => {
     r()

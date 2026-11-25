@@ -55,7 +55,9 @@ export function Header() {
           <svg data-fio="mark" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M3 16 8 2M10 16 15 2" stroke="var(--red)" strokeWidth="2.6" strokeLinecap="round" fill="none" />
           </svg>
+          {/* Celular: sem espaço para o nome inteiro ao lado dos três botões, fica a sigla. Só visual: o nome que o leitor de tela lê é o do aria-label. */}
           <span className="max-sm:hidden">Rodrigo Matheus</span>
+          <span className="sm:hidden" aria-hidden="true">RM</span>
         </a>
         <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Sections">
           <a href={pages[0].href} onClick={visit(pages[0].href)} onPointerEnter={playTick} className="fio-nav-link">{pages[0].label}</a>
