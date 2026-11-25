@@ -1526,6 +1526,15 @@ salário, minha vida pessoal".
   sem plano e tela mexida → grava o que a pessoa montou (era isso que ela queria salvar); conta com plano e tela intocada →
   carrega o plano; conta com plano e tela mexida → PERGUNTA ("manter o plano salvo" / "usar o que está na tela"), porque os
   dois têm valor e gravar um apagaria o outro. "Tela mexida" é `deepEqual` contra o padrão que a página recebeu.
+  **Dois botões de entrada** (pedido do PO, 2026-11-25: "falta o botão entrar, para quem já tem salvo carregar o que fez"):
+  "salvar com o Google" (`login('save')`, o comportamento acima) e "entrar" (`login('enter')`). Quem clica em **entrar** quer
+  abrir o plano que já salvou: conta com plano → abre o salvo DIRETO, sem a pergunta, mesmo com a tela mexida (o que estava
+  na tela era brincadeira com o padrão); conta sem plano e tela intocada → fica no padrão e o `notice` avisa "esta conta ainda
+  não tem plano salvo, confira se entrou com a conta certa" (quase sempre foi a conta errada do Google); sem plano e tela
+  mexida → guarda a tela, sem aviso. O motivo do clique (`intentRef`) vale para UMA entrada só: é zerado ao resolver, em erro
+  e na saída, senão um "entrar" antigo pularia a pergunta de um "salvar" posterior. O aviso some na primeira mexida (dali em
+  diante o plano é guardado) e ao sair. Quem volta com o lembrete `rm:entrou` não passa por nenhum dos dois botões (intenção
+  'save', tela intocada: abre o plano).
 - **Plano que não carregou NUNCA é regravado.** `loaded` só vira verdadeiro depois que `getPlan` respondeu; se falhou
   (reCAPTCHA bloqueado, rede), o erro aparece e o autosave fica desligado, senão ele gravaria o padrão por cima do plano de
   verdade. Mesma razão de o autosave parar enquanto a pergunta está de pé.

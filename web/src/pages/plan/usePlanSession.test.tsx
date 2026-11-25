@@ -191,6 +191,99 @@ describe('entrar para salvar', () => {
   })
 })
 
+describe('entrar para abrir o que já salvou', () => {
+  it('conta com plano e tela mexida: abre o plano salvo direto, sem a pergunta', async () => {
+    planoDaConta()
+    const { result } = montar()
+    await pronto(result)
+    act(() => result.current.setParams((p) => ({ ...p, anos: 3 })))
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.params).toEqual(SALVO))
+    expect(result.current.escolha).toBe(false)
+    expect(api.savePlan).not.toHaveBeenCalled()
+  })
+
+  it('conta sem plano: avisa que ainda não há nada salvo e que pode ser a conta errada', async () => {
+    planoDaConta({ params: PADRAO, saved: false })
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.notice).toMatch(/ainda não tem plano salvo/i))
+    expect(result.current.notice).toMatch(/conta certa/i)
+    expect(result.current.params).toEqual(PADRAO)
+    expect(api.savePlan).not.toHaveBeenCalled()
+  })
+
+  it('conta com plano: nenhum aviso', async () => {
+    planoDaConta()
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.params).toEqual(SALVO))
+    expect(result.current.notice).toBe('')
+  })
+
+  it('conta sem plano e tela mexida: guarda a tela, e então não há aviso de "nada salvo"', async () => {
+    planoDaConta({ params: PADRAO, saved: false })
+    const { result } = montar()
+    await pronto(result)
+    act(() => result.current.setParams((p) => ({ ...p, anos: 3 })))
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(api.savePlan).toHaveBeenCalledWith({ ...PADRAO, anos: 3 }))
+    expect(result.current.notice).toBe('')
+  })
+
+  it('o aviso some na primeira mexida: dali em diante o plano é guardado', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    planoDaConta({ params: PADRAO, saved: false })
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.notice).not.toBe(''))
+    act(() => result.current.setParams((p) => ({ ...p, anos: 3 })))
+    expect(result.current.notice).toBe('')
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+    expect(api.savePlan).toHaveBeenCalledWith({ ...PADRAO, anos: 3 })
+  })
+
+  it('sair apaga o aviso', async () => {
+    planoDaConta({ params: PADRAO, saved: false })
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.notice).not.toBe(''))
+    await act(async () => { await result.current.logout() })
+    await waitFor(() => expect(result.current.session).toBeNull())
+    expect(result.current.notice).toBe('')
+  })
+
+  it('o motivo do clique não vaza para a entrada seguinte: salvar depois de sair volta a perguntar', async () => {
+    planoDaConta()
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    await waitFor(() => expect(result.current.params).toEqual(SALVO))
+    await act(async () => { await result.current.logout() })
+    await waitFor(() => expect(result.current.params).toEqual(PADRAO))
+    act(() => result.current.setParams((p) => ({ ...p, anos: 3 })))
+    await act(async () => { await result.current.login('save') })
+    await waitFor(() => expect(result.current.escolha).toBe(true))
+  })
+
+  it('a janela do Google fechada: o aviso e o motivo não ficam para trás', async () => {
+    firebase.signInWithGoogle.mockRejectedValueOnce(new Error('popup fechado'))
+    planoDaConta()
+    const { result } = montar()
+    await pronto(result)
+    await act(async () => { await result.current.login('enter') })
+    expect(result.current.error).toMatch(/popup fechado/)
+    // a próxima entrada é por "salvar": com a tela mexida e plano salvo, a pergunta volta
+    act(() => result.current.setParams((p) => ({ ...p, anos: 3 })))
+    await act(async () => { await result.current.login('save') })
+    await waitFor(() => expect(result.current.escolha).toBe(true))
+  })
+})
+
 describe('quem já tinha entrado neste navegador', () => {
   it('o plano vem salvo e o formulário só aparece depois dele, sem piscar o padrão', async () => {
     entrarAntes()

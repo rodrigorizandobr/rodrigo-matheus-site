@@ -1,3 +1,4 @@
+import type { LoginIntent } from '../../plan/resolve'
 import type { DefaultsStatus, Mode, SaveState, Session } from './usePlanSession'
 
 /** O que a barra precisa do `usePlanSession`, sem os parâmetros: serve aos dois utilitários. */
@@ -8,9 +9,11 @@ export type PlanBarState = {
   mode: Mode
   escolha: boolean
   error: string
+  /** Recado que não é erro (ex.: a conta que entrou ainda não tem plano salvo). Vazio = nada a dizer. */
+  notice: string
   busy: boolean
   padrao: DefaultsStatus
-  login: () => void | Promise<void>
+  login: (intent: LoginIntent) => void | Promise<void>
   logout: () => void | Promise<void>
   editarPadroes: () => void | Promise<void>
   salvarPadroes: () => void | Promise<void>
@@ -45,20 +48,25 @@ export function PlanBar({ title, plan }: { title: string; plan: PlanBarState }) 
             </p>
           ) : (
             <p className="text-[12px] text-muted mt-1 max-w-[62ch]">
-              Valores de exemplo: nada do que você mexer é salvo. Entre com o Google para guardar o seu plano e continuar depois.
+              Valores de exemplo: nada do que você mexer é salvo. Já tem um plano salvo? Clique em entrar.
+              Quer guardar o que montou? Salve com o Google.
             </p>
           )}
         </div>
         {session ? (
           <button type="button" onClick={() => plan.logout()} className={BTN}>sair</button>
         ) : (
-          <button type="button" onClick={() => plan.login()} disabled={plan.busy} className={BTN_PRIMARY}>
-            {plan.busy ? 'abrindo…' : 'salvar com o Google'}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => plan.login('enter')} disabled={plan.busy} className={BTN}>entrar</button>
+            <button type="button" onClick={() => plan.login('save')} disabled={plan.busy} className={BTN_PRIMARY}>
+              {plan.busy ? 'abrindo…' : 'salvar com o Google'}
+            </button>
+          </div>
         )}
       </div>
 
       {plan.error && <p role="alert" className="text-[12px] text-red">{plan.error}</p>}
+      {plan.notice && <p role="status" className="text-[12px] text-muted max-w-[62ch]">{plan.notice}</p>}
 
       {plan.escolha && (
         <div className="panel hud-frame p-4 grid gap-3">

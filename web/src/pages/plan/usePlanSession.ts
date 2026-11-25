@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { deepEqual, resolveAfterLogin } from '../../plan/resolve'
+import { deepEqual, resolveAfterLogin, type LoginIntent } from '../../plan/resolve'
 import { forgetSignedIn, rememberSignedIn, wasSignedIn } from '../../plan/session-hint'
 import type { PlanApi, TokenGetter } from '../../plan/types'
 
@@ -11,6 +11,9 @@ export type Mode = 'plano' | 'padrao'
 export type DefaultsStatus = { state: 'ocioso' | 'salvando' | 'salvo' | 'erro'; sujo: boolean }
 
 const SAVE_DEBOUNCE_MS = 900
+/** Quem entrou por "entrar" numa conta sem nada guardado costuma ter escolhido a conta errada do Google. */
+const NO_SAVED_PLAN =
+  'Esta conta ainda não tem plano salvo. Confira se entrou com a conta certa. O que você mexer daqui em diante fica guardado.'
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 type Options<P> = {
@@ -27,8 +30,9 @@ type Options<P> = {
  *   lembrete de `session-hint` diz que ela já entrou antes neste navegador.
  * - COM conta, o plano é autosalvo. `loaded` só vira verdadeiro depois que o plano da conta chegou: plano
  *   que não carregou NUNCA é regravado, senão o autosave apagaria o plano de verdade com o padrão.
- * - Ao entrar com a tela mexida numa conta que já tem plano, a pessoa escolhe qual dos dois manter
- *   (`resolveAfterLogin`).
+ * - Ao entrar por "salvar com o Google" com a tela mexida numa conta que já tem plano, a pessoa escolhe qual dos
+ *   dois manter. Ao entrar por "entrar" (quer abrir o que já salvou), o plano salvo abre direto
+ *   (`resolveAfterLogin`); se a conta não tem plano, um aviso diz isso (`notice`).
  * - O ADMINISTRADOR (o servidor diz) também edita os valores padrão, num modo à parte. O plano pessoal dele
  *   fica guardado em memória enquanto isso e volta intacto; nada passa de um lado para o outro sem ele clicar
  *   em salvar, e o autosave do plano fica desligado no modo padrão.
@@ -52,6 +56,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
   const [saveState, setSaveState] = useState<SaveState>(null)
   const [padraoState, setPadraoState] = useState<DefaultsStatus['state']>('ocioso')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
   const paramsRef = useRef(params)
@@ -68,6 +73,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
   const starting = useRef(false)
   const watchId = useRef(0)
   const lastEmail = useRef<string | undefined>(undefined)
+  const intentRef = useRef<LoginIntent>('save') // por qual botão a pessoa entrou; vale para UMA entrada só
 
   // 1) O padrão que o servidor entrega. Sem ele (fora do ar), fica o exemplo de fábrica e tudo segue funcionando.
   useEffect(() => {
@@ -114,13 +120,18 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
   useEffect(() => {
     if (!email || !defaultsReady) return
     let vivo = true
-    setLoaded(false); setEscolha(false); setError('')
+    setLoaded(false); setEscolha(false); setError(''); setNotice('')
     api.getPlan().then((plano) => {
       if (!vivo) return
+      const intent = intentRef.current
+      intentRef.current = 'save'
       setIsAdmin(plano.isAdmin)
-      const acao = resolveAfterLogin({ hasSavedPlan: plano.saved, touched: !deepEqual(paramsRef.current, defaultsRef.current) })
+      const acao = resolveAfterLogin({ hasSavedPlan: plano.saved, touched: !deepEqual(paramsRef.current, defaultsRef.current), intent })
       skipNextSave.current = true
-      if (acao === 'use-server') setParams(plano.params)
+      if (acao === 'use-server') {
+        setParams(plano.params)
+        if (intent === 'enter' && !plano.saved) setNotice(NO_SAVED_PLAN)
+      }
       else if (acao === 'save-screen') void persist(paramsRef.current)
       else { salvoRef.current = plano.params; setEscolha(true) }
       setLoaded(true)
@@ -128,6 +139,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
     }).catch((err) => {
       // `loaded` fica falso: o plano que não carregou NUNCA é regravado pelo autosave
       if (!vivo) return
+      intentRef.current = 'save'
       setError(message(err))
       setBootPending(false)
     })
@@ -138,7 +150,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
   useEffect(() => {
     if (lastEmail.current && !email) {
       setParams(defaultsRef.current)
-      setIsAdmin(false); setMode('plano'); setEscolha(false); setLoaded(false); setSaveState(null); setPadraoState('ocioso')
+      setIsAdmin(false); setMode('plano'); setEscolha(false); setLoaded(false); setSaveState(null); setPadraoState('ocioso'); setNotice('')
       planoRef.current = null; salvoRef.current = null; padraoBase.current = null; skipNextSave.current = false
     }
     lastEmail.current = email
@@ -148,6 +160,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
   useEffect(() => {
     if (!loaded || mode !== 'plano' || escolha) return
     if (skipNextSave.current) { skipNextSave.current = false; return }
+    setNotice('') // a pessoa mexeu: dali em diante o plano é guardado, e o aviso de "nada salvo" deixa de valer
     if (saveTimer.current) clearTimeout(saveTimer.current)
     pendingSave.current = true
     setSaveState('salvando')
@@ -158,14 +171,16 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [params, loaded, mode, escolha, api])
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (intent: LoginIntent = 'save') => {
     setBusy(true); setError('')
+    intentRef.current = intent
     try {
       const fb = await loadFirebase()
       await startWatching()
       await fb.signInWithGoogle()
       rememberSignedIn()
     } catch (err) {
+      intentRef.current = 'save' // não entrou: o motivo deste clique não vale para a próxima tentativa
       setError(message(err))
     } finally {
       setBusy(false)
@@ -244,7 +259,7 @@ export function usePlanSession<P extends object>({ makeApi, factory }: Options<P
     params, setParams,
     /** O formulário já pode aparecer: o padrão chegou e, para quem já tinha entrado, o plano também. */
     ready: defaultsReady && !bootPending,
-    session, saveState, isAdmin, mode, escolha, error, busy,
+    session, saveState, isAdmin, mode, escolha, error, notice, busy,
     padrao: { state: padraoState, sujo } satisfies DefaultsStatus,
     login, logout, manterSalvo, usarTela, editarPadroes, salvarPadroes, voltarAoPlano, usarFabrica,
   }

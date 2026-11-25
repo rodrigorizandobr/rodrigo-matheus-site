@@ -36,4 +36,22 @@ describe('resolveAfterLogin: o que fazer quando a pessoa entra com o Google', ()
   it('conta com plano e tela mexida: pergunta, porque os dois têm valor e um apagaria o outro', () => {
     expect(resolveAfterLogin({ hasSavedPlan: true, touched: true })).toBe('ask')
   })
+  it('sem dizer o motivo, vale o de salvar: a pergunta continua valendo', () => {
+    expect(resolveAfterLogin({ hasSavedPlan: true, touched: true, intent: 'save' })).toBe('ask')
+  })
+})
+
+describe('resolveAfterLogin: quem clicou em ENTRAR quer o plano que já salvou', () => {
+  it('conta com plano e tela mexida: abre o plano salvo, sem perguntar (brincar na tela não é plano a guardar)', () => {
+    expect(resolveAfterLogin({ hasSavedPlan: true, touched: true, intent: 'enter' })).toBe('use-server')
+  })
+  it('conta com plano e tela intocada: abre o plano salvo', () => {
+    expect(resolveAfterLogin({ hasSavedPlan: true, touched: false, intent: 'enter' })).toBe('use-server')
+  })
+  it('conta sem plano e tela intocada: fica no padrão, nada a gravar', () => {
+    expect(resolveAfterLogin({ hasSavedPlan: false, touched: false, intent: 'enter' })).toBe('use-server')
+  })
+  it('conta sem plano e tela mexida: o plano nasce do que está na tela, como no autosave de quem já entrou', () => {
+    expect(resolveAfterLogin({ hasSavedPlan: false, touched: true, intent: 'enter' })).toBe('save-screen')
+  })
 })

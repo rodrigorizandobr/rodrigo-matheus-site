@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { PlanBar, type PlanBarState } from './PlanBar'
 
 const plano = (over: Partial<PlanBarState> = {}): PlanBarState => ({
-  session: null, saveState: null, isAdmin: false, mode: 'plano', escolha: false, error: '', busy: false,
+  session: null, saveState: null, isAdmin: false, mode: 'plano', escolha: false, error: '', notice: '', busy: false,
   padrao: { state: 'ocioso', sujo: false },
   login: vi.fn(), logout: vi.fn(), editarPadroes: vi.fn(), salvarPadroes: vi.fn(),
   voltarAoPlano: vi.fn(), usarFabrica: vi.fn(), manterSalvo: vi.fn(), usarTela: vi.fn(),
@@ -22,6 +22,20 @@ describe('visitante', () => {
     expect(screen.getByText(/nada do que você mexer é salvo/i)).toBeInTheDocument()
     await userEvent.click(botao(/salvar com o google/i))
     expect(p.login).toHaveBeenCalledTimes(1)
+    expect(p.login).toHaveBeenCalledWith('save')
+  })
+
+  it('oferece também ENTRAR, para quem já salvou e quer abrir o plano de volta', async () => {
+    const p = plano()
+    render(<PlanBar title="X" plan={p} />)
+    await userEvent.click(botao(/^entrar$/i))
+    expect(p.login).toHaveBeenCalledTimes(1)
+    expect(p.login).toHaveBeenCalledWith('enter')
+  })
+
+  it('explica a diferença entre os dois botões', () => {
+    render(<PlanBar title="X" plan={plano()} />)
+    expect(screen.getByText(/já tem um plano salvo\? clique em entrar/i)).toBeInTheDocument()
   })
 
   it('não oferece sair nem nada de administrador', () => {
@@ -30,9 +44,21 @@ describe('visitante', () => {
     semBotao(/editar padrões/i)
   })
 
-  it('enquanto a janela do Google abre, o botão fica desligado e diz o que acontece', () => {
+  it('enquanto a janela do Google abre, os dois botões ficam desligados e um deles diz o que acontece', () => {
     render(<PlanBar title="X" plan={plano({ busy: true })} />)
     expect(botao(/abrindo/i)).toBeDisabled()
+    expect(botao(/^entrar$/i)).toBeDisabled()
+  })
+
+  it('mostra o aviso (conta sem plano salvo), sem confundir com erro', () => {
+    render(<PlanBar title="X" plan={logada({ notice: 'Esta conta ainda não tem plano salvo.' })} />)
+    expect(screen.getByRole('status')).toHaveTextContent(/ainda não tem plano salvo/i)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('sem aviso, não há faixa de status vazia', () => {
+    render(<PlanBar title="X" plan={logada()} />)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('mostra o erro em um alerta', () => {
@@ -48,6 +74,7 @@ describe('conta logada', () => {
     expect(screen.getByText(/eu@example\.com/)).toBeInTheDocument()
     expect(screen.getByText(/salvo/)).toBeInTheDocument()
     semBotao(/salvar com o google/i)
+    semBotao(/^entrar$/i)
     await userEvent.click(botao(/^sair$/i))
     expect(p.logout).toHaveBeenCalledTimes(1)
   })

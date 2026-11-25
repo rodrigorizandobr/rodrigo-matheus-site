@@ -76,6 +76,17 @@ describe('sem entrar', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /^sair$/i })).toBeInTheDocument())
     await waitFor(() => expect(api.savePlan).toHaveBeenCalledWith(expect.objectContaining({ years: 3 })))
   })
+
+  it('entrar abre o plano que a pessoa já salvou, sem perguntar, mesmo com a tela mexida', async () => {
+    api.getPlan.mockResolvedValue({ params: { ...PLANO, years: 4 }, updatedAt: null, saved: true, isAdmin: false })
+    render(<PlannerPage />)
+    fireEvent.change(await screen.findByLabelText(/anos acumulando bens/i), { target: { value: '3' } })
+    await userEvent.click(screen.getByRole('button', { name: /^entrar$/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^sair$/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText(/anos acumulando bens/i)).toHaveValue('4'))
+    expect(screen.queryByText(/você já tem um plano salvo/i)).not.toBeInTheDocument()
+    expect(api.savePlan).not.toHaveBeenCalled()
+  })
 })
 
 describe('depois de logado', () => {
