@@ -20,8 +20,11 @@ export type PlanBarState = {
   usarTela: () => void | Promise<void>
 }
 
-const BTN = 'chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider'
-const BTN_PRIMARY = 'cta cta-primary !py-2 font-display font-semibold text-[11px] uppercase tracking-wider'
+/** `disabled:` porque o `.cta` e o `.chip` não mudam de cara quando desligam (medido: opacidade 1): sem isto o botão desligado
+ *  parece pronto, e a pessoa só descobre clicando. */
+const OFF = 'disabled:opacity-40 disabled:cursor-not-allowed'
+const BTN = `chip !h-8 font-display font-semibold text-[11px] uppercase tracking-wider ${OFF}`
+const BTN_PRIMARY = `cta cta-primary !py-2 font-display font-semibold text-[11px] uppercase tracking-wider ${OFF}`
 
 /**
  * A faixa do topo dos utilitários: quem está usando, o que acontece com o que a pessoa mexe, e — só para o

@@ -80,16 +80,26 @@ export async function signInWithGoogle(): Promise<User> {
     const { user } = await signInWithPopup(instance, provider)
     return user
   } catch (err) {
-    throw readable(err)
+    throw await readable(err)
   }
 }
 
+const POPUP_CLOSED = 'Entrada cancelada: a janela do Google foi fechada antes de terminar.'
+
 /**
- * O login do Firebase também exige a prova do navegador. Sem ela (reCAPTCHA bloqueado) o SDK devolve
- * um código que não diz nada a quem está na tela: vira a mesma frase das outras recusas.
+ * O SDK escreve erro de máquina ("Firebase: Error (auth/internal-error)"), que não diz à pessoa o que fazer.
+ * - Janela fechada: foi ela mesma, e a mensagem diz isso.
+ * - Prova do navegador recusada (reCAPTCHA bloqueado por extensão, ou nota baixa para este navegador): o login do
+ *   Firebase também a exige, e o erro vem como `auth/internal-error`. Só acusamos o reCAPTCHA depois de pedir a
+ *   prova e ela de fato falhar; com a prova em ordem, o erro original segue, sem culpar o reCAPTCHA à toa.
  */
-function readable(err: unknown): Error {
-  if ((err as { code?: string } | null)?.code === 'auth/firebase-app-check-token-is-invalid') return new Error(PROOF_FAILED)
+async function readable(err: unknown): Promise<Error> {
+  const code = (err as { code?: string } | null)?.code
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return new Error(POPUP_CLOSED)
+  if (code === 'auth/firebase-app-check-token-is-invalid') return new Error(PROOF_FAILED)
+  if (code === 'auth/internal-error') {
+    try { await appCheckToken() } catch (proof) { return proof as Error }
+  }
   return err instanceof Error ? err : new Error(String(err))
 }
 
@@ -109,7 +119,7 @@ export async function idToken(): Promise<string> {
   try {
     return await user.getIdToken()
   } catch (err) {
-    throw readable(err)
+    throw await readable(err)
   }
 }
 

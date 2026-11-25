@@ -20,8 +20,12 @@ vi.mock('../../pension/api', () => ({ pensionApi: () => api }))
 
 import { PensionPage } from '../PensionPage'
 
-const PADRAO = { ...DEFAULT_PARAMS, salarioBruto: 9_000, years: 12 }
-const SALVO = { ...DEFAULT_PARAMS, salarioBruto: 21_000, years: 20 }
+// Mesmo com horizonte curto, no jsdom e com a máquina ocupada a página passa de 20 s.
+vi.setConfig({ testTimeout: 90_000 })
+
+// Horizonte curto: o diário monta uma linha por mês, em duas tabelas, e estes testes não conferem número nenhum dele.
+const PADRAO = { ...DEFAULT_PARAMS, salarioBruto: 9_000, years: 2 }
+const SALVO = { ...DEFAULT_PARAMS, salarioBruto: 21_000, years: 3 }
 
 beforeEach(() => {
   currentUser = null; listener = null
@@ -49,7 +53,7 @@ describe('previdência privada sem entrar', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<PensionPage />)
     expect(await screen.findByRole('button', { name: /salvar com o google/i })).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Anos de simulação'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Anos de simulação'), { target: { value: '4' } })
     await vi.advanceTimersByTimeAsync(3000)
     expect(api.savePlan).not.toHaveBeenCalled()
   })
@@ -63,7 +67,7 @@ describe('previdência privada sem entrar', () => {
 
   it('entrar com a tela mexida numa conta com plano pergunta qual manter', async () => {
     render(<PensionPage />)
-    fireEvent.change(await screen.findByLabelText('Anos de simulação'), { target: { value: '5' } })
+    fireEvent.change(await screen.findByLabelText('Anos de simulação'), { target: { value: '4' } })
     await userEvent.click(screen.getByRole('button', { name: /salvar com o google/i }))
     expect(await screen.findByText(/você já tem um plano salvo/i)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /manter o plano salvo/i }))
@@ -90,9 +94,9 @@ describe('previdência privada: administrador', () => {
     render(<PensionPage />)
     await userEvent.click(await screen.findByRole('button', { name: /editar padrões dos visitantes/i }))
     await waitFor(() => expect(Number(salario())).toBe(9_000))
-    fireEvent.change(screen.getByLabelText('Anos de simulação'), { target: { value: '30' } })
+    fireEvent.change(screen.getByLabelText('Anos de simulação'), { target: { value: '4' } })
     await userEvent.click(screen.getByRole('button', { name: /salvar como padrão/i }))
-    await waitFor(() => expect(api.saveDefaults).toHaveBeenCalledWith(expect.objectContaining({ salarioBruto: 9_000, years: 30 })))
+    await waitFor(() => expect(api.saveDefaults).toHaveBeenCalledWith(expect.objectContaining({ salarioBruto: 9_000, years: 4 })))
     expect(api.savePlan).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: /voltar ao meu plano/i }))
     await waitFor(() => expect(Number(salario())).toBe(21_000))

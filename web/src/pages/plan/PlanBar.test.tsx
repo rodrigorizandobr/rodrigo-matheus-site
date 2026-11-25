@@ -113,6 +113,20 @@ describe('administrador', () => {
   })
 })
 
+describe('botão desligado precisa PARECER desligado', () => {
+  /** Medido no navegador: o `.cta` não muda de cara quando desliga, e o administrador só descobria clicando. */
+  it.each([
+    ['salvar como padrão sem nada novo', logada({ isAdmin: true, mode: 'padrao' }), /salvar como padrão/i],
+    ['salvar com o Google enquanto a janela abre', plano({ busy: true }), /abrindo/i],
+  ])('%s: tem a classe que apaga o botão e troca o cursor', (_nome, estado, nome) => {
+    render(<PlanBar title="X" plan={estado} />)
+    const b = botao(nome)
+    expect(b).toBeDisabled()
+    expect(b).toHaveClass('disabled:opacity-40')
+    expect(b).toHaveClass('disabled:cursor-not-allowed')
+  })
+})
+
 describe('plano salvo e tela mexida', () => {
   it('pergunta qual dos dois manter, dizendo o que cada botão faz', async () => {
     const p = logada({ escolha: true })

@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
+
+// `waitFor`/`findBy*` têm limite PRÓPRIO de 1 s, independente do `testTimeout` do vitest. Com a máquina ocupada (outros projetos,
+// sincronização do Drive) o jsdom leva mais que isso para desenhar a página do simulador, e o teste falhava sem erro de lógica.
+// Só atrasa quem já ia falhar: o que passa, passa assim que a condição vale.
+configure({ asyncUtilTimeout: 8000 })
 
 // matchMedia is not in jsdom and GSAP's ScrollTrigger calls it at import time — install before any test module loads
 // Reduced motion is ON in tests: count-ups and reveals resolve instantly, so assertions are deterministic.

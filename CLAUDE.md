@@ -1371,6 +1371,13 @@ cd api && source .venv/bin/activate && pytest      # ~1215 testes
 cd web && npm test                                  # 925 testes
 ```
 
+**Máquina ocupada derruba teste que não tem erro de lógica** (2026-11-25, load médio 40 a 60 por causa de outros projetos e do
+Drive sincronizando esta pasta): o `waitFor`/`findBy*` do Testing Library tem limite PRÓPRIO de 1 s, que estoura antes do
+`testTimeout` do vitest. `src/test/setup.ts` põe `asyncUtilTimeout` em 8 s (só atrasa quem já ia falhar). As páginas dos
+simuladores (`planner-page.test.tsx`, `pension-page.test.tsx`) têm `testTimeout` de 90 s pelo mesmo motivo: a da previdência
+leva 7 s sozinha e passou de 100 s com a máquina cheia. Para uma rodada confiável nesses dias:
+`npx vitest run --maxWorkers=3`. Falha rápida (1 a 2 s) logo depois de um teste que estourou costuma ser cascata, não bug.
+
 **Teste que confere efeito colateral do `useEffect` (título da aba, `<html lang>`) espera com `waitFor`.**
 O React roda o efeito numa tarefa SEPARADA, depois de desenhar: conferir na linha seguinte ao `findBy…`
 falhava 1 vez em ~7 (`BlogPage.test.tsx`, "o título da aba recebe o nome do post"). Dentro de `act()` é
@@ -1532,6 +1539,16 @@ salário, minha vida pessoal".
   devedor de R$ 400.000 etc. Esses números já estavam no código público do site; o plano pessoal do PO só existe no
   Firestore, por uid. Primeiro passo depois do deploy: entrar no utilitário, "editar padrões dos visitantes", salvar os
   valores que ele quer mostrar. Não há botão de apagar o padrão: "valores de fábrica" põe o exemplo na tela e ele salva.
+- **Nota baixa do reCAPTCHA = não consegue SALVAR, mas usa tudo.** Medido (2026-11-25) num navegador automatizado: a troca
+  da prova (`exchangeRecaptchaEnterpriseToken`) devolveu 403 "App attestation failed" (nota abaixo de `minValidScore` 0,5);
+  numa tentativa anterior do mesmo tipo de navegador a nota tinha passado, então ela varia. O que a pessoa vê é a frase de
+  `PROOF_FAILED` (recarregar; se continuar, desligar o bloqueador), nunca o `auth/internal-error` cru: `lib/firebase.ts#readable`
+  traduz o erro interno do login só depois de pedir a prova e ela de fato falhar (com a prova em ordem, o erro original segue,
+  sem culpar o reCAPTCHA à toa), e janela fechada vira "Entrada cancelada…" (`firebase.test.ts`). Se muita gente de verdade
+  cair aí, o botão é `minValidScore` em `.../apps/<appId>/recaptchaEnterpriseConfig` (`riskAnalysis`); baixar a nota deixa
+  mais robô passar. Antes desta mudança esse mesmo caso trancava a PÁGINA inteira (era preciso login para ver o formulário).
+- **Botão desligado precisa PARECER desligado**: `.cta` e `.chip` não mudam de cara com `disabled` (medido: opacidade 1), então
+  a `PlanBar` põe `disabled:opacity-40 disabled:cursor-not-allowed` (`OFF`). "Salvar como padrão" só liga com alteração nova.
 - Visitante pode ser barrado só em duas situações: login (precisa do reCAPTCHA) e erro de rede na leitura do padrão (aí vê
   o exemplo de fábrica e o simulador segue funcionando, sem salvar).
 
